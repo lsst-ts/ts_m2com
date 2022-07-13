@@ -21,7 +21,7 @@
 
 from enum import auto, IntEnum
 
-__all__ = ["MsgType", "CommandStatus", "DetailedState", "ErrorCode"]
+__all__ = ["MsgType", "CommandStatus", "DetailedState"]
 
 
 class MsgType(IntEnum):
@@ -41,8 +41,3 @@ class CommandStatus(IntEnum):
 class DetailedState(IntEnum):
     PublishOnly = 1
     Available = auto()
-
-
-class ErrorCode(IntEnum):
-    ControllerInFault = 1
-    NoConnection = auto()

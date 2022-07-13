@@ -10,5 +10,5 @@ MockServer *-- MockMessageEvent
 MockServer *-- MockCommand
 MockCommand ..> MockMessageEvent
 MockCommand --> MockModel
-Model "1" *-- "2" TcpClient
+Controller "1" *-- "2" TcpClient
 @enduml

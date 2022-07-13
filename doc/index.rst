@@ -54,7 +54,7 @@ The classes in module are listed below.
 .. uml:: uml/class.uml
     :caption: Class diagram of M2 common code
 
-* **Model** has the business logic to communicate with hardware by TCP/IP interface.
+* **Controller** has the business logic to communicate with hardware by TCP/IP interface.
 * **TcpClient** is a TCP/IP client.
 * **MockServer** is a mock server of M2 to support the simulation mode.
 * **MockModel** simulates the hardware behavior to be used by **MockServer**.

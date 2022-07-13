@@ -28,11 +28,11 @@ import pathlib
 
 from lsst.ts import tcpip
 from lsst.ts import salobj
-from lsst.ts.m2com import MockServer, Model, CommandStatus, MsgType
+from lsst.ts.m2com import MockServer, Controller, CommandStatus, MsgType
 
 
-class TestModel(unittest.IsolatedAsyncioTestCase):
-    """Test the Model class."""
+class TestController(unittest.IsolatedAsyncioTestCase):
+    """Test the Controller class."""
 
     @classmethod
     def setUpClass(cls):
@@ -65,15 +65,15 @@ class TestModel(unittest.IsolatedAsyncioTestCase):
             await server.close()
 
     @contextlib.asynccontextmanager
-    async def make_model(self, server):
-        """Make the model (or TCP/IP client) that talks to the server and wait
-        for it to connect.
+    async def make_controller(self, server):
+        """Make the controller (or TCP/IP client) that talks to the server and
+        wait for it to connect.
 
-        Returns Model.
+        Returns Controller.
         """
 
-        model = Model(log=self.log)
-        model.start(
+        controller = Controller(log=self.log)
+        controller.start(
             server.server_command.host,
             server.server_command.port,
             server.server_telemetry.port,
@@ -83,177 +83,201 @@ class TestModel(unittest.IsolatedAsyncioTestCase):
         await asyncio.sleep(2)
 
         try:
-            yield model
+            yield controller
         finally:
-            await model.close()
+            await controller.close()
 
-        self.assertFalse(model._start_connection)
-        self.assertIsNone(model.client_command)
-        self.assertIsNone(model.client_telemetry)
-        self.assertEqual(model.last_command_status, CommandStatus.Unknown)
+        self.assertFalse(controller._start_connection)
+        self.assertIsNone(controller.client_command)
+        self.assertIsNone(controller.client_telemetry)
+        self.assertEqual(controller.last_command_status, CommandStatus.Unknown)
 
     async def test_close(self):
-        model = Model()
-        await model.close()
+        controller = Controller()
+        await controller.close()
 
-        model.start(tcpip.LOCAL_HOST, 0, 0)
-        await model.close()
+        controller.start(tcpip.LOCAL_HOST, 0, 0)
+        await controller.close()
 
     async def test_are_clients_connected(self):
-        async with self.make_server() as server, self.make_model(server) as model:
-            self.assertTrue(model.are_clients_connected())
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+            self.assertTrue(controller.are_clients_connected())
 
     def test_are_clients_connected_no_connection(self):
-        model = Model()
+        controller = Controller()
 
-        self.assertFalse(model.are_clients_connected())
+        self.assertFalse(controller.are_clients_connected())
 
     async def test_task_connection(self):
-        async with self.make_server() as server, self.make_model(server) as model:
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
 
             # Connection is on in the initial beginning
-            self.assertTrue(model.are_clients_connected())
-            self.assertTrue(model._start_connection)
+            self.assertTrue(controller.are_clients_connected())
+            self.assertTrue(controller._start_connection)
 
             # Close the connection between the client and server
             await asyncio.gather(
                 server.server_command.close_client(),
                 server.server_telemetry.close_client(),
             )
-            self.assertFalse(model.are_clients_connected())
+            self.assertFalse(controller.are_clients_connected())
 
             # Wait a little time to reconstruct the connection
             await asyncio.sleep(1)
-            self.assertTrue(model.are_clients_connected())
+            self.assertTrue(controller.are_clients_connected())
 
     async def test_task_analyze_message(self):
-        async with self.make_server() as server, self.make_model(server) as model:
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
 
             # Wait a little time to collect the event messages
             await asyncio.sleep(1)
-            self.assertEqual(model.queue_event.qsize(), 9)
+            self.assertEqual(controller.queue_event.qsize(), 9)
 
     async def test_controller_state(self):
-        async with self.make_server() as server, self.make_model(server) as model:
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
 
             # Wait a little time to collect the event messages
             await asyncio.sleep(1)
-            self.assertEqual(model.controller_state, salobj.State.OFFLINE)
+            self.assertEqual(controller.controller_state, salobj.State.OFFLINE)
 
             # Check to get the Fault state
             server.model.fault()
             await asyncio.sleep(1)
 
-            self.assertEqual(model.controller_state, salobj.State.FAULT)
+            self.assertEqual(controller.controller_state, salobj.State.FAULT)
 
     async def test_last_command_status_ack_success(self):
-        async with self.make_server() as server, self.make_model(server) as model:
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
 
-            await model.client_command.write(MsgType.Command, "enable")
+            await controller.client_command.write(MsgType.Command, "enable")
 
             # Wait a little time to collect the messages
             await asyncio.sleep(2)
-            self.assertEqual(model.last_command_status, CommandStatus.Ack)
+            self.assertEqual(controller.last_command_status, CommandStatus.Ack)
 
             # Wait a little time to collect the messages
             await asyncio.sleep(7)
-            self.assertEqual(model.last_command_status, CommandStatus.Success)
+            self.assertEqual(controller.last_command_status, CommandStatus.Success)
 
     async def test_write_command_to_server_success(self):
-        async with self.make_server() as server, self.make_model(server) as model:
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
 
-            await model.write_command_to_server(
+            await controller.write_command_to_server(
                 "enterControl", controller_state_expected=salobj.State.STANDBY
             )
 
-            self.assertEqual(model.controller_state, salobj.State.STANDBY)
+            self.assertEqual(controller.controller_state, salobj.State.STANDBY)
 
     async def test_write_command_to_server_wrong_expectation(self):
-        async with self.make_server() as server, self.make_model(server) as model:
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
 
             with self.assertRaises(RuntimeError):
-                await model.write_command_to_server(
+                await controller.write_command_to_server(
                     "enterControl", controller_state_expected=salobj.State.ENABLED
                 )
 
     async def test_write_command_to_server_short_timeout(self):
-        async with self.make_server() as server, self.make_model(server) as model:
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
 
             with self.assertRaises(RuntimeError):
-                await model.write_command_to_server(
+                await controller.write_command_to_server(
                     "enable",
                     timeout=2.0,
                     controller_state_expected=salobj.State.ENABLED,
                 )
 
     async def test_write_command_to_server_fail(self):
-        async with self.make_server() as server, self.make_model(server) as model:
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
 
             with self.assertRaises(RuntimeError):
-                await model.write_command_to_server(
+                await controller.write_command_to_server(
                     "switchForceBalanceSystem", message_details={"status": True}
                 )
 
     async def test_write_command_to_closed_server(self):
-        async with self.make_server() as server, self.make_model(server) as model:
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
 
             await server.close()
 
             with self.assertRaises(OSError):
-                await model.write_command_to_server(
+                await controller.write_command_to_server(
                     "switchForceBalanceSystem", message_details={"status": True}
                 )
 
     async def test_write_command_to_server_no_this_command(self):
-        async with self.make_server() as server, self.make_model(server) as model:
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
 
             with self.assertRaises(RuntimeError):
-                await model.write_command_to_server("noThisCommand")
+                await controller.write_command_to_server("noThisCommand")
 
     async def test_write_command_to_server_no_connection(self):
 
-        model = Model()
+        controller = Controller()
         with self.assertRaises(OSError):
-            await model.write_command_to_server("noConnection")
+            await controller.write_command_to_server("noConnection")
 
     async def test_clear_errors(self):
-        async with self.make_server() as server, self.make_model(server) as model:
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
 
             # Fake the error
             server.model.fault()
             await asyncio.sleep(1)
-            self.assertEqual(model.controller_state, salobj.State.FAULT)
+            self.assertEqual(controller.controller_state, salobj.State.FAULT)
 
             # Clear the error
-            await model.clear_errors()
+            await controller.clear_errors()
 
             # Check the controller's state
             self.assertTrue(server.model.error_cleared)
-            self.assertEqual(model.controller_state, salobj.State.OFFLINE)
+            self.assertEqual(controller.controller_state, salobj.State.OFFLINE)
 
     def test_is_controller_state(self):
 
-        model = Model()
+        controller = Controller()
 
         # Is controller's state
         message = {"id": "summaryState", "summaryState": 1}
-        self.assertTrue(model._is_controller_state(message))
+        self.assertTrue(controller._is_controller_state(message))
 
         # Isn't controller's state
         message = {"id": "temp", "temp": 1}
-        self.assertFalse(model._is_controller_state(message))
+        self.assertFalse(controller._is_controller_state(message))
 
     def test_assert_controller_state(self):
 
-        model = Model()
+        controller = Controller()
 
         # Allowed state
-        model.assert_controller_state("enterControl", [salobj.State.OFFLINE])
+        controller.assert_controller_state("enterControl", [salobj.State.OFFLINE])
 
         # Disallowed state
         self.assertRaises(
             ValueError,
-            model.assert_controller_state,
+            controller.assert_controller_state,
             "enterControl",
             [salobj.State.ENABLED],
         )

@@ -19,7 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-# Set __version__ before importing the CSC
 try:
     from .version import *
 except ImportError:
@@ -33,4 +32,4 @@ from .mock_command import *
 from .mock_model import *
 from .mock_server import *
 from .tcp_client import *
-from .model import *
+from .controller import *

@@ -29,11 +29,11 @@ from lsst.ts.utils import make_done_future
 from . import TcpClient, CommandStatus, check_queue_size, MsgType
 
 
-__all__ = ["Model"]
+__all__ = ["Controller"]
 
 
-class Model:
-    """Model class.
+class Controller:
+    """Controller class.
 
     Parameters
     ----------
@@ -197,7 +197,7 @@ class Model:
         if self._is_controller_state(message):
             self.controller_state = salobj.State(message["summaryState"])
 
-        # Put the event message into the queue for CSC to publish
+        # Put the event message into the queue for CSC/GUI to publish
         self.queue_event.put_nowait(message)
         check_queue_size(self.queue_event, self.log)
 
