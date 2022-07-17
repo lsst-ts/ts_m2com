@@ -1,0 +1,14 @@
+@startuml
+package "tcpip" #DDDDDD {
+  class OneClientServer
+}
+
+MockServer "1" *-- "2" OneClientServer
+MockServer *-- MockModel
+MockServer *-- MockMessageTelemetry
+MockServer *-- MockMessageEvent
+MockServer *-- MockCommand
+MockCommand ..> MockMessageEvent
+MockCommand --> MockModel
+Controller "1" *-- "2" TcpClient
+@enduml
