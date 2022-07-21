@@ -9,6 +9,8 @@ M2 Common Code
 
 .. image:: https://img.shields.io/badge/GitHub-ts__m2com-green.svg
     :target: https://github.com/lsst-ts/ts_m2com
+.. image:: https://img.shields.io/badge/Jenkins-ts__m2com-green.svg
+    :target: https://tssw-ci.lsst.org/job/LSST_Telescope-and-Site/job/ts_m2com
 .. image:: https://img.shields.io/badge/Jira-ts__m2com-green.svg
     :target: https://jira.lsstcorp.org/issues/?jql=labels%20in%20(ts_m2com%2C%20%20M2)
 
@@ -58,6 +60,7 @@ The classes in module are listed below.
 * **TcpClient** is a TCP/IP client.
 * **MockServer** is a mock server of M2 to support the simulation mode.
 * **MockModel** simulates the hardware behavior to be used by **MockServer**.
+* **MockScriptEngine** simulates the execution of binary script.
 * **MockCommand** simulates the execution of command in real hardware.
 * **MockMessageEvent** simulates the message of event from real hardware.
 * **MockMessageTelemetry** simulates the message of telemetry from real hardware.

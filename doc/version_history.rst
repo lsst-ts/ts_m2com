@@ -2,6 +2,20 @@
 Version History
 ===============
 
+v0.1.1
+------
+
+* Add the **MockScriptEngine** class.
+* Publish the documents.
+* Support the mock commands of engineering user interface (EUI):
+
+  * Switch command source
+  * Run script
+  * Reset breakers
+  * Reboot controller
+  * Enable open loop maximum limits
+  * Save mirror position
+
 v0.1.0
 ------
 
