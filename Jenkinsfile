@@ -30,6 +30,13 @@ pipeline {
         XML_REPORT = "jenkinsReport/report.xml"
         // Module name used in the pytest coverage analysis
         MODULE_NAME = "lsst.ts.m2com"
+        // PlantUML url
+        PLANTUML_URL = "https://github.com/plantuml/plantuml/releases/download/v1.2021.13/plantuml-1.2021.13.jar"
+        // Authority to publish the document online
+        user_ci = credentials('lsst-io')
+        LTD_USERNAME = "${user_ci_USR}"
+        LTD_PASSWORD = "${user_ci_PSW}"
+        DOCUMENT_NAME = "ts-m2com"
     }
 
     stages {
@@ -48,6 +55,28 @@ pipeline {
                 }
             }
         }
+
+        stage('Build the Document and Upload') {
+            steps {
+                // Pytest needs to export the junit report.
+                withEnv(["WORK_HOME=${env.WORKSPACE}"]) {
+                    sh """
+                        source ${env.SAL_SETUP_FILE}
+
+                        pip install sphinxcontrib-plantuml ltd-conveyor
+
+                        curl -L ${env.PLANTUML_URL} -o plantuml.jar
+
+                        cd ${WORK_HOME}
+                        setup -k -r .
+
+                        package-docs build
+                        ltd upload --product ${env.DOCUMENT_NAME} --git-ref ${env.BRANCH_NAME} --dir doc/_build/html
+                    """
+                }
+            }
+        }
+
     }
 
     post {
