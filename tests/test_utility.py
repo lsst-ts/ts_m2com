@@ -20,10 +20,11 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import logging
+import pathlib
 import unittest
 import asyncio
 
-from lsst.ts.m2com import check_queue_size
+from lsst.ts.m2com import check_queue_size, read_yaml_file
 
 
 class TestUtility(unittest.IsolatedAsyncioTestCase):
@@ -42,6 +43,17 @@ class TestUtility(unittest.IsolatedAsyncioTestCase):
         # Information is logged
         queue.put_nowait(2)
         self.assertTrue(check_queue_size(queue, log))
+
+    def test_read_yaml_file_exception(self):
+
+        self.assertRaises(IOError, read_yaml_file, "no_this_yaml_file.yaml")
+
+    def test_read_yaml_file(self):
+
+        yaml_file = pathlib.Path(__file__).parents[0] / "harrisLUT" / "cell_geom.yaml"
+        content = read_yaml_file(yaml_file)
+
+        self.assertEqual(content["radiusActTangent"], 1.780189734)
 
 
 if __name__ == "__main__":

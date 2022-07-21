@@ -137,7 +137,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
 
             # Wait a little time to collect the event messages
             await asyncio.sleep(1)
-            self.assertEqual(controller.queue_event.qsize(), 9)
+            self.assertGreaterEqual(controller.queue_event.qsize(), 11)
 
     async def test_controller_state(self):
         async with self.make_server() as server, self.make_controller(
