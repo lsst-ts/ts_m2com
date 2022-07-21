@@ -19,18 +19,38 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from enum import auto, IntEnum
+from enum import auto, Enum, IntEnum
 
-__all__ = ["MsgType", "CommandStatus", "DetailedState"]
+__all__ = [
+    "MsgType",
+    "CommandStatus",
+    "DetailedState",
+    "CommandScript",
+    "PowerType",
+    "DigitalOutput",
+    "DigitalInput",
+]
+
+
+class BitEnum(Enum):
+    """Bit enum. The order is from bit 0 to bit n."""
+
+    def _generate_next_value_(self, start, count, last_values):
+        """This is an overridden function."""
+        return 2**count
 
 
 class MsgType(IntEnum):
+    """Message type to the cell controller."""
+
     Command = 1
     Event = auto()
     Telemetry = auto()
 
 
 class CommandStatus(IntEnum):
+    """Command status."""
+
     Success = 1
     Fail = auto()
     Ack = auto()
@@ -39,5 +59,75 @@ class CommandStatus(IntEnum):
 
 
 class DetailedState(IntEnum):
+    """Detailed substates of the Offline state."""
+
     PublishOnly = 1
     Available = auto()
+
+
+class CommandScript(IntEnum):
+    """Action to command the script execution."""
+
+    LoadScript = 1
+    Clear = auto()
+    Run = auto()
+    Stop = auto()
+    Pause = auto()
+    Resume = auto()
+
+
+class PowerType(IntEnum):
+    """Type of the power."""
+
+    Motor = 1
+    Communication = auto()
+
+
+class DigitalOutput(BitEnum):
+    """Bit of digital output."""
+
+    MotorPower = auto()
+    CommunicationPower = auto()
+    InterlockEnable = auto()
+    ResetMotorBreakers = auto()
+    ResetCommunicationBreakers = auto()
+    SpareOutput_5 = auto()
+    SpareOutput_6 = auto()
+    SpareOutput_7 = auto()
+
+
+class DigitalInput(BitEnum):
+    """Bit of digital input."""
+
+    RedundancyOK = auto()
+    LoadDistributionOK = auto()
+    PowerSupplyDC_2_OK = auto()
+    PowerSupplyDC_1_OK = auto()
+    PowerSupplyCurrent_2_OK = auto()
+    PowerSupplyCurrent_1_OK = auto()
+    J1_W9_1_MotorPowerBreaker = auto()
+    J1_W9_2_MotorPowerBreaker = auto()
+    J1_W9_3_MotorPowerBreaker = auto()
+    J2_W10_1_MotorPowerBreaker = auto()
+    J2_W10_2_MotorPowerBreaker = auto()
+    J2_W10_3_MotorPowerBreaker = auto()
+    J3_W11_1_MotorPowerBreaker = auto()
+    J3_W11_2_MotorPowerBreaker = auto()
+    J3_W11_3_MotorPowerBreaker = auto()
+    J1_W12_1_CommunicationPowerBreaker = auto()
+    SpareInput_16 = auto()
+    SpareInput_17 = auto()
+    SpareInput_18 = auto()
+    SpareInput_19 = auto()
+    SpareInput_20 = auto()
+    SpareInput_21 = auto()
+    SpareInput_22 = auto()
+    SpareInput_23 = auto()
+    J1_W12_2_CommunicationPowerBreaker = auto()
+    J2_W13_1_CommunicationPowerBreaker = auto()
+    J2_W13_2_CommunicationPowerBreaker = auto()
+    J3_W14_1_CommunicationPowerBreaker = auto()
+    J3_W14_2_CommunicationPowerBreaker = auto()
+    SpareInput_29 = auto()
+    SpareInput_30 = auto()
+    InterlockPowerReplay = auto()

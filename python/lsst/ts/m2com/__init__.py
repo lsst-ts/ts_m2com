@@ -29,6 +29,7 @@ from .utility import *
 from .mock_message_telemetry import *
 from .mock_message_event import *
 from .mock_command import *
+from .mock_script_engine import *
 from .mock_model import *
 from .mock_server import *
 from .tcp_client import *

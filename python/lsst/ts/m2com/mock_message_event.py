@@ -194,3 +194,39 @@ class MockMessageEvent:
             "exhaust": exhaust,
         }
         await write_json_packet(self.writer, msg)
+
+    async def write_script_execution_status(self, percentage):
+        """Write the message: script execution status.
+
+        Parameters
+        ----------
+        percentage : `int` or `float`
+            Percentage of the script execution.
+        """
+
+        msg = {"id": "scriptExecutionStatus", "percentage": percentage}
+        await write_json_packet(self.writer, msg)
+
+    async def write_digital_output(self, digital_output):
+        """Write the message: digital output.
+
+        Parameters
+        ----------
+        digital_output : `int`
+            Digital output. The bit value can follow the enum 'DigitalOutput'.
+        """
+
+        msg = {"id": "digitalOutput", "value": digital_output}
+        await write_json_packet(self.writer, msg)
+
+    async def write_digital_input(self, digital_input):
+        """Write the message: digital input.
+
+        Parameters
+        ----------
+        digital_input : `int`
+            Digital input. The bit value can follow the enum 'DigitalInput'.
+        """
+
+        msg = {"id": "digitalInput", "value": digital_input}
+        await write_json_packet(self.writer, msg)
