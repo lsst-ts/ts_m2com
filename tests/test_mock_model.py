@@ -395,10 +395,10 @@ class TestMockModel(unittest.TestCase):
     def test_enable_open_loop_max_limits(self):
 
         self.model.enable_open_loop_max_limits(True)
-        self.assertTrue(self.model.is_enabled_open_loop_max_limits)
+        self.assertTrue(self.model.open_loop_max_limits_is_enabled)
 
         self.model.enable_open_loop_max_limits(False)
-        self.assertFalse(self.model.is_enabled_open_loop_max_limits)
+        self.assertFalse(self.model.open_loop_max_limits_is_enabled)
 
         # The closed-loop control does not allow the maximum limits of
         # open-loop control
@@ -407,7 +407,7 @@ class TestMockModel(unittest.TestCase):
         self.model.motor_power_on = True
         self.assertTrue(self.model.switch_force_balance_system(True))
 
-        self.assertFalse(self.model.is_enabled_open_loop_max_limits)
+        self.assertFalse(self.model.open_loop_max_limits_is_enabled)
 
     def test_reset_breakers(self):
 

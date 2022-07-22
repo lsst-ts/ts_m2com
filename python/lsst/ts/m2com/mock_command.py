@@ -40,6 +40,9 @@ class MockCommand:
         is True)
     """
 
+    SLEEP_TIME_SHORT = 0.01
+    SLEEP_TIME_NORMAL = 5
+
     def __init__(self, is_csc=True):
 
         # Is CSC or not.
@@ -77,7 +80,7 @@ class MockCommand:
         )
 
         # Simulate the real hardware behavior
-        await asyncio.sleep(5)
+        await asyncio.sleep(self.SLEEP_TIME_NORMAL)
 
         await message_event.write_summary_state(salobj.State.ENABLED)
 
@@ -261,9 +264,9 @@ class MockCommand:
 
             # Sleep time is to simulate some internal inspection of
             # real system
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(self.SLEEP_TIME_SHORT)
             await message_event.write_detailed_state(DetailedState.PublishOnly)
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(self.SLEEP_TIME_SHORT)
             await message_event.write_detailed_state(DetailedState.Available)
 
             await message_event.write_summary_state(salobj.State.OFFLINE)
@@ -636,7 +639,7 @@ class MockCommand:
             await message_event.write_digital_output(digital_output_reset)
 
             # Sleep a short time to simulate the reset process
-            await asyncio.sleep(5)
+            await asyncio.sleep(self.SLEEP_TIME_NORMAL)
 
             await message_event.write_digital_output(digital_output_default)
 

@@ -86,7 +86,7 @@ class MockModel:
         Error is cleared or not.
     mtmount_in_position : `bool`
         MTMount in position or not.
-    is_enabled_open_loop_max_limits : `bool`
+    open_loop_max_limits_is_enabled : `bool`
         The maximum limits of open-loop control is enabled or not.
     script_engine : `MockScriptEngine`
         Script engine to run the binary script.
@@ -164,7 +164,7 @@ class MockModel:
 
         self.mtmount_in_position = False
 
-        self.is_enabled_open_loop_max_limits = False
+        self.open_loop_max_limits_is_enabled = False
 
         self.script_engine = MockScriptEngine()
 
@@ -245,6 +245,71 @@ class MockModel:
     def position_limit_z(self):
         """Mirror motion limit in the optical direction (in mm)."""
         return 7.89
+
+    @property
+    def digital_output_default(self):
+        """Default digital output defined with the enum 'DigitalOutput'."""
+        return (
+            DigitalOutput.InterlockEnable,
+            DigitalOutput.ResetMotorBreakers,
+            DigitalOutput.ResetCommunicationBreakers,
+        )
+
+    @property
+    def digital_input_default(self):
+        """Default digital input defined with the enum 'DigitalInput'."""
+        return (
+            DigitalInput.RedundancyOK,
+            DigitalInput.LoadDistributionOK,
+            DigitalInput.PowerSupplyDC_2_OK,
+            DigitalInput.PowerSupplyDC_1_OK,
+            DigitalInput.PowerSupplyCurrent_2_OK,
+            DigitalInput.PowerSupplyCurrent_1_OK,
+            DigitalInput.J1_W9_1_MotorPowerBreaker,
+            DigitalInput.J1_W9_2_MotorPowerBreaker,
+            DigitalInput.J1_W9_3_MotorPowerBreaker,
+            DigitalInput.J2_W10_1_MotorPowerBreaker,
+            DigitalInput.J2_W10_2_MotorPowerBreaker,
+            DigitalInput.J2_W10_3_MotorPowerBreaker,
+            DigitalInput.J3_W11_1_MotorPowerBreaker,
+            DigitalInput.J3_W11_2_MotorPowerBreaker,
+            DigitalInput.J3_W11_3_MotorPowerBreaker,
+            DigitalInput.J1_W12_1_CommunicationPowerBreaker,
+            DigitalInput.J1_W12_2_CommunicationPowerBreaker,
+            DigitalInput.J2_W13_1_CommunicationPowerBreaker,
+            DigitalInput.J2_W13_2_CommunicationPowerBreaker,
+            DigitalInput.J3_W14_1_CommunicationPowerBreaker,
+            DigitalInput.J3_W14_2_CommunicationPowerBreaker,
+            DigitalInput.InterlockPowerReplay,
+        )
+
+    @property
+    def digital_input_communication(self):
+        """Updated digital input when the communication power is on."""
+        return (
+            DigitalInput.J1_W12_1_CommunicationPowerBreaker,
+            DigitalInput.J1_W12_2_CommunicationPowerBreaker,
+            DigitalInput.J2_W13_1_CommunicationPowerBreaker,
+            DigitalInput.J2_W13_2_CommunicationPowerBreaker,
+            DigitalInput.J3_W14_1_CommunicationPowerBreaker,
+            DigitalInput.J3_W14_2_CommunicationPowerBreaker,
+        )
+
+    @property
+    def digital_input_motor(self):
+        """Updated digital input when the motor power is on."""
+        return (
+            DigitalInput.J1_W9_1_MotorPowerBreaker,
+            DigitalInput.J1_W9_2_MotorPowerBreaker,
+            DigitalInput.J1_W9_3_MotorPowerBreaker,
+            DigitalInput.J2_W10_1_MotorPowerBreaker,
+            DigitalInput.J2_W10_2_MotorPowerBreaker,
+            DigitalInput.J2_W10_3_MotorPowerBreaker,
+            DigitalInput.J3_W11_1_MotorPowerBreaker,
+            DigitalInput.J3_W11_2_MotorPowerBreaker,
+            DigitalInput.J3_W11_3_MotorPowerBreaker,
+            DigitalInput.InterlockPowerReplay,
+        )
 
     def configure(self, config_dir, lut_path):
         """Do the configuration.
@@ -1140,10 +1205,10 @@ class MockModel:
         result = True
 
         if (status is True) and (self.force_balance_system_status is True):
-            self.is_enabled_open_loop_max_limits = False
+            self.open_loop_max_limits_is_enabled = False
             result = False
         else:
-            self.is_enabled_open_loop_max_limits = status
+            self.open_loop_max_limits_is_enabled = status
 
         return result
 
@@ -1179,11 +1244,7 @@ class MockModel:
             Value of the digital output.
         """
 
-        digital_output = (
-            DigitalOutput.InterlockEnable.value
-            + DigitalOutput.ResetMotorBreakers.value
-            + DigitalOutput.ResetCommunicationBreakers.value
-        )
+        digital_output = sum([item.value for item in self.digital_output_default])
 
         if self.communication_power_on:
             digital_output += DigitalOutput.CommunicationPower.value
@@ -1194,7 +1255,8 @@ class MockModel:
         return digital_output
 
     def get_digital_input(self):
-        """Get the value of digital input.
+        """Get the value of digital input that represents the current state of
+        the system.
 
         Returns
         -------
@@ -1202,53 +1264,14 @@ class MockModel:
             Value of the digital input.
         """
 
-        digital_input = (
-            DigitalInput.RedundancyOK.value
-            + DigitalInput.LoadDistributionOK.value
-            + DigitalInput.PowerSupplyDC_2_OK.value
-            + DigitalInput.PowerSupplyDC_1_OK.value
-            + DigitalInput.PowerSupplyCurrent_2_OK.value
-            + DigitalInput.PowerSupplyCurrent_1_OK.value
-            + DigitalInput.J1_W9_1_MotorPowerBreaker.value
-            + DigitalInput.J1_W9_2_MotorPowerBreaker.value
-            + DigitalInput.J1_W9_3_MotorPowerBreaker.value
-            + DigitalInput.J2_W10_1_MotorPowerBreaker.value
-            + DigitalInput.J2_W10_2_MotorPowerBreaker.value
-            + DigitalInput.J2_W10_3_MotorPowerBreaker.value
-            + DigitalInput.J3_W11_1_MotorPowerBreaker.value
-            + DigitalInput.J3_W11_2_MotorPowerBreaker.value
-            + DigitalInput.J3_W11_3_MotorPowerBreaker.value
-            + DigitalInput.J1_W12_1_CommunicationPowerBreaker.value
-            + DigitalInput.J1_W12_2_CommunicationPowerBreaker.value
-            + DigitalInput.J2_W13_1_CommunicationPowerBreaker.value
-            + DigitalInput.J2_W13_2_CommunicationPowerBreaker.value
-            + DigitalInput.J3_W14_1_CommunicationPowerBreaker.value
-            + DigitalInput.J3_W14_2_CommunicationPowerBreaker.value
-            + DigitalInput.InterlockPowerReplay.value
-        )
+        digital_input = sum([item.value for item in self.digital_input_default])
 
         if self.communication_power_on:
-            digital_input -= (
-                DigitalInput.J1_W12_1_CommunicationPowerBreaker.value
-                + DigitalInput.J1_W12_2_CommunicationPowerBreaker.value
-                + DigitalInput.J2_W13_1_CommunicationPowerBreaker.value
-                + DigitalInput.J2_W13_2_CommunicationPowerBreaker.value
-                + DigitalInput.J3_W14_1_CommunicationPowerBreaker.value
-                + DigitalInput.J3_W14_2_CommunicationPowerBreaker.value
+            digital_input -= sum(
+                [item.value for item in self.digital_input_communication]
             )
 
         if self.motor_power_on:
-            digital_input -= (
-                DigitalInput.J1_W9_1_MotorPowerBreaker.value
-                + DigitalInput.J1_W9_2_MotorPowerBreaker.value
-                + DigitalInput.J1_W9_3_MotorPowerBreaker.value
-                + DigitalInput.J2_W10_1_MotorPowerBreaker.value
-                + DigitalInput.J2_W10_2_MotorPowerBreaker.value
-                + DigitalInput.J2_W10_3_MotorPowerBreaker.value
-                + DigitalInput.J3_W11_1_MotorPowerBreaker.value
-                + DigitalInput.J3_W11_2_MotorPowerBreaker.value
-                + DigitalInput.J3_W11_3_MotorPowerBreaker.value
-                + DigitalInput.InterlockPowerReplay.value
-            )
+            digital_input -= sum([item.value for item in self.digital_input_motor])
 
         return digital_input

@@ -608,7 +608,7 @@ class MockServer:
         self.model.motor_power_on = False
         self.model.error_cleared = True
 
-        self.model.is_enabled_open_loop_max_limits = False
+        self.model.open_loop_max_limits_is_enabled = False
 
         self.model.script_engine.pause()
         self.model.script_engine.clear()

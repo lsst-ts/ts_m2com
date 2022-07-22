@@ -1,6 +1,6 @@
 # This file is part of ts_m2com.
 #
-# Developed for the LSST Data Management System.
+# Developed for the Vera Rubin Observatory Telescope and Site Systems.
 # This product includes software developed by the LSST Project
 # (https://www.lsst.org).
 # See the COPYRIGHT file at the top-level directory of this distribution
@@ -19,19 +19,19 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-try:
-    from .version import *
-except ImportError:
-    __version__ = "?"
+__all__ = [
+    "TEST_DIGITAL_OUTPUT_NO_POWER",
+    "TEST_DIGITAL_OUTPUT_POWER_COMM",
+    "TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR",
+    "TEST_DIGITAL_INPUT_NO_POWER",
+    "TEST_DIGITAL_INPUT_POWER_COMM",
+    "TEST_DIGITAL_INPUT_POWER_COMM_MOTOR",
+]
 
-from .constant import *
-from .enum import *
-from .utility import *
-from .mock_message_telemetry import *
-from .mock_message_event import *
-from .mock_command import *
-from .mock_script_engine import *
-from .mock_model import *
-from .mock_server import *
-from .tcp_client import *
-from .controller import *
+TEST_DIGITAL_OUTPUT_NO_POWER = 0x1C
+TEST_DIGITAL_OUTPUT_POWER_COMM = 0x1E
+TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR = 0x1F
+
+TEST_DIGITAL_INPUT_NO_POWER = 0x9F00FFFF
+TEST_DIGITAL_INPUT_POWER_COMM = 0x80007FFF
+TEST_DIGITAL_INPUT_POWER_COMM_MOTOR = 0x3F

@@ -413,7 +413,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
 
             # Wait a little time to let the internal process to finish
             await asyncio.sleep(1)
-            self.assertTrue(server.model.is_enabled_open_loop_max_limits)
+            self.assertTrue(server.model.open_loop_max_limits_is_enabled)
 
     async def test_save_mirror_position(self):
         async with self.make_server() as server, self.make_controller(

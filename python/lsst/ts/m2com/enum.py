@@ -33,10 +33,14 @@ __all__ = [
 
 
 class BitEnum(Enum):
-    """Bit enum. The order is from bit 0 to bit n."""
+    """Bit enum to deal with some communication with M2 cell controller that
+    use the bit value directly. You need to inherit this class to use it. The
+    order is from bit 0 to bit n. For the values of fields, use auto()
+    directly. By doing this, the values will be 1, 2, 4, ..., 2 ** n, etc."""
 
     def _generate_next_value_(self, start, count, last_values):
-        """This is an overridden function."""
+        """Override parent method to generate power of 2 sequence of numbers,
+        starting from 1 (e.g. 1, 2, 4, 8, ...)."""
         return 2**count
 
 
