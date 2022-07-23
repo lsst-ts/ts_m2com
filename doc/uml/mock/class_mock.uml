@@ -14,5 +14,4 @@ MockCommand --> MockModel
 
 MockModel *-- MockScriptEngine
 
-Controller "1" *-- "2" TcpClient
 @enduml

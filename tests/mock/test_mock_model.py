@@ -44,7 +44,7 @@ class TestMockModel(unittest.TestCase):
 
         self.model = MockModel()
 
-        config_dir = pathlib.Path(__file__).parents[0]
+        config_dir = pathlib.Path(__file__).parents[0] / ".."
         self.model.configure(config_dir, "harrisLUT")
 
     def test_configure(self):

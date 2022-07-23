@@ -19,14 +19,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-try:
-    from .version import *
-except ImportError:
-    __version__ = "?"
-
-from .constant import *
-from .enum import *
-from .utility import *
-from .mock import *
-from .tcp_client import *
-from .controller import *
+from .mock_message_telemetry import *
+from .mock_message_event import *
+from .mock_command import *
+from .mock_script_engine import *
+from .mock_model import *
+from .mock_server import *

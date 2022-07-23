@@ -39,7 +39,7 @@ class TestMockServerEui(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.config_dir = pathlib.Path(__file__).parents[0]
+        cls.config_dir = pathlib.Path(__file__).parents[0] / ".."
         cls.host = tcpip.LOCAL_HOST
         cls.log = logging.getLogger()
         cls.maxsize_queue = 1000

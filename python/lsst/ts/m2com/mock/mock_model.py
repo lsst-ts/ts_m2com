@@ -29,7 +29,9 @@ from time import sleep
 
 from lsst.ts.idl.enums import MTM2
 
-from . import MockScriptEngine, PowerType, DigitalOutput, DigitalInput, read_yaml_file
+from ..enum import PowerType, DigitalOutput, DigitalInput
+from ..utility import read_yaml_file
+from . import MockScriptEngine
 
 __all__ = ["MockModel"]
 

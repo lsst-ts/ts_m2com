@@ -24,7 +24,13 @@ import asyncio
 from lsst.ts import salobj
 from lsst.ts.idl.enums import MTM2
 
-from . import DetailedState, CommandStatus, CommandScript, PowerType, DigitalOutput
+from ..enum import (
+    DetailedState,
+    CommandStatus,
+    CommandScript,
+    PowerType,
+    DigitalOutput,
+)
 
 
 __all__ = ["MockCommand"]

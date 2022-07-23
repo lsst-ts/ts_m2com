@@ -5,6 +5,7 @@ Version History
 v0.1.1
 ------
 
+* Reorganize the project to have the **mock** module.
 * Add the **MockScriptEngine** class.
 * Publish the documents.
 * Support the mock commands of engineering user interface (EUI):

@@ -28,15 +28,9 @@ from lsst.ts import salobj
 from lsst.ts import tcpip
 from lsst.ts.utils import make_done_future
 
-from . import (
-    MockModel,
-    CommandStatus,
-    DetailedState,
-    write_json_packet,
-    MockMessageTelemetry,
-    MockMessageEvent,
-    MockCommand,
-)
+from ..enum import CommandStatus, DetailedState
+from ..utility import write_json_packet
+from . import MockModel, MockMessageTelemetry, MockMessageEvent, MockCommand
 
 
 __all__ = ["MockServer"]
