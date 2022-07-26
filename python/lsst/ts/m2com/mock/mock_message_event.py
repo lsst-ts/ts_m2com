@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from . import write_json_packet
+from ..utility import write_json_packet
 
 __all__ = ["MockMessageEvent"]
 
@@ -50,9 +50,9 @@ class MockMessageEvent:
         in_position : `bool`
             M2 assembly is in position or not.
         """
-
-        msg = {"id": "m2AssemblyInPosition", "inPosition": in_position}
-        await write_json_packet(self.writer, msg)
+        await write_json_packet(
+            self.writer, {"id": "m2AssemblyInPosition", "inPosition": in_position}
+        )
 
     async def write_cell_temperature_high_warning(self, hi_warning):
         """Write the message: cell temperature is high or not.
@@ -62,9 +62,9 @@ class MockMessageEvent:
         hi_warning : `bool`
             Cell temperature is high or not.
         """
-
-        msg = {"id": "cellTemperatureHiWarning", "hiWarning": hi_warning}
-        await write_json_packet(self.writer, msg)
+        await write_json_packet(
+            self.writer, {"id": "cellTemperatureHiWarning", "hiWarning": hi_warning}
+        )
 
     async def write_detailed_state(self, detailed_state):
         """Write the message: detailed state.
@@ -74,9 +74,9 @@ class MockMessageEvent:
         detailed_state : enum `DetailedState`
             M2 detailed state.
         """
-
-        msg = {"id": "detailedState", "detailedState": int(detailed_state)}
-        await write_json_packet(self.writer, msg)
+        await write_json_packet(
+            self.writer, {"id": "detailedState", "detailedState": int(detailed_state)}
+        )
 
     async def write_summary_state(self, summary_state):
         """Write the message: summary state.
@@ -86,9 +86,9 @@ class MockMessageEvent:
         summary_state : enum `lsst.ts.salobj.State`
             M2 summary state.
         """
-
-        msg = {"id": "summaryState", "summaryState": int(summary_state)}
-        await write_json_packet(self.writer, msg)
+        await write_json_packet(
+            self.writer, {"id": "summaryState", "summaryState": int(summary_state)}
+        )
 
     async def write_error_code(self, error_code):
         """Write the message: error code.
@@ -98,9 +98,9 @@ class MockMessageEvent:
         error_code : int
             Error code.
         """
-
-        msg = {"id": "errorCode", "errorCode": int(error_code)}
-        await write_json_packet(self.writer, msg)
+        await write_json_packet(
+            self.writer, {"id": "errorCode", "errorCode": int(error_code)}
+        )
 
     async def write_commandable_by_dds(self, state):
         """Write the message: commandable by DDS or not.
@@ -110,9 +110,7 @@ class MockMessageEvent:
         state : `bool`
             Commandable by DDS or not.
         """
-
-        msg = {"id": "commandableByDDS", "state": state}
-        await write_json_packet(self.writer, msg)
+        await write_json_packet(self.writer, {"id": "commandableByDDS", "state": state})
 
     async def write_interlock(self, state):
         """Write the message: interlock.
@@ -122,9 +120,7 @@ class MockMessageEvent:
         state : `bool`
             Interlock is on or not.
         """
-
-        msg = {"id": "interlock", "state": state}
-        await write_json_packet(self.writer, msg)
+        await write_json_packet(self.writer, {"id": "interlock", "state": state})
 
     async def write_tcp_ip_connected(self, is_connected):
         """Write the message: TCP/IP connection is on or not.
@@ -134,9 +130,9 @@ class MockMessageEvent:
         is_connected : `bool`
             TCP/IP connection is on or not.
         """
-
-        msg = {"id": "tcpIpConnected", "isConnected": is_connected}
-        await write_json_packet(self.writer, msg)
+        await write_json_packet(
+            self.writer, {"id": "tcpIpConnected", "isConnected": is_connected}
+        )
 
     async def write_hardpoint_list(self, actuators):
         """Write the message: hardpoint list.
@@ -146,9 +142,9 @@ class MockMessageEvent:
         actuators : `list`
             Hardpoint list.
         """
-
-        msg = {"id": "hardpointList", "actuators": actuators}
-        await write_json_packet(self.writer, msg)
+        await write_json_packet(
+            self.writer, {"id": "hardpointList", "actuators": actuators}
+        )
 
     async def write_force_balance_system_status(self, status):
         """Write the message: force balance system is on or not.
@@ -158,9 +154,9 @@ class MockMessageEvent:
         status : `bool`
             Force balance system is on or not.
         """
-
-        msg = {"id": "forceBalanceSystemStatus", "status": status}
-        await write_json_packet(self.writer, msg)
+        await write_json_packet(
+            self.writer, {"id": "forceBalanceSystemStatus", "status": status}
+        )
 
     async def write_inclination_telemetry_source(self, source):
         """Write the message: inclination telemetry source.
@@ -170,9 +166,9 @@ class MockMessageEvent:
         source : enum `MTM2.InclinationTelemetrySource`
             Inclination telemetry source.
         """
-
-        msg = {"id": "inclinationTelemetrySource", "source": int(source)}
-        await write_json_packet(self.writer, msg)
+        await write_json_packet(
+            self.writer, {"id": "inclinationTelemetrySource", "source": int(source)}
+        )
 
     async def write_temperature_offset(self, ring, intake, exhaust):
         """Write the message: temperature offset in degree C.
@@ -186,11 +182,48 @@ class MockMessageEvent:
         exhaust : `list`
             Offset of exhaust temperatures.
         """
+        await write_json_packet(
+            self.writer,
+            {
+                "id": "temperatureOffset",
+                "ring": ring,
+                "intake": intake,
+                "exhaust": exhaust,
+            },
+        )
 
-        msg = {
-            "id": "temperatureOffset",
-            "ring": ring,
-            "intake": intake,
-            "exhaust": exhaust,
-        }
-        await write_json_packet(self.writer, msg)
+    async def write_script_execution_status(self, percentage):
+        """Write the message: script execution status.
+
+        Parameters
+        ----------
+        percentage : `int` or `float`
+            Percentage of the script execution.
+        """
+        await write_json_packet(
+            self.writer, {"id": "scriptExecutionStatus", "percentage": percentage}
+        )
+
+    async def write_digital_output(self, digital_output):
+        """Write the message: digital output.
+
+        Parameters
+        ----------
+        digital_output : `int`
+            Digital output. The bit value can follow the enum 'DigitalOutput'.
+        """
+        await write_json_packet(
+            self.writer, {"id": "digitalOutput", "value": digital_output}
+        )
+
+    async def write_digital_input(self, digital_input):
+        """Write the message: digital input.
+
+        Parameters
+        ----------
+        digital_input : `int`
+            Digital input. The bit value can follow the enum 'DigitalInput'.
+        """
+        await write_json_packet(
+            self.writer, {"id": "digitalInput", "value": digital_input}
+        )

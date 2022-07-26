@@ -30,7 +30,20 @@ from lsst.ts import tcpip
 from lsst.ts import salobj
 from lsst.ts.idl.enums import MTM2
 
-from lsst.ts.m2com import MsgType, DetailedState, TcpClient, MockServer
+from lsst.ts.m2com import (
+    MsgType,
+    DetailedState,
+    TcpClient,
+    MockServer,
+    collect_queue_messages,
+    get_queue_message_latest,
+    TEST_DIGITAL_OUTPUT_NO_POWER,
+    TEST_DIGITAL_OUTPUT_POWER_COMM,
+    TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
+    TEST_DIGITAL_INPUT_NO_POWER,
+    TEST_DIGITAL_INPUT_POWER_COMM,
+    TEST_DIGITAL_INPUT_POWER_COMM_MOTOR,
+)
 
 
 class TestMockServer(unittest.IsolatedAsyncioTestCase):
@@ -38,7 +51,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.config_dir = pathlib.Path(__file__).parents[0]
+        cls.config_dir = pathlib.Path(__file__).parents[0] / ".."
         cls.host = tcpip.LOCAL_HOST
         cls.log = logging.getLogger()
         cls.maxsize_queue = 1000
@@ -67,7 +80,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(server._message_telemetry)
 
         self.assertFalse(server.model.force_balance_system_status)
-        self.assertFalse(server.model.actuator_power_on)
+        self.assertFalse(server.model.motor_power_on)
         self.assertTrue(server.model.error_cleared)
 
     @contextlib.asynccontextmanager
@@ -108,7 +121,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             # Check the one-time message
             await asyncio.sleep(0.5)
-            self.assertGreaterEqual(client_cmd.queue.qsize(), 9)
+            self.assertGreaterEqual(client_cmd.queue.qsize(), 11)
 
             # Check the TCP/IP connection
             msg_tcpip = client_cmd.queue.get_nowait()
@@ -164,6 +177,14 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(msg_state["id"], "summaryState")
             self.assertEqual(msg_state["summaryState"], salobj.State.OFFLINE)
 
+            msg_digital_input = client_cmd.queue.get_nowait()
+            self.assertEqual(msg_digital_input["id"], "digitalInput")
+            self.assertEqual(msg_digital_input["value"], TEST_DIGITAL_INPUT_NO_POWER)
+
+            msg_digital_output = client_cmd.queue.get_nowait()
+            self.assertEqual(msg_digital_output["id"], "digitalOutput")
+            self.assertEqual(msg_digital_output["value"], TEST_DIGITAL_OUTPUT_NO_POWER)
+
     async def test_monitor_msg_cmd_ack(self):
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
@@ -172,34 +193,9 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await client_cmd.write(MsgType.Command, "resetForceOffsets")
             await asyncio.sleep(0.5)
 
-            msg_ack = self._get_latest_message(client_cmd.queue, "ack")
+            msg_ack = get_queue_message_latest(client_cmd.queue, "ack")
 
-            self.assertEqual(msg_ack["id"], "ack")
             self.assertEqual(msg_ack["sequence_id"], 1)
-
-    def _get_latest_message(self, queue, name):
-        """Get the latest message.
-
-        Parameters
-        ----------
-        queue : `asyncio.Queue`
-            Queue of message.
-        name : `str`
-            Name of message.
-
-        Returns
-        -------
-        msg_latest : `dict`
-            Latest message.
-        """
-
-        msg_latest = dict()
-        while not queue.empty():
-            msg = queue.get_nowait()
-            if msg["id"] == name:
-                msg_latest = msg.copy()
-
-        return msg_latest
 
     async def test_monitor_msg_cmd_success(self):
         async with self.make_server() as server, self.make_clients(server) as (
@@ -209,9 +205,8 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await client_cmd.write(MsgType.Command, "resetForceOffsets")
             await asyncio.sleep(0.5)
 
-            msg_success = self._get_latest_message(client_cmd.queue, "success")
+            msg_success = get_queue_message_latest(client_cmd.queue, "success")
 
-            self.assertEqual(msg_success["id"], "success")
             self.assertEqual(msg_success["sequence_id"], 1)
 
     async def test_cmd_unknown(self):
@@ -222,7 +217,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await client_cmd.write(MsgType.Command, "unknown")
             await asyncio.sleep(0.5)
 
-            msg_noack = self._get_latest_message(client_cmd.queue, "noack")
+            msg_noack = get_queue_message_latest(client_cmd.queue, "noack")
 
             self.assertEqual(msg_noack["id"], "noack")
 
@@ -235,7 +230,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             server.model.temperature["exhaust"] = [99, 99]
             await asyncio.sleep(0.5)
 
-            msg_high_temp = self._get_latest_message(
+            msg_high_temp = get_queue_message_latest(
                 client_cmd.queue, "cellTemperatureHiWarning"
             )
 
@@ -251,46 +246,75 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             # The above short sleep time will not get the acknowledgement of
             # success
-            msg_success = self._get_latest_message(client_cmd.queue, "success")
+            msgs_success = collect_queue_messages(client_cmd.queue, "success")
 
-            self.assertEqual(len(msg_success), 0)
+            self.assertEqual(len(msgs_success), 0)
 
     async def test_cmd_enable_success(self):
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
         ):
+            server.model.communication_power_on = True
+
             await client_cmd.write(MsgType.Command, "enable")
             await asyncio.sleep(8)
 
             # Get the success of command because of sleeping time in enabled
             # command
-            msg_success = self._get_latest_message(client_cmd.queue, "success")
-
+            msg_success = get_queue_message_latest(
+                client_cmd.queue, "success", flush=False
+            )
             self.assertEqual(msg_success["id"], "success")
 
-            self.assertTrue(server.model.actuator_power_on)
+            self.assertTrue(server.model.motor_power_on)
             self.assertTrue(server.model.force_balance_system_status)
+
+            msg_digital_input = get_queue_message_latest(
+                client_cmd.queue, "digitalInput", flush=False
+            )
+            self.assertEqual(
+                msg_digital_input["value"], TEST_DIGITAL_INPUT_POWER_COMM_MOTOR
+            )
+
+            msg_digital_output = get_queue_message_latest(
+                client_cmd.queue, "digitalOutput", flush=False
+            )
+            self.assertEqual(
+                msg_digital_output["value"], TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR
+            )
 
     async def test_cmd_disable(self):
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
         ):
-            server.model.actuator_power_on = True
+            server.model.communication_power_on = True
+            server.model.motor_power_on = True
             server.model.force_balance_system_status = True
 
             await client_cmd.write(MsgType.Command, "disable")
             await asyncio.sleep(0.5)
 
-            msg_fb = self._get_latest_message(
-                client_cmd.queue, "forceBalanceSystemStatus"
+            msg_fb = get_queue_message_latest(
+                client_cmd.queue, "forceBalanceSystemStatus", flush=False
             )
-
             self.assertFalse(msg_fb["status"])
 
-            self.assertFalse(server.model.actuator_power_on)
+            self.assertFalse(server.model.motor_power_on)
             self.assertFalse(server.model.force_balance_system_status)
+
+            msg_digital_input = get_queue_message_latest(
+                client_cmd.queue, "digitalInput", flush=False
+            )
+            self.assertEqual(msg_digital_input["value"], TEST_DIGITAL_INPUT_POWER_COMM)
+
+            msg_digital_output = get_queue_message_latest(
+                client_cmd.queue, "digitalOutput", flush=False
+            )
+            self.assertEqual(
+                msg_digital_output["value"], TEST_DIGITAL_OUTPUT_POWER_COMM
+            )
 
     async def test_cmd_standby(self):
         async with self.make_server() as server, self.make_clients(server) as (
@@ -301,9 +325,20 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await client_cmd.write(MsgType.Command, "standby")
             await asyncio.sleep(0.5)
 
-            msg_success = self._get_latest_message(client_cmd.queue, "success")
-
+            msg_success = get_queue_message_latest(
+                client_cmd.queue, "success", flush=False
+            )
             self.assertEqual(msg_success["id"], "success")
+
+            msg_digital_input = get_queue_message_latest(
+                client_cmd.queue, "digitalInput", flush=False
+            )
+            self.assertEqual(msg_digital_input["value"], TEST_DIGITAL_INPUT_NO_POWER)
+
+            msg_digital_output = get_queue_message_latest(
+                client_cmd.queue, "digitalOutput", flush=False
+            )
+            self.assertEqual(msg_digital_output["value"], TEST_DIGITAL_OUTPUT_NO_POWER)
 
     async def test_cmd_standby_check_summary_state(self):
         async with self.make_server() as server, self.make_clients(server) as (
@@ -314,9 +349,8 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await client_cmd.write(MsgType.Command, "standby")
             await asyncio.sleep(0.5)
 
-            msg_state = self._get_latest_message(client_cmd.queue, "summaryState")
+            msg_state = get_queue_message_latest(client_cmd.queue, "summaryState")
 
-            self.assertEqual(msg_state["id"], "summaryState")
             self.assertEqual(msg_state["summaryState"], int(salobj.State.STANDBY))
 
     async def test_cmd_start(self):
@@ -328,9 +362,22 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await client_cmd.write(MsgType.Command, "start")
             await asyncio.sleep(0.5)
 
-            msg_success = self._get_latest_message(client_cmd.queue, "success")
-
+            msg_success = get_queue_message_latest(
+                client_cmd.queue, "success", flush=False
+            )
             self.assertEqual(msg_success["id"], "success")
+
+            msg_digital_input = get_queue_message_latest(
+                client_cmd.queue, "digitalInput", flush=False
+            )
+            self.assertEqual(msg_digital_input["value"], TEST_DIGITAL_INPUT_POWER_COMM)
+
+            msg_digital_output = get_queue_message_latest(
+                client_cmd.queue, "digitalOutput", flush=False
+            )
+            self.assertEqual(
+                msg_digital_output["value"], TEST_DIGITAL_OUTPUT_POWER_COMM
+            )
 
     async def test_cmd_enter_control(self):
         async with self.make_server() as server, self.make_clients(server) as (
@@ -341,9 +388,20 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await client_cmd.write(MsgType.Command, "enterControl")
             await asyncio.sleep(0.5)
 
-            msg_success = self._get_latest_message(client_cmd.queue, "success")
-
+            msg_success = get_queue_message_latest(
+                client_cmd.queue, "success", flush=False
+            )
             self.assertEqual(msg_success["id"], "success")
+
+            msg_digital_input = get_queue_message_latest(
+                client_cmd.queue, "digitalInput", flush=False
+            )
+            self.assertEqual(msg_digital_input["value"], TEST_DIGITAL_INPUT_NO_POWER)
+
+            msg_digital_output = get_queue_message_latest(
+                client_cmd.queue, "digitalOutput", flush=False
+            )
+            self.assertEqual(msg_digital_output["value"], TEST_DIGITAL_OUTPUT_NO_POWER)
 
     async def test_cmd_exit_control(self):
         async with self.make_server() as server, self.make_clients(server) as (
@@ -353,33 +411,22 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await client_cmd.write(MsgType.Command, "exitControl")
             await asyncio.sleep(0.5)
 
-            # Skip the message of detailed state from welcome messages
-            queue = self._skip_init_events(client_cmd.queue, 9)
-            msg_detailed_state = self._get_latest_message(queue, "detailedState")
-
+            msg_detailed_state = get_queue_message_latest(
+                client_cmd.queue, "detailedState", flush=False
+            )
             self.assertEqual(
                 msg_detailed_state["detailedState"], DetailedState.Available
             )
 
-    def _skip_init_events(self, queue, num_init_events):
-        """Skip the initial events in queue.
+            msg_digital_input = get_queue_message_latest(
+                client_cmd.queue, "digitalInput", flush=False
+            )
+            self.assertEqual(msg_digital_input["value"], TEST_DIGITAL_INPUT_NO_POWER)
 
-        Parameters
-        ----------
-        queue : `asyncio.Queue`
-            Encoded input message.
-        num_init_events : `int`
-            Number of the initial events to skip.
-
-        Returns
-        -------
-        queue : `asyncio.Queue`
-            Queue that the initial events have been skipped.
-        """
-        for idx in range(num_init_events):
-            queue.get_nowait()
-
-        return queue
+            msg_digital_output = get_queue_message_latest(
+                client_cmd.queue, "digitalOutput", flush=False
+            )
+            self.assertEqual(msg_digital_output["value"], TEST_DIGITAL_OUTPUT_NO_POWER)
 
     async def test_cmd_apply_forces(self):
         async with self.make_server() as server, self.make_clients(server) as (
@@ -411,7 +458,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_tel,
         ):
 
-            server.model.actuator_power_on = True
+            server.model.motor_power_on = True
             server.model.switch_force_balance_system(True)
             mirror_position_set_point = dict(
                 [(axis, 1.0) for axis in ("x", "y", "z", "xRot", "yRot", "zRot")]
@@ -425,7 +472,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             await asyncio.sleep(3.0)
 
-            msg_in_position = self._get_latest_message(
+            msg_in_position = get_queue_message_latest(
                 client_cmd.queue, "m2AssemblyInPosition"
             )
 
@@ -459,7 +506,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(1)
 
             # Check the error code
-            msg_error_code = self._get_latest_message(client_cmd.queue, "errorCode")
+            msg_error_code = get_queue_message_latest(client_cmd.queue, "errorCode")
             self.assertEqual(msg_error_code["errorCode"], server.FAKE_ERROR_CODE)
 
             # Clear the error
@@ -468,7 +515,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             self.assertTrue(server.model.error_cleared)
 
-            msg_state = self._get_latest_message(client_cmd.queue, "summaryState")
+            msg_state = get_queue_message_latest(client_cmd.queue, "summaryState")
             self.assertEqual(msg_state["summaryState"], int(salobj.State.OFFLINE))
 
     async def test_cmd_switch_force_balance_system_fail(self):
@@ -483,7 +530,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             await asyncio.sleep(0.5)
 
-            msg_fb = self._get_latest_message(
+            msg_fb = get_queue_message_latest(
                 client_cmd.queue, "forceBalanceSystemStatus"
             )
 
@@ -496,7 +543,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            server.model.actuator_power_on = True
+            server.model.motor_power_on = True
             await client_cmd.write(
                 MsgType.Command,
                 "switchForceBalanceSystem",
@@ -504,7 +551,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             await asyncio.sleep(0.5)
 
-            msg_fb = self._get_latest_message(
+            msg_fb = get_queue_message_latest(
                 client_cmd.queue, "forceBalanceSystemStatus"
             )
 
@@ -525,7 +572,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             await asyncio.sleep(0.5)
 
-            msg_inclination_src = self._get_latest_message(
+            msg_inclination_src = get_queue_message_latest(
                 client_cmd.queue, "inclinationTelemetrySource"
             )
 
@@ -548,7 +595,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             await asyncio.sleep(0.5)
 
-            msg_temp_offset = self._get_latest_message(
+            msg_temp_offset = get_queue_message_latest(
                 client_cmd.queue, "temperatureOffset"
             )
 
@@ -560,7 +607,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             np.testing.assert_array_equal(server.model.temperature["intake"], intake)
             np.testing.assert_array_equal(server.model.temperature["exhaust"], exhaust)
 
-    async def test_telemetry_no_actuator_power(self):
+    async def test_telemetry_no_motor_power(self):
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -570,12 +617,12 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(1)
             self.assertGreater(client_tel.queue.qsize(), 10)
 
-    async def test_telemetry_with_actuator_power(self):
+    async def test_telemetry_with_motor_power(self):
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
         ):
-            server.model.actuator_power_on = True
+            server.model.motor_power_on = True
             server.model.switch_force_balance_system(True)
 
             # Check the telemetry
@@ -608,22 +655,36 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             # Check the initial telemetry
             await asyncio.sleep(0.5)
 
-            msg_power_status = client_tel.queue.get_nowait()
-            self.assertEqual(msg_power_status["id"], "powerStatus")
+            msg_power_status = get_queue_message_latest(client_tel.queue, "powerStatus")
             self.assertLess(abs(msg_power_status["motorVoltage"]), 1)
             self.assertLess(abs(msg_power_status["motorCurrent"]), 1)
-            self.assertGreater(abs(msg_power_status["commVoltage"]), 20)
-            self.assertGreater(abs(msg_power_status["commCurrent"]), 5)
+            self.assertLess(abs(msg_power_status["commVoltage"]), 1)
+            self.assertLess(abs(msg_power_status["commCurrent"]), 1)
+
+            # Enter the Disabled state
+            await client_cmd.write(MsgType.Command, "enterControl")
+            await client_cmd.write(MsgType.Command, "start")
+
+            # Check the communication is on in Disabled state
+            await asyncio.sleep(1)
+            msg_power_status = get_queue_message_latest(client_tel.queue, "powerStatus")
+
+            self.assertLess(abs(msg_power_status["motorVoltage"]), 1)
+            self.assertLess(abs(msg_power_status["motorCurrent"]), 1)
+            self.assertGreater(msg_power_status["commVoltage"], 20)
+            self.assertGreater(msg_power_status["commCurrent"], 5)
 
             # Enter the Enabled state
             await client_cmd.write(MsgType.Command, "enable")
             await asyncio.sleep(8)
 
-            # Check the motor is on in the Enabled state
-            msg_power_status = self._get_latest_message(client_tel.queue, "powerStatus")
+            # Check the motor is on in Enabled state
+            msg_power_status = get_queue_message_latest(client_tel.queue, "powerStatus")
 
-            self.assertGreater(abs(msg_power_status["motorVoltage"]), 20)
-            self.assertGreater(abs(msg_power_status["motorCurrent"]), 5)
+            self.assertGreater(msg_power_status["motorVoltage"], 22)
+            self.assertGreater(msg_power_status["motorCurrent"], 7)
+            self.assertGreater(msg_power_status["commVoltage"], 20)
+            self.assertGreater(msg_power_status["commCurrent"], 5)
 
     async def test_event_get_mtmount_mount_in_position(self):
         async with self.make_server() as server, self.make_clients(server) as (

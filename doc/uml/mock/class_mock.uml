@@ -8,7 +8,10 @@ MockServer *-- MockModel
 MockServer *-- MockMessageTelemetry
 MockServer *-- MockMessageEvent
 MockServer *-- MockCommand
+
 MockCommand ..> MockMessageEvent
 MockCommand --> MockModel
-Controller "1" *-- "2" TcpClient
+
+MockModel *-- MockScriptEngine
+
 @enduml

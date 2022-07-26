@@ -25,7 +25,16 @@ import pathlib
 
 from lsst.ts.idl.enums import MTM2
 
-from lsst.ts.m2com import MockModel
+from lsst.ts.m2com import (
+    MockModel,
+    PowerType,
+    TEST_DIGITAL_OUTPUT_NO_POWER,
+    TEST_DIGITAL_OUTPUT_POWER_COMM,
+    TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
+    TEST_DIGITAL_INPUT_NO_POWER,
+    TEST_DIGITAL_INPUT_POWER_COMM,
+    TEST_DIGITAL_INPUT_POWER_COMM_MOTOR,
+)
 
 
 class TestMockModel(unittest.TestCase):
@@ -35,7 +44,7 @@ class TestMockModel(unittest.TestCase):
 
         self.model = MockModel()
 
-        config_dir = pathlib.Path(__file__).parents[0]
+        config_dir = pathlib.Path(__file__).parents[0] / ".."
         self.model.configure(config_dir, "harrisLUT")
 
     def test_configure(self):
@@ -52,16 +61,16 @@ class TestMockModel(unittest.TestCase):
 
         self.assertTrue(self.model.is_cell_temperature_high())
 
-    def test_fault_actuator_power_not_on(self):
+    def test_fault_motor_power_not_on(self):
 
         self.model.fault()
         self.assertFalse(self.model.error_cleared)
         self.assertFalse(self.model.force_balance_system_status)
 
-    def test_fault_actuator_power_on(self):
+    def test_fault_motor_power_on(self):
 
         # Turn on the power and the switch should work
-        self.model.actuator_power_on = True
+        self.model.motor_power_on = True
         self.assertTrue(self.model.switch_force_balance_system(True))
         self.assertTrue(self.model.force_balance_system_status)
 
@@ -77,7 +86,7 @@ class TestMockModel(unittest.TestCase):
         self.assertFalse(self.model.force_balance_system_status)
 
         # Turn on the power and the switch should work
-        self.model.actuator_power_on = True
+        self.model.motor_power_on = True
         self.assertTrue(self.model.switch_force_balance_system(True))
         self.assertTrue(self.model.force_balance_system_status)
 
@@ -173,7 +182,7 @@ class TestMockModel(unittest.TestCase):
         self.assertEqual(len(telemetry_data), 2)
 
         # With power
-        self.model.actuator_power_on = True
+        self.model.motor_power_on = True
         self.model.switch_force_balance_system(True)
         force_axial, force_tangent = self._apply_forces()
 
@@ -181,6 +190,34 @@ class TestMockModel(unittest.TestCase):
 
         self.assertFalse(self.model.in_position)
         self.assertEqual(len(telemetry_data), 16)
+
+    def test_get_power_status(self):
+
+        # No power
+        power_status_no_power = self.model._get_power_status()
+
+        self.assertLess(abs(power_status_no_power["motorVoltage"]), 1)
+        self.assertLess(abs(power_status_no_power["motorCurrent"]), 1)
+        self.assertLess(abs(power_status_no_power["commVoltage"]), 1)
+        self.assertLess(abs(power_status_no_power["commCurrent"]), 1)
+
+        # Only communication power
+        self.model.communication_power_on = True
+        power_status_power_comm = self.model._get_power_status()
+
+        self.assertLess(abs(power_status_power_comm["motorVoltage"]), 1)
+        self.assertLess(abs(power_status_power_comm["motorCurrent"]), 1)
+        self.assertGreater(power_status_power_comm["commVoltage"], 20)
+        self.assertGreater(power_status_power_comm["commCurrent"], 5)
+
+        # All powers on
+        self.model.motor_power_on = True
+        power_status_power_comm_motor = self.model._get_power_status()
+
+        self.assertGreater(power_status_power_comm_motor["motorVoltage"], 22)
+        self.assertGreater(power_status_power_comm_motor["motorCurrent"], 7)
+        self.assertGreater(power_status_power_comm_motor["commVoltage"], 20)
+        self.assertGreater(power_status_power_comm_motor["commCurrent"], 5)
 
     def test_get_ilc_data(self):
 
@@ -345,7 +382,7 @@ class TestMockModel(unittest.TestCase):
         self.assertFalse(self.model.handle_position_mirror(mirror_position_set_point))
 
         # This should fail again
-        self.model.actuator_power_on = True
+        self.model.motor_power_on = True
         self.assertFalse(self.model.handle_position_mirror(mirror_position_set_point))
 
         # This should succeed in the final
@@ -354,6 +391,64 @@ class TestMockModel(unittest.TestCase):
 
         self.assertTrue(result)
         self.assertEqual(self.model.mirror_position, mirror_position_set_point)
+
+    def test_enable_open_loop_max_limits(self):
+
+        self.model.enable_open_loop_max_limits(True)
+        self.assertTrue(self.model.open_loop_max_limits_is_enabled)
+
+        self.model.enable_open_loop_max_limits(False)
+        self.assertFalse(self.model.open_loop_max_limits_is_enabled)
+
+        # The closed-loop control does not allow the maximum limits of
+        # open-loop control
+        self.model.enable_open_loop_max_limits(True)
+
+        self.model.motor_power_on = True
+        self.assertTrue(self.model.switch_force_balance_system(True))
+
+        self.assertFalse(self.model.open_loop_max_limits_is_enabled)
+
+    def test_reset_breakers(self):
+
+        # These should fail
+        self.assertFalse(self.model.reset_breakers(PowerType.Motor))
+        self.assertFalse(self.model.reset_breakers(PowerType.Communication))
+        self.assertFalse(self.model.reset_breakers(3))
+
+        # Reset the breakers of communication
+        self.model.communication_power_on = True
+        self.assertTrue(self.model.reset_breakers(PowerType.Communication))
+
+        # Reset the breakers of motor
+        self.model.motor_power_on = True
+        self.assertTrue(self.model.reset_breakers(PowerType.Motor))
+
+    def test_get_digital_output(self):
+
+        self.assertEqual(self.model.get_digital_output(), TEST_DIGITAL_OUTPUT_NO_POWER)
+
+        self.model.communication_power_on = True
+        self.assertEqual(
+            self.model.get_digital_output(), TEST_DIGITAL_OUTPUT_POWER_COMM
+        )
+
+        self.model.motor_power_on = True
+        self.assertEqual(
+            self.model.get_digital_output(), TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR
+        )
+
+    def test_get_digital_input(self):
+
+        self.assertEqual(self.model.get_digital_input(), TEST_DIGITAL_INPUT_NO_POWER)
+
+        self.model.communication_power_on = True
+        self.assertEqual(self.model.get_digital_input(), TEST_DIGITAL_INPUT_POWER_COMM)
+
+        self.model.motor_power_on = True
+        self.assertEqual(
+            self.model.get_digital_input(), TEST_DIGITAL_INPUT_POWER_COMM_MOTOR
+        )
 
 
 if __name__ == "__main__":

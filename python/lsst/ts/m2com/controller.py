@@ -45,6 +45,11 @@ class Controller:
         default is 0.05)
     maxsize_queue : `int`, optional
         Maximum size of queue. (the default is 1000)
+    is_csc : `bool`, optional
+        Is called by the commandable SAL component (CSC) or not. This is a
+        temporary option to separate the CSC and engineering user interface
+        (EUI). This will be removed in the future after the state machines in
+        the cell controller are unified to a single one. (the default is True)
 
     Attributes
     ----------
@@ -60,11 +65,13 @@ class Controller:
         Last command status.
     timeout : `float`
         Time limit for reading data from the TCP/IP interface (sec).
-    controller_state: `lsst.ts.salobj.State`
+    controller_state: enum `lsst.ts.salobj.State`
         Controller's state.
     """
 
-    def __init__(self, log=None, timeout_in_second=0.05, maxsize_queue=1000):
+    def __init__(
+        self, log=None, timeout_in_second=0.05, maxsize_queue=1000, is_csc=True
+    ):
 
         # Set the logger
         if log is None:
@@ -81,7 +88,14 @@ class Controller:
 
         self.timeout = timeout_in_second
 
-        self.controller_state = salobj.State.OFFLINE
+        # Is CSC or not. Remove this after the state machines in cell
+        # controller are unified.
+        self._is_csc = is_csc
+
+        # In EUI, there is no OFFLINE state.
+        self.controller_state = (
+            salobj.State.OFFLINE if self._is_csc else salobj.State.STANDBY
+        )
 
         # Start the connection task or not
         self._start_connection = False
@@ -355,8 +369,13 @@ class Controller:
 
     async def clear_errors(self):
         """Clear the errors."""
+
+        # In EUI, there is no OFFLINE state.
+        controller_state_expected = (
+            salobj.State.OFFLINE if self._is_csc else salobj.State.STANDBY
+        )
         await self.write_command_to_server(
-            "clearErrors", controller_state_expected=salobj.State.OFFLINE
+            "clearErrors", controller_state_expected=controller_state_expected
         )
 
     async def write_command_to_server(
@@ -376,15 +395,16 @@ class Controller:
             Message details. (the default is None)
         timeout : `float`, optional
             Timeout of command in second. (the default is 10.0)
-        controller_state_expected : `lsst.ts.salobj.State` or None, optional
+        controller_state_expected : enum `lsst.ts.salobj.State` or None,
+                                    optional
             Expected controller's state. This is only used for the commands
             related to the state transition. (the default is None)
 
         Raises
         ------
-        OSError:
+        `OSError`
             When no TCP/IP connection.
-        RuntimeError
+        `RuntimeError`
             When the command failed.
         """
 
@@ -415,7 +435,8 @@ class Controller:
             Command name.
         timeout : `float`
            Timeout of command acknowledgement in second.
-        controller_state_expected : `lsst.ts.salobj.State` or None, optional
+        controller_state_expected : enum `lsst.ts.salobj.State` or None,
+                                    optional
             Expected controller's state. This is only used for the commands
             related to the state transition. (the default is None)
 

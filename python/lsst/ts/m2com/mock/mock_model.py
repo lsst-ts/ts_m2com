@@ -21,7 +21,6 @@
 
 import logging
 import copy
-import yaml
 
 import numpy as np
 import pandas as pd
@@ -29,6 +28,10 @@ import pandas as pd
 from time import sleep
 
 from lsst.ts.idl.enums import MTM2
+
+from ..enum import PowerType, DigitalOutput, DigitalInput
+from ..utility import read_yaml_file
+from . import MockScriptEngine
 
 __all__ = ["MockModel"]
 
@@ -73,8 +76,10 @@ class MockModel:
         The units are the Newton and Newton * meter.
     force_balance_system_status : `bool`
         Force balance system is on or off.
-    actuator_power_on : `bool`
-        Actuator power is on or not.
+    communication_power_on : `bool`
+        Communication power is on or not.
+    motor_power_on : `bool`
+        Motor power is on or not.
     in_position : `bool`
         M2 assembly is in position or not.
     lut : `dict`
@@ -83,6 +88,10 @@ class MockModel:
         Error is cleared or not.
     mtmount_in_position : `bool`
         MTMount in position or not.
+    open_loop_max_limits_is_enabled : `bool`
+        The maximum limits of open-loop control is enabled or not.
+    script_engine : `MockScriptEngine`
+        Script engine to run the binary script.
     """
 
     def __init__(self, log=None, telemetry_interval=0.05):
@@ -138,7 +147,8 @@ class MockModel:
         )
         self.force_balance_system_status = False
 
-        self.actuator_power_on = False
+        self.communication_power_on = False
+        self.motor_power_on = False
         self.in_position = False
 
         # Generator to simulate the signal of ILC status
@@ -155,6 +165,10 @@ class MockModel:
         self.error_cleared = True
 
         self.mtmount_in_position = False
+
+        self.open_loop_max_limits_is_enabled = False
+
+        self.script_engine = MockScriptEngine()
 
     def _get_default_temperatures(
         self, temperature_init=11.0, temperature_ref=21.0, max_difference=2.0
@@ -234,6 +248,71 @@ class MockModel:
         """Mirror motion limit in the optical direction (in mm)."""
         return 7.89
 
+    @property
+    def digital_output_default(self):
+        """Default digital output defined with the enum 'DigitalOutput'."""
+        return (
+            DigitalOutput.InterlockEnable,
+            DigitalOutput.ResetMotorBreakers,
+            DigitalOutput.ResetCommunicationBreakers,
+        )
+
+    @property
+    def digital_input_default(self):
+        """Default digital input defined with the enum 'DigitalInput'."""
+        return (
+            DigitalInput.RedundancyOK,
+            DigitalInput.LoadDistributionOK,
+            DigitalInput.PowerSupplyDC_2_OK,
+            DigitalInput.PowerSupplyDC_1_OK,
+            DigitalInput.PowerSupplyCurrent_2_OK,
+            DigitalInput.PowerSupplyCurrent_1_OK,
+            DigitalInput.J1_W9_1_MotorPowerBreaker,
+            DigitalInput.J1_W9_2_MotorPowerBreaker,
+            DigitalInput.J1_W9_3_MotorPowerBreaker,
+            DigitalInput.J2_W10_1_MotorPowerBreaker,
+            DigitalInput.J2_W10_2_MotorPowerBreaker,
+            DigitalInput.J2_W10_3_MotorPowerBreaker,
+            DigitalInput.J3_W11_1_MotorPowerBreaker,
+            DigitalInput.J3_W11_2_MotorPowerBreaker,
+            DigitalInput.J3_W11_3_MotorPowerBreaker,
+            DigitalInput.J1_W12_1_CommunicationPowerBreaker,
+            DigitalInput.J1_W12_2_CommunicationPowerBreaker,
+            DigitalInput.J2_W13_1_CommunicationPowerBreaker,
+            DigitalInput.J2_W13_2_CommunicationPowerBreaker,
+            DigitalInput.J3_W14_1_CommunicationPowerBreaker,
+            DigitalInput.J3_W14_2_CommunicationPowerBreaker,
+            DigitalInput.InterlockPowerReplay,
+        )
+
+    @property
+    def digital_input_communication(self):
+        """Updated digital input when the communication power is on."""
+        return (
+            DigitalInput.J1_W12_1_CommunicationPowerBreaker,
+            DigitalInput.J1_W12_2_CommunicationPowerBreaker,
+            DigitalInput.J2_W13_1_CommunicationPowerBreaker,
+            DigitalInput.J2_W13_2_CommunicationPowerBreaker,
+            DigitalInput.J3_W14_1_CommunicationPowerBreaker,
+            DigitalInput.J3_W14_2_CommunicationPowerBreaker,
+        )
+
+    @property
+    def digital_input_motor(self):
+        """Updated digital input when the motor power is on."""
+        return (
+            DigitalInput.J1_W9_1_MotorPowerBreaker,
+            DigitalInput.J1_W9_2_MotorPowerBreaker,
+            DigitalInput.J1_W9_3_MotorPowerBreaker,
+            DigitalInput.J2_W10_1_MotorPowerBreaker,
+            DigitalInput.J2_W10_2_MotorPowerBreaker,
+            DigitalInput.J2_W10_3_MotorPowerBreaker,
+            DigitalInput.J3_W11_1_MotorPowerBreaker,
+            DigitalInput.J3_W11_2_MotorPowerBreaker,
+            DigitalInput.J3_W11_3_MotorPowerBreaker,
+            DigitalInput.InterlockPowerReplay,
+        )
+
     def configure(self, config_dir, lut_path):
         """Do the configuration.
 
@@ -276,30 +355,10 @@ class MockModel:
 
         # Read the yaml files
         path_disp_ims = config_dir / lut_path / "disp_ims.yaml"
-        self._disp_ims = self._get_content_yaml(path_disp_ims)
+        self._disp_ims = read_yaml_file(path_disp_ims)
 
         path_cell_geom = config_dir / lut_path / "cell_geom.yaml"
-        self._cell_geom = self._get_content_yaml(path_cell_geom)
-
-    def _get_content_yaml(self, file_path):
-        """Get the content of yaml file.
-
-        Parameters
-        ----------
-        file_path : `pathlib.PosixPath`
-            Path of yaml file.
-
-        Returns
-        -------
-        `dict`
-            Content of yaml file.
-        """
-
-        try:
-            with open(file_path, "r") as yaml_file:
-                return yaml.safe_load(yaml_file)
-        except IOError:
-            raise
+        self._cell_geom = read_yaml_file(path_cell_geom)
 
     def is_cell_temperature_high(self):
         """Cell temperature is high or not.
@@ -340,11 +399,16 @@ class MockModel:
 
         result = True
 
-        if status is True and not self.actuator_power_on:
+        if (status is True) and (not self.motor_power_on):
             self.force_balance_system_status = False
             result = False
         else:
             self.force_balance_system_status = status
+
+        # In closed-loop control, the maximum limits of open-loop control is
+        # disabled.
+        if self.force_balance_system_status is True:
+            self.enable_open_loop_max_limits(False)
 
         return result
 
@@ -472,7 +536,7 @@ class MockModel:
         telemetry_data["powerStatus"] = self._get_power_status()
 
         position_ims = None
-        if self.actuator_power_on:
+        if self.motor_power_on:
 
             telemetry_data["ilcData"] = self._get_ilc_data()
             telemetry_data["netForcesTotal"] = self._get_net_forces_total()
@@ -579,15 +643,19 @@ class MockModel:
 
         rms_power = np.random.normal(scale=rms, size=4)
 
-        if self.actuator_power_on:
+        if self.motor_power_on:
             motor_voltage_update = motor_voltage + rms_power[0]
             motor_current_update = motor_current + rms_power[1]
         else:
             motor_voltage_update = rms_power[0]
             motor_current_update = rms_power[1]
 
-        comm_voltage_update = comm_voltage + rms_power[2]
-        comm_current_update = comm_current + rms_power[3]
+        if self.communication_power_on:
+            comm_voltage_update = comm_voltage + rms_power[2]
+            comm_current_update = comm_current + rms_power[3]
+        else:
+            comm_voltage_update = rms_power[2]
+            comm_current_update = rms_power[3]
 
         return {
             "motorVoltage": motor_voltage_update,
@@ -1030,7 +1098,7 @@ class MockModel:
             True if succeeds. Otherwise, False.
         """
 
-        if (not self.actuator_power_on) or (self.force_balance_system_status is False):
+        if (not self.motor_power_on) or (self.force_balance_system_status is False):
             return False
 
         # Check limits
@@ -1120,3 +1188,92 @@ class MockModel:
                 sleep(self.telemetry_interval)
 
         return True
+
+    def enable_open_loop_max_limits(self, status):
+        """Enable the maximum limits of open-loop control.
+
+        Parameters
+        ----------
+        status : `bool`
+            True if allow the maximum limits of open-loop control. Otherwise,
+            False.
+
+        Returns
+        -------
+        result : `bool`
+            True if succeeds. Otherwise, False.
+        """
+
+        result = True
+
+        if (status is True) and (self.force_balance_system_status is True):
+            self.open_loop_max_limits_is_enabled = False
+            result = False
+        else:
+            self.open_loop_max_limits_is_enabled = status
+
+        return result
+
+    def reset_breakers(self, power_type):
+        """Reset the breakers.
+
+        Parameters
+        ----------
+        power_type : `PowerType`
+            Power type.
+
+        Returns
+        -------
+        result : `bool`
+            True if succeeds. Otherwise, False.
+        """
+
+        result = False
+
+        if (power_type == PowerType.Motor) and self.motor_power_on:
+            result = True
+        elif (power_type == PowerType.Communication) and self.communication_power_on:
+            result = True
+
+        return result
+
+    def get_digital_output(self):
+        """Get the value of digital output.
+
+        Returns
+        -------
+        digital_output : `int`
+            Value of the digital output.
+        """
+
+        digital_output = sum([item.value for item in self.digital_output_default])
+
+        if self.communication_power_on:
+            digital_output += DigitalOutput.CommunicationPower.value
+
+        if self.motor_power_on:
+            digital_output += DigitalOutput.MotorPower.value
+
+        return digital_output
+
+    def get_digital_input(self):
+        """Get the value of digital input that represents the current state of
+        the system.
+
+        Returns
+        -------
+        digital_input : `int`
+            Value of the digital input.
+        """
+
+        digital_input = sum([item.value for item in self.digital_input_default])
+
+        if self.communication_power_on:
+            digital_input -= sum(
+                [item.value for item in self.digital_input_communication]
+            )
+
+        if self.motor_power_on:
+            digital_input -= sum([item.value for item in self.digital_input_motor])
+
+        return digital_input

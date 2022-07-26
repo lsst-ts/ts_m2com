@@ -20,10 +20,18 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import json
+import yaml
+from copy import deepcopy
 
 from lsst.ts import tcpip
 
-__all__ = ["write_json_packet", "check_queue_size"]
+__all__ = [
+    "write_json_packet",
+    "check_queue_size",
+    "read_yaml_file",
+    "collect_queue_messages",
+    "get_queue_message_latest",
+]
 
 
 async def write_json_packet(writer, msg_input):
@@ -71,3 +79,88 @@ def check_queue_size(queue, log, name=""):
 
     else:
         return False
+
+
+def read_yaml_file(filepath):
+    """Read the yaml file.
+
+    Parameters
+    ----------
+    filepath : `str` or `pathlib.PosixPath`
+        Yaml file path.
+
+    Returns
+    -------
+    content : `dict`
+        File content.
+
+    Raises
+    ------
+    `IOError`
+        Cannot open the file.
+    """
+
+    content = dict()
+    try:
+        with open(filepath, "r") as yaml_file:
+            content = yaml.safe_load(yaml_file)
+    except IOError:
+        raise IOError(f"Cannot open the yaml file: {filepath}.")
+
+    return content
+
+
+def collect_queue_messages(queue, name, flush=True):
+    """Collect the specific messages in queue.
+
+    This function is used in the unit test only.
+
+    Parameters
+    ----------
+    queue : `asyncio.Queue`
+        Queue of message.
+    name : `str`
+        Name of message.
+    flush : `bool`, optional
+        Flush the queue or not. (the default is True)
+
+    Returns
+    -------
+    messages : `list`
+        Messages.
+    """
+
+    queue_check = queue if flush else deepcopy(queue)
+
+    messages = list()
+    while not queue_check.empty():
+        message = queue_check.get_nowait()
+        if message["id"] == name:
+            messages.append(message)
+
+    return messages
+
+
+def get_queue_message_latest(queue, name, flush=True):
+    """Get the latest message in queue.
+
+    This function is used in the unit test only.
+
+    Parameters
+    ----------
+    queue : `asyncio.Queue`
+        Queue of message.
+    name : `str`
+        Name of message.
+    flush : `bool`, optional
+        Flush the queue or not. (the default is True)
+
+    Returns
+    -------
+    message_latest : `dict`
+        Latest message.
+    """
+
+    messages = collect_queue_messages(queue, name, flush=flush)
+
+    return messages[-1]

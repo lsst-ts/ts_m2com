@@ -9,6 +9,8 @@ M2 Common Code
 
 .. image:: https://img.shields.io/badge/GitHub-ts__m2com-green.svg
     :target: https://github.com/lsst-ts/ts_m2com
+.. image:: https://img.shields.io/badge/Jenkins-ts__m2com-green.svg
+    :target: https://tssw-ci.lsst.org/job/LSST_Telescope-and-Site/job/ts_m2com
 .. image:: https://img.shields.io/badge/Jira-ts__m2com-green.svg
     :target: https://jira.lsstcorp.org/issues/?jql=labels%20in%20(ts_m2com%2C%20%20M2)
 
@@ -49,15 +51,30 @@ The design here takes the following documents as references: `TS JSON Message Fo
 Architecture
 =============
 
-The classes in module are listed below.
+The classes and files for each module are listed below.
 
-.. uml:: uml/class.uml
+.. _lsst.ts.m2com-modules_m2com:
+
+m2com
+-------------
+
+.. uml:: uml/class_m2com.uml
     :caption: Class diagram of M2 common code
 
 * **Controller** has the business logic to communicate with hardware by TCP/IP interface.
 * **TcpClient** is a TCP/IP client.
+
+.. _lsst.ts.m2com-modules_m2com_mock:
+
+m2com.mock
+-------------
+
+.. uml:: uml/mock/class_mock.uml
+    :caption: Class diagram of mock module in M2 common code
+
 * **MockServer** is a mock server of M2 to support the simulation mode.
 * **MockModel** simulates the hardware behavior to be used by **MockServer**.
+* **MockScriptEngine** simulates the execution of binary script.
 * **MockCommand** simulates the execution of command in real hardware.
 * **MockMessageEvent** simulates the message of event from real hardware.
 * **MockMessageTelemetry** simulates the message of telemetry from real hardware.

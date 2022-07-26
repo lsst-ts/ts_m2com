@@ -28,15 +28,9 @@ from lsst.ts import salobj
 from lsst.ts import tcpip
 from lsst.ts.utils import make_done_future
 
-from . import (
-    MockModel,
-    CommandStatus,
-    DetailedState,
-    write_json_packet,
-    MockMessageTelemetry,
-    MockMessageEvent,
-    MockCommand,
-)
+from ..enum import CommandStatus, DetailedState
+from ..utility import write_json_packet
+from . import MockModel, MockMessageTelemetry, MockMessageEvent, MockCommand
 
 
 __all__ = ["MockServer"]
@@ -64,6 +58,9 @@ class MockServer:
         to IPv4 or IPv6, respectively. If `socket.AF_UNSPEC` (the default)
         the family will be determined from host, and if host is None,
         the server may listen on both IPv4 and IPv6 sockets.
+    is_csc : `bool`, optional
+        Is called by the commandable SAL component (CSC) or not. (the default
+        is True)
 
     Attributes
     ----------
@@ -92,6 +89,7 @@ class MockServer:
         timeout_in_second=0.05,
         log=None,
         socket_family=socket.AF_UNSPEC,
+        is_csc=True,
     ):
 
         if log is None:
@@ -135,7 +133,9 @@ class MockServer:
         self._message_event = None
         self._message_telemetry = None
 
-        self._command = MockCommand()
+        self._is_csc = is_csc
+
+        self._command = MockCommand(is_csc=self._is_csc)
         self._command_response = {
             "cmd_enable": self._command.enable,
             "cmd_disable": self._command.disable,
@@ -150,6 +150,14 @@ class MockServer:
             "cmd_switchForceBalanceSystem": self._command.switch_force_balance_system,
             "cmd_selectInclinationSource": self._command.select_inclination_source,
             "cmd_setTemperatureOffset": self._command.set_temperature_offset,
+            "cmd_switchCommandSource": self._command.switch_command_source,
+            "cmd_runScript": self._command.run_script,
+            "cmd_moveActuators": self._command.move_actuators,
+            "cmd_resetBreakers": self._command.reset_breakers,
+            "cmd_rebootController": self._command.reboot_controller,
+            "cmd_enableOpenLoopMaxLimits": self._command.enable_open_loop_max_limits,
+            "cmd_saveMirrorPosition": self._command.save_mirror_position,
+            "cmd_setMirrorHome": self._command.set_mirror_home,
         }
 
     def _connect_state_changed_callback_command(self, server_command):
@@ -200,6 +208,8 @@ class MockServer:
 
                 await self._process_message_command()
 
+                await self._run_and_report_script_engine_status()
+
         except ConnectionError:
             self.log.info("Command reader disconnected.")
             self._monitor_loop_task_command.cancel()
@@ -208,6 +218,9 @@ class MockServer:
             self.log.info("EOF is reached.")
 
         await self.server_command.close_client()
+
+        self.model.script_engine.pause()
+        self.model.script_engine.clear()
 
     async def _send_welcome_message(self):
         """Send the welcome message to describe the system status and
@@ -231,13 +244,23 @@ class MockServer:
             [temp_offset] * 2,
         )
 
+        # This is only for the state machine of CSC
         # Sleep time is to simulate some internal inspection of
         # real system
-        await self._message_event.write_detailed_state(DetailedState.PublishOnly)
-        await asyncio.sleep(0.01)
-        await self._message_event.write_detailed_state(DetailedState.Available)
+        if self._is_csc:
+            await self._message_event.write_detailed_state(DetailedState.PublishOnly)
+            await asyncio.sleep(0.01)
+            await self._message_event.write_detailed_state(DetailedState.Available)
 
-        await self._message_event.write_summary_state(salobj.State.OFFLINE)
+        summary_state = salobj.State.OFFLINE if self._is_csc else salobj.State.STANDBY
+        await self._message_event.write_summary_state(summary_state)
+
+        # Send the digital input and output
+        digital_input = self.model.get_digital_input()
+        await self._message_event.write_digital_input(digital_input)
+
+        digital_output = self.model.get_digital_output()
+        await self._message_event.write_digital_output(digital_output)
 
     async def _process_message_command(self):
         """Process the incoming message from command server."""
@@ -264,6 +287,12 @@ class MockServer:
 
                 # Command result
                 await self._reply_command(sequence_id, command_status)
+
+                # Need to shutdown the server
+                if (command_name == "cmd_rebootController") and (
+                    command_status == CommandStatus.Success
+                ):
+                    await self.close()
 
             # Process the event
             if self._is_event(name):
@@ -403,6 +432,23 @@ class MockServer:
         if name == "evt_mountinposition" and component == "mtmount":
             self.model.mtmount_in_position = message["inPosition"]
 
+    async def _run_and_report_script_engine_status(self, steps=1):
+        """Run the script engine and report the status.
+
+        Parameters
+        ----------
+        steps : `int` or `float`, optional
+            Steps to run. The value should be between 0 and 100. (the default
+            is 1)
+        """
+
+        script_engine = self.model.script_engine
+        if script_engine.is_running:
+            script_engine.run_steps(steps)
+            await self._message_event.write_script_execution_status(
+                script_engine.percentage
+            )
+
     def _connect_state_changed_callback_telemetry(self, server_telemetry):
         """Called when the telemetry server connection state changes.
 
@@ -454,7 +500,7 @@ class MockServer:
             telemetry_data["displacementSensors"]
         )
 
-        if self.model.actuator_power_on:
+        if self.model.motor_power_on:
             await self._message_telemetry.write_ilc_data(telemetry_data["ilcData"])
             await self._message_telemetry.write_net_forces_total(
                 telemetry_data["netForcesTotal"]
@@ -552,5 +598,11 @@ class MockServer:
         self._message_telemetry = None
 
         self.model.force_balance_system_status = False
-        self.model.actuator_power_on = False
+        self.model.communication_power_on = False
+        self.model.motor_power_on = False
         self.model.error_cleared = True
+
+        self.model.open_loop_max_limits_is_enabled = False
+
+        self.model.script_engine.pause()
+        self.model.script_engine.clear()

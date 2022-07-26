@@ -24,14 +24,35 @@ import asyncio
 from lsst.ts import salobj
 from lsst.ts.idl.enums import MTM2
 
-from . import DetailedState, CommandStatus
+from ..enum import (
+    DetailedState,
+    CommandStatus,
+    CommandScript,
+    PowerType,
+    DigitalOutput,
+)
 
 
 __all__ = ["MockCommand"]
 
 
 class MockCommand:
-    """Mock command to simulate the execution of command in real hardware."""
+    """Mock command to simulate the execution of command in real hardware.
+
+    Parameters
+    ----------
+    is_csc : `bool`, optional
+        Is called by the commandable SAL component (CSC) or not. (the default
+        is True)
+    """
+
+    SLEEP_TIME_SHORT = 0.01
+    SLEEP_TIME_NORMAL = 5
+
+    def __init__(self, is_csc=True):
+
+        # Is CSC or not.
+        self._is_csc = is_csc
 
     async def enable(self, message, model, message_event):
         """Enable the system.
@@ -53,11 +74,11 @@ class MockCommand:
             Status of command execution.
         """
 
-        model.actuator_power_on = True
+        model.motor_power_on = True
         command_success = model.switch_force_balance_system(True)
 
         if not command_success:
-            model.actuator_power_on = False
+            model.motor_power_on = False
 
         await message_event.write_m2_assembly_in_position(False)
         await message_event.write_force_balance_system_status(
@@ -65,14 +86,34 @@ class MockCommand:
         )
 
         # Simulate the real hardware behavior
-        await asyncio.sleep(5)
+        await asyncio.sleep(self.SLEEP_TIME_NORMAL)
 
         await message_event.write_summary_state(salobj.State.ENABLED)
+
+        if command_success:
+            await self._report_digital_input_and_ouput(model, message_event)
 
         return (
             model,
             CommandStatus.Success if command_success is True else CommandStatus.Fail,
         )
+
+    async def _report_digital_input_and_ouput(self, model, message_event):
+        """Report the digital input and output.
+
+        Parameters
+        ----------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+        """
+
+        digital_input = model.get_digital_input()
+        await message_event.write_digital_input(digital_input)
+
+        digital_output = model.get_digital_output()
+        await message_event.write_digital_output(digital_output)
 
     async def disable(self, message, model, message_event):
         """Disable the system.
@@ -95,13 +136,15 @@ class MockCommand:
         """
 
         model.switch_force_balance_system(False)
-        model.actuator_power_on = False
+        model.motor_power_on = False
 
         await message_event.write_force_balance_system_status(
             model.force_balance_system_status
         )
 
         await message_event.write_summary_state(salobj.State.DISABLED)
+
+        await self._report_digital_input_and_ouput(model, message_event)
 
         return model, CommandStatus.Success
 
@@ -125,7 +168,12 @@ class MockCommand:
             Status of command execution.
         """
 
+        model.communication_power_on = False
+        model.motor_power_on = False
+
         await message_event.write_summary_state(salobj.State.STANDBY)
+
+        await self._report_digital_input_and_ouput(model, message_event)
 
         return model, CommandStatus.Success
 
@@ -149,13 +197,21 @@ class MockCommand:
             Status of command execution.
         """
 
+        model.communication_power_on = True
+
         await message_event.write_summary_state(salobj.State.DISABLED)
+
+        await self._report_digital_input_and_ouput(model, message_event)
 
         return model, CommandStatus.Success
 
     async def enter_control(self, message, model, message_event):
         """Enter the control.
 
+        This is only supported for the commandable SAL component (CSC). In the
+        future, this command will be removed after the state machines in cell
+        controller are unified to a single one.
+
         Parameters
         ----------
         message : `dict`
@@ -173,13 +229,23 @@ class MockCommand:
             Status of command execution.
         """
 
-        await message_event.write_summary_state(salobj.State.STANDBY)
+        if self._is_csc:
+            await message_event.write_summary_state(salobj.State.STANDBY)
 
-        return model, CommandStatus.Success
+            await self._report_digital_input_and_ouput(model, message_event)
+
+            return model, CommandStatus.Success
+
+        else:
+            return model, CommandStatus.Fail
 
     async def exit_control(self, message, model, message_event):
         """Exit the control.
 
+        This is only supported for the commandable SAL component (CSC). In the
+        future, this command will be removed after the state machines in cell
+        controller are unified to a single one.
+
         Parameters
         ----------
         message : `dict`
@@ -197,16 +263,26 @@ class MockCommand:
             Status of command execution.
         """
 
-        # Sleep time is to simulate some internal inspection of
-        # real system
-        await asyncio.sleep(0.01)
-        await message_event.write_detailed_state(DetailedState.PublishOnly)
-        await asyncio.sleep(0.01)
-        await message_event.write_detailed_state(DetailedState.Available)
+        if self._is_csc:
 
-        await message_event.write_summary_state(salobj.State.OFFLINE)
+            model.communication_power_on = False
+            model.motor_power_on = False
 
-        return model, CommandStatus.Success
+            # Sleep time is to simulate some internal inspection of
+            # real system
+            await asyncio.sleep(self.SLEEP_TIME_SHORT)
+            await message_event.write_detailed_state(DetailedState.PublishOnly)
+            await asyncio.sleep(self.SLEEP_TIME_SHORT)
+            await message_event.write_detailed_state(DetailedState.Available)
+
+            await message_event.write_summary_state(salobj.State.OFFLINE)
+
+            await self._report_digital_input_and_ouput(model, message_event)
+
+            return model, CommandStatus.Success
+
+        else:
+            return model, CommandStatus.Fail
 
     async def apply_forces(self, message, model, message_event):
         """Apply the forces in addtional to the LUT force.
@@ -331,7 +407,14 @@ class MockCommand:
         """
 
         model.clear_errors()
-        model, command_status = await self.exit_control(message, model, message_event)
+
+        # In EUI, there is no OFFLINE state.
+        if self._is_csc:
+            model, command_status = await self.exit_control(
+                message, model, message_event
+            )
+        else:
+            model, command_status = await self.standby(message, model, message_event)
 
         return model, command_status
 
@@ -433,3 +516,234 @@ class MockCommand:
             command_status = CommandStatus.Fail
 
         return model, command_status
+
+    async def switch_command_source(self, message, model, message_event):
+        """Switch the command source to be the commandable SAL component (CSC)
+        or engineering user interface (EUI).
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        is_csc = message["isRemote"]
+        await message_event.write_commandable_by_dds(is_csc)
+
+        return model, CommandStatus.Success
+
+    async def run_script(self, message, model, message_event):
+        """Run the binary script used in the engineering user interface (EUI).
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        command = CommandScript(message["scriptCommand"])
+
+        try:
+            if command == CommandScript.LoadScript:
+                model.script_engine.set_name(message["scriptName"])
+
+            elif command == CommandScript.Clear:
+                model.script_engine.clear()
+
+            elif command in (CommandScript.Run, CommandScript.Resume):
+                model.script_engine.run()
+
+            elif command == CommandScript.Stop:
+                model.script_engine.stop()
+
+            elif command == CommandScript.Pause:
+                model.script_engine.pause()
+
+        except Exception:
+            return model, CommandStatus.Fail
+
+        return model, CommandStatus.Success
+
+    async def move_actuators(self, message, model, message_event):
+        """Move the actuators.
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        # TODO: Implement in DM-35583.
+        pass
+
+    async def reset_breakers(self, message, model, message_event):
+        """Reset the breakers.
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        power_type = PowerType(message["powerType"])
+        command_success = model.reset_breakers(power_type)
+
+        # If success, simulate the update of digital output
+        if command_success:
+            digital_output_default = model.get_digital_output()
+
+            digital_output_reset = digital_output_default
+            if power_type == PowerType.Motor:
+                digital_output_reset -= DigitalOutput.ResetMotorBreakers.value
+            elif power_type == PowerType.Communication:
+                digital_output_reset -= DigitalOutput.ResetCommunicationBreakers.value
+
+            await message_event.write_digital_output(digital_output_reset)
+
+            # Sleep a short time to simulate the reset process
+            await asyncio.sleep(self.SLEEP_TIME_NORMAL)
+
+            await message_event.write_digital_output(digital_output_default)
+
+        return (
+            model,
+            CommandStatus.Success if command_success is True else CommandStatus.Fail,
+        )
+
+    async def reboot_controller(self, message, model, message_event):
+        """Reboot the cell controller.
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        return model, CommandStatus.Success
+
+    async def enable_open_loop_max_limits(self, message, model, message_event):
+        """Enable the maximum limits in open-loop control.
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        command_success = model.enable_open_loop_max_limits(True)
+
+        return (
+            model,
+            CommandStatus.Success if command_success is True else CommandStatus.Fail,
+        )
+
+    async def save_mirror_position(self, message, model, message_event):
+        """Save the position of mirror.
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        return model, CommandStatus.Success
+
+    async def set_mirror_home(self, message, model, message_event):
+        """Set the home of mirror.
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        # TODO: Implement in DM-35583.
+        pass
