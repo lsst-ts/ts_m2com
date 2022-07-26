@@ -2,7 +2,7 @@
 Version History
 ===============
 
-v0.1.1
+v0.2.0
 ------
 
 * Reorganize the project to have the **mock** module.
