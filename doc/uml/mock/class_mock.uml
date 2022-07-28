@@ -13,5 +13,6 @@ MockCommand ..> MockMessageEvent
 MockCommand --> MockModel
 
 MockModel *-- MockScriptEngine
+MockModel *-- MockControlOpenLoop
 
 @enduml
