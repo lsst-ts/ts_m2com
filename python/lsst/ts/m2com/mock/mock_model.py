@@ -29,9 +29,10 @@ from time import sleep
 
 from lsst.ts.idl.enums import MTM2
 
+from ..constant import NUM_ACTUATOR, NUM_TANGENT_LINK
 from ..enum import PowerType, DigitalOutput, DigitalInput
 from ..utility import read_yaml_file
-from . import MockScriptEngine
+from . import MockScriptEngine, MockControlOpenLoop
 
 __all__ = ["MockModel"]
 
@@ -52,16 +53,14 @@ class MockModel:
     ----------
     log : `logging.Logger`
         A logger.
+    control_open_loop : `MockControlOpenLoop`
+        Open-loop control.
     telemetry_interval : `float`
         Telemetry interval in second.
     inclination_source : `MTM2.InclinationTelemetrySource`
         Source of the inclination.
     zenith_angle : `float`
         Zenith angle in degree.
-    n_actuators : `int`
-        Number of axial actuators.
-    n_tangent_actuators : `int`
-        Number of tangent actuators.
     mirror_position : `dict`
         Mirror position. The key is the axis (x, y, z, xRot, yRot, zRot) of
         mirror. The units are the micron and arcsec.
@@ -88,8 +87,6 @@ class MockModel:
         Error is cleared or not.
     mtmount_in_position : `bool`
         MTMount in position or not.
-    open_loop_max_limits_is_enabled : `bool`
-        The maximum limits of open-loop control is enabled or not.
     script_engine : `MockScriptEngine`
         Script engine to run the binary script.
     """
@@ -102,23 +99,22 @@ class MockModel:
         else:
             self.log = log.getChild(type(self).__name__)
 
+        self.control_open_loop = MockControlOpenLoop()
+
         self.telemetry_interval = telemetry_interval
 
         self.inclination_source = MTM2.InclinationTelemetrySource.ONBOARD
+
         self.zenith_angle = 0.0
+        self.update_zenith_angle(0)
 
-        self.n_actuators = 72
-        self.n_tangent_actuators = 6
-
-        self.mirror_position = dict(
-            [(axis, 0.0) for axis in ("x", "y", "z", "xRot", "yRot", "zRot")]
-        )
+        self.mirror_position = self.get_default_mirror_position()
 
         self.temperature = self._get_default_temperatures()
 
         self.axial_forces = dict(
             [
-                (item, np.zeros(self.n_actuators))
+                (item, np.zeros(NUM_ACTUATOR - NUM_TANGENT_LINK))
                 for item in (
                     "lutGravity",
                     "lutTemperature",
@@ -130,7 +126,7 @@ class MockModel:
         )
         self.tangent_forces = dict(
             [
-                (item, np.zeros(self.n_tangent_actuators))
+                (item, np.zeros(NUM_TANGENT_LINK))
                 for item in (
                     "lutGravity",
                     "applied",
@@ -139,6 +135,9 @@ class MockModel:
                 )
             ]
         )
+
+        self._set_default_measured_forces()
+
         # No LUT temperature correction for tangent links
         self.tangent_forces["lutTemperature"] = np.array([])
 
@@ -166,9 +165,29 @@ class MockModel:
 
         self.mtmount_in_position = False
 
-        self.open_loop_max_limits_is_enabled = False
-
         self.script_engine = MockScriptEngine()
+
+    def update_zenith_angle(self, angle):
+        """Update the zenith angle.
+
+        Parameters
+        ----------
+        angle : `float`
+            Zenith angle in degree.
+        """
+
+        self.zenith_angle = angle
+        self.control_open_loop.inclinometer_angle = 90 - angle
+
+    def get_default_mirror_position(self):
+        """Get the default mirror position.
+
+        Returns
+        -------
+        `dict`
+            Default mirror position. The key is axis.
+        """
+        return dict([(axis, 0.0) for axis in ("x", "y", "z", "xRot", "yRot", "zRot")])
 
     def _get_default_temperatures(
         self, temperature_init=11.0, temperature_ref=21.0, max_difference=2.0
@@ -198,6 +217,15 @@ class MockModel:
         temperatures["maxDiff"] = max_difference
 
         return temperatures
+
+    def _set_default_measured_forces(self):
+        """Set the default measured forces."""
+
+        forces = self.control_open_loop.get_forces_mirror_weight(
+            self.control_open_loop.inclinometer_angle
+        )
+        self.axial_forces["measured"] = forces[: (NUM_ACTUATOR - NUM_TANGENT_LINK)]
+        self.tangent_forces["measured"] = forces[-NUM_TANGENT_LINK:]
 
     def _uniq_ilc_status_generator(self):
         """Unique inner-loop controller (ILC) status generator.
@@ -360,6 +388,12 @@ class MockModel:
         path_cell_geom = config_dir / lut_path / "cell_geom.yaml"
         self._cell_geom = read_yaml_file(path_cell_geom)
 
+        # Read the static transfer matrix
+        path_static_transfer_matrix = config_dir / lut_path / "StaticTransferMatrix.csv"
+        self.control_open_loop.read_file_static_transfer_matrix(
+            path_static_transfer_matrix
+        )
+
     def is_cell_temperature_high(self):
         """Cell temperature is high or not.
 
@@ -380,6 +414,10 @@ class MockModel:
         """Fault the model."""
 
         self.error_cleared = False
+
+        self.script_engine.stop()
+        self.control_open_loop.stop()
+
         self.switch_force_balance_system(False)
         self.reset_force_offsets()
 
@@ -406,9 +444,11 @@ class MockModel:
             self.force_balance_system_status = status
 
         # In closed-loop control, the maximum limits of open-loop control is
-        # disabled.
+        # disabled. In addition, the system can not run the closed-loop and
+        # open-loop in the same time.
         if self.force_balance_system_status is True:
-            self.enable_open_loop_max_limits(False)
+            self.enable_open_loop_max_limit(False)
+            self.control_open_loop.is_running = False
 
         return result
 
@@ -502,8 +542,8 @@ class MockModel:
     def reset_force_offsets(self):
         """Reset the force offsets."""
 
-        self.axial_forces["applied"] = np.zeros(self.n_actuators)
-        self.tangent_forces["applied"] = np.zeros(self.n_tangent_actuators)
+        self.axial_forces["applied"] = np.zeros(NUM_ACTUATOR - NUM_TANGENT_LINK)
+        self.tangent_forces["applied"] = np.zeros(NUM_TANGENT_LINK)
 
     def clear_errors(self):
         """Clear the errors."""
@@ -562,48 +602,24 @@ class MockModel:
             # Get the zenith angle
             telemetry_data["zenithAngle"] = self._simulate_zenith_angle()
 
-            # Get the positions and steps of axial actuators
+            # Get the actuator steps and positions
+            steps = self.control_open_loop.actuator_steps
+            positions = self.control_open_loop.get_actuator_positions()
 
-            # Position to steps (step/mm).
-            position_to_steps = 1.0 / 1.99675366010000e-5
+            num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
 
-            # Coefficients to convert from actuator force to position.
-            # position = force_to_position[0] * force + force_to_position[1]
-            force_to_position = [-0.0011, 0.224]
-
-            (
-                axial_actuator_position,
-                axial_actuator_steps,
-            ) = self._simulate_position_step(
-                force_to_position[0],
-                force_to_position[1],
-                self.axial_forces["measured"],
-                position_to_steps,
-            )
-
-            telemetry_data["axialEncoderPositions"] = {
-                "position": axial_actuator_position
-            }
             telemetry_data["axialActuatorSteps"] = {
-                "steps": axial_actuator_steps.tolist()
+                "steps": steps[:num_axial_actuators].tolist()
+            }
+            telemetry_data["axialEncoderPositions"] = {
+                "position": positions[:num_axial_actuators].tolist()
             }
 
-            # Get the positions and steps of tangent actuators
-            (
-                tangent_actuator_position,
-                tangent_actuator_steps,
-            ) = self._simulate_position_step(
-                force_to_position[0],
-                force_to_position[1],
-                self.tangent_forces["measured"],
-                position_to_steps,
-            )
-
-            telemetry_data["tangentEncoderPositions"] = {
-                "position": tangent_actuator_position
-            }
             telemetry_data["tangentActuatorSteps"] = {
-                "steps": tangent_actuator_steps.tolist()
+                "steps": steps[-NUM_TANGENT_LINK:].tolist()
+            }
+            telemetry_data["tangentEncoderPositions"] = {
+                "position": positions[-NUM_TANGENT_LINK:].tolist()
             }
 
         telemetry_data["displacementSensors"] = self._get_displacement_sensors(
@@ -673,10 +689,7 @@ class MockModel:
             Data of ILC data.
         """
 
-        return {
-            "status": [next(self._ilc_status)]
-            * (self.n_actuators + self.n_tangent_actuators)
-        }
+        return {"status": [next(self._ilc_status)] * NUM_ACTUATOR}
 
     def _get_displacement_sensors(self, mirror_position=None):
         """Get the displacement sensors.
@@ -770,17 +783,16 @@ class MockModel:
         # Update the force data
         self.calc_look_up_forces()
 
-        n_actuators = self.n_actuators
-        n_tangent_actuators = self.n_tangent_actuators
+        n_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
         if self.force_balance_system_status:
             self.axial_forces["hardpointCorrection"] = np.random.normal(
                 scale=force_rms,
-                size=n_actuators,
+                size=n_axial_actuators,
             )
 
             self.tangent_forces["hardpointCorrection"] = np.random.normal(
                 scale=force_rms,
-                size=n_tangent_actuators,
+                size=NUM_TANGENT_LINK,
             )
 
             self.force_balance = dict(
@@ -796,18 +808,31 @@ class MockModel:
         in_position_axial, final_force_axial = self.force_dynamics(
             demanded_axial_force, self.axial_forces["measured"], force_rms
         )
-        self.axial_forces["measured"] = final_force_axial + np.random.normal(
-            scale=force_rms,
-            size=n_actuators,
-        )
-
         in_position_tangent, final_force_axial_tangent = self.force_dynamics(
             demanded_tangent_force, self.tangent_forces["measured"], force_rms
         )
-        self.tangent_forces["measured"] = final_force_axial_tangent + np.random.normal(
-            scale=force_rms,
-            size=n_tangent_actuators,
-        )
+
+        # In the closed-loop control, update the measured forces and steps.
+        # Otherwise, do not update the values.
+        if self.force_balance_system_status:
+
+            self.axial_forces["measured"] = final_force_axial + np.random.normal(
+                scale=force_rms,
+                size=n_axial_actuators,
+            )
+            self.tangent_forces[
+                "measured"
+            ] = final_force_axial_tangent + np.random.normal(
+                scale=force_rms,
+                size=NUM_TANGENT_LINK,
+            )
+
+            # Update the steps in the open-loop control
+            forces = np.append(
+                self.axial_forces["measured"], self.tangent_forces["measured"]
+            )
+            steps = self.control_open_loop.calculate_forces_to_steps(forces)
+            self.control_open_loop.update_actuator_steps(steps)
 
         return in_position_axial and in_position_tangent
 
@@ -847,12 +872,12 @@ class MockModel:
             f"Requested zAngle = {self.zenith_angle}," f"LUT angle = {lut_angle}."
         )
 
-        n_actuators = self.n_actuators
-        myfe = np.zeros(n_actuators)
-        myf0 = np.zeros(n_actuators)
-        myfa = np.zeros(n_actuators)
-        myff = np.zeros(n_actuators)
-        for i in range(n_actuators):
+        n_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
+        myfe = np.zeros(n_axial_actuators)
+        myf0 = np.zeros(n_axial_actuators)
+        myfa = np.zeros(n_axial_actuators)
+        myff = np.zeros(n_axial_actuators)
+        for i in range(n_axial_actuators):
             myfe[i] = np.interp(
                 lut_angle, self.lut["lutInAngle"], self.lut["F_E"][i, :]
             )
@@ -1030,50 +1055,24 @@ class MockModel:
             Zenith angle data. The unit is degree.
         """
 
-        inclinometer_value = self.zenith_angle + np.random.normal(
-            scale=inclinometer_rms
+        inclinometer_value = (
+            self.control_open_loop.inclinometer_angle
+            + np.random.normal(scale=inclinometer_rms)
         )
 
         if self.inclination_source == MTM2.InclinationTelemetrySource.ONBOARD:
-            measured = inclinometer_value
+            measured = 90 - inclinometer_value
         else:
             measured = self.zenith_angle
 
         zenith_angle = dict()
         zenith_angle["measured"] = measured
-        zenith_angle["inclinometerRaw"] = 1000.0 * inclinometer_value
-        zenith_angle["inclinometerProcessed"] = inclinometer_value
+        zenith_angle["inclinometerRaw"] = inclinometer_value
+        zenith_angle[
+            "inclinometerProcessed"
+        ] = self.control_open_loop.correct_inclinometer_angle(inclinometer_value)
 
         return zenith_angle
-
-    def _simulate_position_step(
-        self, force_to_position_slope, force_to_position_const, force, position_to_steps
-    ):
-        """Simulate the position and step of actuators.
-
-        Parameters
-        ----------
-        force_to_position_slope : `float`
-            Slope of force to position (mm/N).
-        force_to_position_const : `float`
-            Constant of force to position (mm).
-        force : `numpy.ndarray`
-            Actuator force in Newton.
-        position_to_steps : `float`
-            Position to steps (step/mm).
-
-        Returns
-        -------
-        actuator_position : `numpy.ndarray`
-            Position of the actuators.
-        actuator_steps : `numpy.ndarray`
-            Steps of the actuators.
-        """
-
-        actuator_position = force_to_position_slope * force + force_to_position_const
-        actuator_steps = np.array(actuator_position * position_to_steps, dtype=int)
-
-        return actuator_position, actuator_steps
 
     def handle_position_mirror(self, mirror_position_set_point):
         """Handle positining the mirror.
@@ -1189,13 +1188,13 @@ class MockModel:
 
         return True
 
-    def enable_open_loop_max_limits(self, status):
-        """Enable the maximum limits of open-loop control.
+    def enable_open_loop_max_limit(self, status):
+        """Enable the maximum limit of open-loop control.
 
         Parameters
         ----------
         status : `bool`
-            True if allow the maximum limits of open-loop control. Otherwise,
+            True if allow the maximum limit of open-loop control. Otherwise,
             False.
 
         Returns
@@ -1207,10 +1206,10 @@ class MockModel:
         result = True
 
         if (status is True) and (self.force_balance_system_status is True):
-            self.open_loop_max_limits_is_enabled = False
+            self.control_open_loop.open_loop_max_limit_is_enabled = False
             result = False
         else:
-            self.open_loop_max_limits_is_enabled = status
+            self.control_open_loop.open_loop_max_limit_is_enabled = status
 
         return result
 

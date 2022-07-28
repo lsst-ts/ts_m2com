@@ -28,6 +28,8 @@ from ..enum import (
     DetailedState,
     CommandStatus,
     CommandScript,
+    CommandActuator,
+    ActuatorDisplacementUnit,
     PowerType,
     DigitalOutput,
 )
@@ -563,9 +565,9 @@ class MockCommand:
             Status of command execution.
         """
 
-        command = CommandScript(message["scriptCommand"])
-
         try:
+            command = CommandScript(message["scriptCommand"])
+
             if command == CommandScript.LoadScript:
                 model.script_engine.set_name(message["scriptName"])
 
@@ -606,8 +608,28 @@ class MockCommand:
             Status of command execution.
         """
 
-        # TODO: Implement in DM-35583.
-        pass
+        try:
+            command = CommandActuator(message["actuatorCommand"])
+
+            if command == CommandActuator.Start:
+                actuators = message["actuators"]
+                displacement = message["displacement"]
+                unit = ActuatorDisplacementUnit(message["unit"])
+                model.control_open_loop.start(actuators, displacement, unit)
+
+            elif command == CommandActuator.Stop:
+                model.control_open_loop.stop()
+
+            elif command == CommandActuator.Pause:
+                model.control_open_loop.pause()
+
+            elif command == CommandActuator.Resume:
+                model.control_open_loop.resume()
+
+        except Exception:
+            return model, CommandStatus.Fail
+
+        return model, CommandStatus.Success
 
     async def reset_breakers(self, message, model, message_event):
         """Reset the breakers.
@@ -676,8 +698,8 @@ class MockCommand:
 
         return model, CommandStatus.Success
 
-    async def enable_open_loop_max_limits(self, message, model, message_event):
-        """Enable the maximum limits in open-loop control.
+    async def enable_open_loop_max_limit(self, message, model, message_event):
+        """Enable the maximum limit in open-loop control.
 
         Parameters
         ----------
@@ -696,7 +718,7 @@ class MockCommand:
             Status of command execution.
         """
 
-        command_success = model.enable_open_loop_max_limits(True)
+        command_success = model.enable_open_loop_max_limit(True)
 
         return (
             model,
@@ -745,5 +767,6 @@ class MockCommand:
             Status of command execution.
         """
 
-        # TODO: Implement in DM-35583.
-        pass
+        model.mirror_position = model.get_default_mirror_position()
+
+        return model, CommandStatus.Success
