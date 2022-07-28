@@ -37,6 +37,8 @@ from lsst.ts.m2com import (
     MockServer,
     collect_queue_messages,
     get_queue_message_latest,
+    NUM_ACTUATOR,
+    NUM_TANGENT_LINK,
     TEST_DIGITAL_OUTPUT_NO_POWER,
     TEST_DIGITAL_OUTPUT_POWER_COMM,
     TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
@@ -434,8 +436,8 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_tel,
         ):
 
-            force_axial = [1] * server.model.n_actuators
-            force_tangent = [2] * server.model.n_tangent_actuators
+            force_axial = [1] * (NUM_ACTUATOR - NUM_TANGENT_LINK)
+            force_tangent = [2] * NUM_TANGENT_LINK
 
             await client_cmd.write(
                 MsgType.Command,
@@ -485,10 +487,10 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            server.model.axial_forces["applied"] = np.ones(server.model.n_actuators)
-            server.model.tangent_forces["applied"] = np.ones(
-                server.model.n_tangent_actuators
+            server.model.axial_forces["applied"] = np.ones(
+                NUM_ACTUATOR - NUM_TANGENT_LINK
             )
+            server.model.tangent_forces["applied"] = np.ones(NUM_TANGENT_LINK)
 
             await client_cmd.write(MsgType.Command, "resetForceOffsets")
             await asyncio.sleep(0.5)

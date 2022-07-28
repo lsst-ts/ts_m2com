@@ -26,6 +26,8 @@ import contextlib
 import unittest
 import pathlib
 
+import numpy as np
+
 from lsst.ts import tcpip
 from lsst.ts import salobj
 from lsst.ts.m2com import (
@@ -33,10 +35,13 @@ from lsst.ts.m2com import (
     Controller,
     CommandStatus,
     CommandScript,
+    CommandActuator,
+    ActuatorDisplacementUnit,
     PowerType,
     DigitalOutput,
     collect_queue_messages,
     get_queue_message_latest,
+    NUM_ACTUATOR,
     TEST_DIGITAL_OUTPUT_POWER_COMM,
     TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
 )
@@ -339,13 +344,135 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(1)
             self.assertFalse(script_engine.is_running)
 
-    @unittest.skip("TODO: Implement in DM-35583.")
-    async def test_move_actuators(self):
+    async def test_move_actuators_fail(self):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
 
-            await controller.close()
+            with self.assertRaises(RuntimeError):
+                await controller.write_command_to_server(
+                    "moveActuators",
+                    message_details={"actuatorCommand": CommandActuator.Start},
+                )
+
+    async def test_move_actuators_success_to_end(self):
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+
+            server.model.communication_power_on = True
+            server.model.motor_power_on = True
+
+            await controller.write_command_to_server(
+                "moveActuators",
+                message_details={
+                    "actuatorCommand": CommandActuator.Start,
+                    "actuators": [2, 3],
+                    "displacement": 1000,
+                    "unit": ActuatorDisplacementUnit.Step,
+                },
+            )
+
+            await asyncio.sleep(1)
+
+            # Check the result
+            message_axial_steps = get_queue_message_latest(
+                controller.client_telemetry.queue, "axialActuatorSteps"
+            )
+
+            self.assertEqual(message_axial_steps["steps"][2], 1000)
+            self.assertEqual(message_axial_steps["steps"][3], 1000)
+
+    async def test_move_actuators_out_limit(self):
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+
+            # Change the default steps to trigger the fault easier
+            steps = np.zeros(NUM_ACTUATOR, dtype=int)
+            steps[0] = -4500
+            server.model.control_open_loop.update_actuator_steps(steps)
+
+            server.model.communication_power_on = True
+            server.model.motor_power_on = True
+
+            await controller.write_command_to_server(
+                "moveActuators",
+                message_details={
+                    "actuatorCommand": CommandActuator.Start,
+                    "actuators": [0],
+                    "displacement": -2000,
+                    "unit": ActuatorDisplacementUnit.Step,
+                },
+            )
+
+            await asyncio.sleep(1)
+
+            self.assertFalse(server.model.error_cleared)
+            self.assertFalse(server.model.control_open_loop.is_running)
+
+            message_summary_state = get_queue_message_latest(
+                controller.queue_event, "summaryState"
+            )
+            self.assertEqual(message_summary_state["summaryState"], salobj.State.FAULT)
+
+    async def test_move_actuators_success_pause(self):
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+
+            server.model.communication_power_on = True
+            server.model.motor_power_on = True
+
+            # Start
+            await controller.write_command_to_server(
+                "moveActuators",
+                message_details={
+                    "actuatorCommand": CommandActuator.Start,
+                    "actuators": [2, 3],
+                    "displacement": 1.2,
+                    "unit": ActuatorDisplacementUnit.Millimeter,
+                },
+            )
+
+            await asyncio.sleep(1)
+
+            # Pause
+            await controller.write_command_to_server(
+                "moveActuators",
+                message_details={"actuatorCommand": CommandActuator.Pause},
+            )
+
+            # Check the result
+            message_axial_steps_pause = get_queue_message_latest(
+                controller.client_telemetry.queue, "axialActuatorSteps"
+            )
+
+            self.assertGreater(message_axial_steps_pause["steps"][2], 0)
+
+            # Resume
+            await controller.write_command_to_server(
+                "moveActuators",
+                message_details={"actuatorCommand": CommandActuator.Resume},
+            )
+
+            await asyncio.sleep(1)
+
+            # Stop
+            await controller.write_command_to_server(
+                "moveActuators",
+                message_details={"actuatorCommand": CommandActuator.Stop},
+            )
+
+            # Check the result
+            message_axial_steps_stop = get_queue_message_latest(
+                controller.client_telemetry.queue, "axialActuatorSteps"
+            )
+
+            self.assertGreater(
+                message_axial_steps_stop["steps"][2],
+                message_axial_steps_pause["steps"][2],
+            )
 
     async def test_reset_breakers_communication(self):
         async with self.make_server() as server, self.make_controller(
@@ -404,16 +531,18 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(1)
             self.assertFalse(controller.are_clients_connected())
 
-    async def test_enable_open_loop_max_limits(self):
+    async def test_enable_open_loop_max_limit(self):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
 
-            await controller.write_command_to_server("enableOpenLoopMaxLimits")
+            await controller.write_command_to_server("enableOpenLoopMaxLimit")
 
             # Wait a little time to let the internal process to finish
             await asyncio.sleep(1)
-            self.assertTrue(server.model.open_loop_max_limits_is_enabled)
+            self.assertTrue(
+                server.model.control_open_loop.open_loop_max_limit_is_enabled
+            )
 
     async def test_save_mirror_position(self):
         async with self.make_server() as server, self.make_controller(
@@ -426,13 +555,16 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(1)
             self.assertEqual(controller.last_command_status, CommandStatus.Success)
 
-    @unittest.skip("TODO: Implement in DM-35583.")
     async def test_set_mirror_home(self):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
 
-            await controller.close()
+            server.model.mirror_position["x"] = 1
+
+            await controller.write_command_to_server("setMirrorHome")
+
+            self.assertEqual(server.model.mirror_position["x"], 0)
 
 
 if __name__ == "__main__":
