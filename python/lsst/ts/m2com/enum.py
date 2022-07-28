@@ -26,6 +26,8 @@ __all__ = [
     "CommandStatus",
     "DetailedState",
     "CommandScript",
+    "CommandActuator",
+    "ActuatorDisplacementUnit",
     "PowerType",
     "DigitalOutput",
     "DigitalInput",
@@ -78,6 +80,22 @@ class CommandScript(IntEnum):
     Stop = auto()
     Pause = auto()
     Resume = auto()
+
+
+class CommandActuator(IntEnum):
+    """Action to command the actuators."""
+
+    Start = 1
+    Stop = auto()
+    Pause = auto()
+    Resume = auto()
+
+
+class ActuatorDisplacementUnit(IntEnum):
+    """Unit of the actuator displacement."""
+
+    Millimeter = 1
+    Step = auto()
 
 
 class PowerType(IntEnum):
