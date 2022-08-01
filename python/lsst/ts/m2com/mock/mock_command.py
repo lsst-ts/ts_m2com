@@ -84,7 +84,7 @@ class MockCommand:
 
         await message_event.write_m2_assembly_in_position(False)
         await message_event.write_force_balance_system_status(
-            model.force_balance_system_status
+            model.control_closed_loop.is_running
         )
 
         # Simulate the real hardware behavior
@@ -141,7 +141,7 @@ class MockCommand:
         model.motor_power_on = False
 
         await message_event.write_force_balance_system_status(
-            model.force_balance_system_status
+            model.control_closed_loop.is_running
         )
 
         await message_event.write_summary_state(salobj.State.DISABLED)
@@ -310,7 +310,7 @@ class MockCommand:
 
         command_status = CommandStatus.Success
         try:
-            model.apply_forces(message["axial"], message["tangent"])
+            model.control_closed_loop.apply_forces(message["axial"], message["tangent"])
             await message_event.write_m2_assembly_in_position(False)
 
         except RuntimeError:
@@ -383,7 +383,7 @@ class MockCommand:
             Status of command execution.
         """
 
-        model.reset_force_offsets()
+        model.control_closed_loop.reset_force_offsets()
         await message_event.write_m2_assembly_in_position(False)
 
         return model, CommandStatus.Success
@@ -443,7 +443,7 @@ class MockCommand:
         command_success = model.switch_force_balance_system(message["status"])
 
         await message_event.write_force_balance_system_status(
-            model.force_balance_system_status
+            model.control_closed_loop.is_running
         )
 
         return (
@@ -510,7 +510,7 @@ class MockCommand:
 
         command_status = CommandStatus.Success
         if len(set(offset)) == 1:
-            model.temperature["ref"] = offset[0]
+            model.control_closed_loop.temperature["ref"] = offset[0]
             await message_event.write_temperature_offset(
                 message["ring"], message["intake"], message["exhaust"]
             )

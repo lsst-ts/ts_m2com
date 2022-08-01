@@ -1,0 +1,424 @@
+# This file is part of ts_m2com.
+#
+# Developed for the Vera Rubin Observatory Telescope and Site Systems.
+# This product includes software developed by the LSST Project
+# (https://www.lsst.org).
+# See the COPYRIGHT file at the top-level directory of this distribution
+# for details of code ownership.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+import unittest
+import pathlib
+
+import numpy as np
+
+from lsst.ts.m2com import MockControlClosedLoop, NUM_ACTUATOR, NUM_TANGENT_LINK
+
+
+class TestMockControlClosedLoop(unittest.TestCase):
+    """Test the Mock closed-loop control class."""
+
+    def setUp(self):
+
+        self.control_closed_loop = MockControlClosedLoop()
+
+        filepath_lut = pathlib.Path(__file__).parents[0] / ".." / "harrisLUT"
+        self.control_closed_loop.read_file_lut(filepath_lut)
+
+        filepath_cell_geometry = filepath_lut / "cell_geom.yaml"
+        self.control_closed_loop.read_file_cell_geometry(filepath_cell_geometry)
+
+    def test_init(self):
+
+        self.assertEqual(len(self.control_closed_loop.temperature), 5)
+        self.assertEqual(len(self.control_closed_loop._lut), 10)
+        self.assertEqual(len(self.control_closed_loop._cell_geom), 3)
+
+    def test_simulate_temperature_and_update(self):
+
+        pass
+
+    def test_set_measured_forces_exception(self):
+
+        self.assertRaises(
+            ValueError,
+            self.control_closed_loop.set_measured_forces,
+            np.zeros(NUM_ACTUATOR),
+            np.zeros(NUM_TANGENT_LINK),
+        )
+
+        self.assertRaises(
+            ValueError,
+            self.control_closed_loop.set_measured_forces,
+            np.zeros(NUM_ACTUATOR - NUM_TANGENT_LINK),
+            np.zeros(1),
+        )
+
+    def test_set_measured_forces(self):
+
+        self.control_closed_loop.set_measured_forces(
+            np.ones(NUM_ACTUATOR - NUM_TANGENT_LINK), 2 * np.ones(NUM_TANGENT_LINK)
+        )
+
+        self.assertEqual(
+            np.sum(self.control_closed_loop.axial_forces["measured"]),
+            NUM_ACTUATOR - NUM_TANGENT_LINK,
+        )
+        self.assertEqual(
+            np.sum(self.control_closed_loop.tangent_forces["measured"]),
+            2 * NUM_TANGENT_LINK,
+        )
+
+    def test_is_cell_temperature_high(self):
+
+        # Temperature is normal
+        self.assertFalse(self.control_closed_loop.is_cell_temperature_high())
+
+        # Temperature is high
+        self.control_closed_loop.temperature["exhaust"] = [99, 99]
+
+        self.assertTrue(self.control_closed_loop.is_cell_temperature_high())
+
+    def test_apply_forces(self):
+
+        force_axial, force_tangent = self._apply_forces()
+
+        np.testing.assert_array_equal(
+            self.control_closed_loop.axial_forces["applied"], force_axial
+        )
+        np.testing.assert_array_equal(
+            self.control_closed_loop.tangent_forces["applied"], force_tangent
+        )
+
+    def _apply_forces(self):
+
+        force_axial = [1] * (NUM_ACTUATOR - NUM_TANGENT_LINK)
+        force_tangent = [2] * NUM_TANGENT_LINK
+        self.control_closed_loop.apply_forces(force_axial, force_tangent)
+
+        return force_axial, force_tangent
+
+    def test_check_axial_force_limit(self):
+
+        # Without the applying of force
+        self.control_closed_loop.calc_look_up_forces(59.06)
+        demanded_axial_force = self.control_closed_loop.check_axial_force_limit()
+
+        self.assertAlmostEqual(demanded_axial_force[0], 130.3597559)
+        self.assertAlmostEqual(demanded_axial_force[1], 166.0450977)
+
+        # Applying the force
+        self._apply_forces()
+        demanded_axial_force_apply = self.control_closed_loop.check_axial_force_limit()
+
+        self.assertAlmostEqual(demanded_axial_force_apply[0], 131.3597559)
+
+    def test_check_axial_force_limit_error(self):
+
+        force_axial = [0] * (NUM_ACTUATOR - NUM_TANGENT_LINK)
+        force_axial[2] = 999
+
+        self.assertRaises(
+            RuntimeError, self.control_closed_loop.check_axial_force_limit, force_axial
+        )
+
+    def test_check_tangent_force_limit(self):
+
+        # Without the applying of force
+        self.control_closed_loop.calc_look_up_forces(59.06)
+        demanded_tanget_force = self.control_closed_loop.check_tangent_force_limit()
+
+        self.assertAlmostEqual(demanded_tanget_force[0], 16.113)
+        self.assertAlmostEqual(demanded_tanget_force[1], -131.72)
+
+        # Applying the force
+        self._apply_forces()
+        demanded_tanget_force_apply = (
+            self.control_closed_loop.check_tangent_force_limit()
+        )
+
+        self.assertAlmostEqual(demanded_tanget_force_apply[0], 18.113)
+
+    def test_check_tangent_force_limit_error(self):
+
+        force_tangent = [0] * NUM_TANGENT_LINK
+        force_tangent[2] = 9999
+
+        self.assertRaises(
+            RuntimeError,
+            self.control_closed_loop.check_tangent_force_limit,
+            force_tangent,
+        )
+
+    def test_reset_force_offsets(self):
+
+        self._apply_forces()
+
+        self.control_closed_loop.reset_force_offsets()
+
+        np.testing.assert_array_equal(
+            self.control_closed_loop.axial_forces["applied"],
+            [0] * (NUM_ACTUATOR - NUM_TANGENT_LINK),
+        )
+        np.testing.assert_array_equal(
+            self.control_closed_loop.tangent_forces["applied"], [0] * NUM_TANGENT_LINK
+        )
+
+    def test_get_net_forces_total(self):
+
+        self.control_closed_loop.axial_forces["measured"][1:3] = np.array([1, 2])
+        self.control_closed_loop.tangent_forces["measured"] = np.array(
+            [1, 2, 3, 4, 5, 6]
+        )
+
+        net_forces_total = self.control_closed_loop.get_net_forces_total()
+
+        self.assertAlmostEqual(net_forces_total["fx"], -3)
+        self.assertAlmostEqual(net_forces_total["fy"], -5.1961524)
+        self.assertAlmostEqual(net_forces_total["fz"], 3)
+
+    def test_get_net_moments_total(self):
+
+        self.control_closed_loop.axial_forces["measured"][1:4] = np.array([1, 2, 3])
+        self.control_closed_loop.tangent_forces["measured"] = np.array(
+            [1, 2, 3, 4, 5, 6]
+        )
+
+        net_moments_total = self.control_closed_loop.get_net_moments_total()
+
+        self.assertAlmostEqual(net_moments_total["mx"], 8.37691)
+        self.assertAlmostEqual(net_moments_total["my"], 4.45836999)
+        self.assertAlmostEqual(net_moments_total["mz"], 37.3839844)
+
+    def test_handle_forces_function(self):
+
+        # No update of force now
+        self.control_closed_loop.handle_forces(0)
+
+        value_original = self.control_closed_loop.axial_forces["measured"][0]
+        self.assertEqual(value_original, 0.0)
+
+        # There is the update of force
+        self.control_closed_loop.is_running = True
+
+        self.control_closed_loop.handle_forces(0)
+
+        self.assertGreater(
+            np.abs(
+                self.control_closed_loop.axial_forces["measured"][0] - value_original
+            ),
+            1,
+        )
+
+    @unittest.skip("")
+    def test_handle_forces(self):
+
+        self.control_closed_loop.is_running = True
+        force_axial, force_tangent = self._apply_forces()
+
+        force_rms = 0.5
+        in_position = self.control_closed_loop.handle_forces(90, force_rms=force_rms)
+
+        self.assertFalse(in_position)
+
+        # Check the axial forces
+        self.assertNotEqual(
+            np.sum(
+                np.abs(self.control_closed_loop.axial_forces["hardpointCorrection"])
+            ),
+            0,
+        )
+        self.assertLess(
+            np.std(self.control_closed_loop.axial_forces["hardpointCorrection"]),
+            3 * force_rms,
+        )
+        self.assertNotEqual(
+            np.sum(np.abs(self.control_closed_loop.axial_forces["measured"])), 0
+        )
+        self.assertLess(
+            np.std(self.control_closed_loop.axial_forces["measured"]), 3 * force_rms
+        )
+
+        # Check the tangent forces
+        self.assertNotEqual(
+            np.sum(
+                np.abs(self.control_closed_loop.tangent_forces["hardpointCorrection"])
+            ),
+            0,
+        )
+        self.assertLess(
+            np.std(self.control_closed_loop.tangent_forces["hardpointCorrection"]),
+            3 * force_rms,
+        )
+        self.assertNotEqual(
+            np.sum(np.abs(self.control_closed_loop.tangent_forces["measured"])), 0
+        )
+        self.assertLess(
+            np.std(self.control_closed_loop.tangent_forces["measured"]), 3 * force_rms
+        )
+
+    def test_calc_look_up_forces(self):
+
+        self.control_closed_loop.calc_look_up_forces(59.06)
+
+        # Check the length
+        num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
+
+        self.assertEqual(
+            len(self.control_closed_loop.axial_forces["lutTemperature"]),
+            num_axial_actuators,
+        )
+
+        self.assertEqual(
+            len(self.control_closed_loop.axial_forces["lutGravity"]),
+            num_axial_actuators,
+        )
+        self.assertEqual(
+            len(self.control_closed_loop.tangent_forces["lutGravity"]), NUM_TANGENT_LINK
+        )
+
+        # Check the value
+        self.assertAlmostEqual(
+            self.control_closed_loop.axial_forces["lutTemperature"][0], 3.5039021
+        )
+        self.assertAlmostEqual(
+            self.control_closed_loop.axial_forces["lutGravity"][0], 126.8558538
+        )
+
+        self.assertAlmostEqual(
+            self.control_closed_loop.tangent_forces["lutGravity"][0], 16.113
+        )
+        self.assertAlmostEqual(
+            self.control_closed_loop.tangent_forces["lutGravity"][1], -131.72
+        )
+
+        np.testing.assert_array_equal(
+            self.control_closed_loop.tangent_forces["lutTemperature"], np.array([])
+        )
+
+    def test_calc_look_up_forces_temperature(self):
+
+        lut_temperature = np.array(
+            [
+                24.49,
+                24.49,
+                26.53,
+                24.49,
+                24.49,
+                24.49,
+                24.49,
+                26.53,
+                26.53,
+                26.53,
+                24.49,
+                24.49,
+            ]
+        )
+
+        (
+            force_r,
+            force_x,
+            force_y,
+            force_u,
+        ) = self.control_closed_loop._calc_look_up_forces_temperature(
+            lut_temperature, 21
+        )
+
+        num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
+
+        self.assertEqual(len(force_r), num_axial_actuators)
+        self.assertEqual(len(force_x), num_axial_actuators)
+        self.assertEqual(len(force_y), num_axial_actuators)
+        self.assertEqual(len(force_u), num_axial_actuators)
+
+        self.assertAlmostEqual(force_r[0], 0.0394274)
+        self.assertAlmostEqual(force_r[1], 0.1676719)
+        self.assertAlmostEqual(force_r[2], -0.1255785)
+
+        self.assertAlmostEqual(force_x[0], -0.0233559)
+        self.assertAlmostEqual(force_x[1], -0.0780716)
+        self.assertAlmostEqual(force_x[2], 0.0444155)
+
+        self.assertAlmostEqual(force_y[0], 0.0115954)
+        self.assertAlmostEqual(force_y[1], -0.0090821)
+        self.assertAlmostEqual(force_y[2], 0.020449)
+
+        self.assertAlmostEqual(force_u[0], 3.4762351)
+        self.assertAlmostEqual(force_u[1], -4.417117)
+        self.assertAlmostEqual(force_u[2], -0.2456348)
+
+    def test_calc_look_up_forces_gravity(self):
+
+        (
+            force_elevation,
+            force_0g_component,
+            force_actuator_bias,
+            force_factory_offset,
+        ) = self.control_closed_loop._calc_look_up_forces_gravity(59.06)
+
+        self.assertAlmostEqual(force_elevation[0], 261.1468838)
+        self.assertAlmostEqual(force_elevation[1], 213.176983)
+        self.assertAlmostEqual(force_elevation[2], 183.7221491)
+
+        self.assertAlmostEqual(force_0g_component[0], -137.444)
+        self.assertAlmostEqual(force_0g_component[1], -42.924)
+        self.assertAlmostEqual(force_0g_component[2], -26.955)
+
+        self.assertAlmostEqual(force_actuator_bias[0], 3.15297)
+        self.assertAlmostEqual(force_actuator_bias[1], 0.1287134)
+        self.assertAlmostEqual(force_actuator_bias[2], 4.3287288)
+        self.assertAlmostEqual(force_actuator_bias[-3], -30.391)
+        self.assertAlmostEqual(force_actuator_bias[-2], -9.0112)
+        self.assertAlmostEqual(force_actuator_bias[-1], -28.964)
+
+        self.assertAlmostEqual(force_factory_offset[0], 0.0)
+        self.assertAlmostEqual(force_factory_offset[1], 0.0)
+        self.assertAlmostEqual(force_factory_offset[2], 0.0)
+
+    def test_calc_force_hardpoint(self):
+
+        pass
+
+    def test_force_dynamics_in_position(self):
+
+        demand = np.array([1, 2])
+        current = demand.copy()
+        force_rms = 0.5
+        in_position, final_force = self.control_closed_loop.force_dynamics(
+            demand, current, force_rms
+        )
+
+        self.assertTrue(in_position)
+        np.testing.assert_array_equal(final_force, demand)
+
+    def test_force_dynamics_not_in_position(self):
+
+        demand = np.array([1, 2])
+        current = np.array([5, -5])
+        force_rms = 0.5
+        in_position, final_force = self.control_closed_loop.force_dynamics(
+            demand,
+            current,
+            force_rms,
+        )
+
+        self.assertFalse(in_position)
+        np.testing.assert_array_equal(final_force, [1, 0])
+
+
+if __name__ == "__main__":
+
+    # Do the unit test
+    unittest.main()

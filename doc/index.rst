@@ -76,6 +76,7 @@ m2com.mock
 * **MockModel** simulates the hardware behavior to be used by **MockServer**.
 * **MockScriptEngine** simulates the execution of binary script.
 * **MockControlOpenLoop** simulates the open-loop control.
+* **MockControlClosedLoop** simulates the closed-loop control.
 * **MockCommand** simulates the execution of command in real hardware.
 * **MockMessageEvent** simulates the message of event from real hardware.
 * **MockMessageTelemetry** simulates the message of telemetry from real hardware.

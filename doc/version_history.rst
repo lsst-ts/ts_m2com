@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v0.4.0
+------
+
+* Add the **MockControlClosedLoop** class.
+
 v0.3.0
 ------
 
