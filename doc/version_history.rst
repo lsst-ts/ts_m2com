@@ -2,7 +2,7 @@
 Version History
 ===============
 
-v0.2.1
+v0.3.0
 ------
 
 * Add the **MockControlOpenLoop** class.

@@ -40,7 +40,8 @@ class MockControlOpenLoop:
     is_running : `bool`
         The script is running or not.
     actuator_steps : `numpy.ndarray [int]`
-        Actuator steps.
+        Current positions of the actuator in steps referenced to the home
+        position.
     """
 
     # 1 step equals 1.9967536601e-5 millimeter
@@ -77,7 +78,7 @@ class MockControlOpenLoop:
     def read_file_static_transfer_matrix(self, filepath, skiprows=7):
         """Read the file of static transfer matrix (the size is 78 x 78).
 
-        Note: This file comes from the vender's original project used in the
+        This file comes from the vender's original project used in the
         simulation purpose.
 
         Parameters
@@ -95,12 +96,12 @@ class MockControlOpenLoop:
         self._static_transfer_matrix = data.reshape(NUM_ACTUATOR, NUM_ACTUATOR)
 
     def update_actuator_steps(self, actuator_steps):
-        """Update the actuator steps.
+        """Update the current actuator steps referenced to the home position.
 
         Parameters
         ----------
         actuator_steps : `numpy.ndarray [int]`
-            Actuator steps.
+            New current positions of the actuator in steps.
 
         Raises
         ------
@@ -110,19 +111,22 @@ class MockControlOpenLoop:
             When the data type is not integer.
         """
 
-        if len(actuator_steps) != NUM_ACTUATOR:
-            raise ValueError("The length of actuators does not match.")
+        num_actuators = len(actuator_steps)
+        if num_actuators != NUM_ACTUATOR:
+            raise ValueError(
+                f"Received actuator length ({num_actuators}) doesn't match the expectation: {NUM_ACTUATOR}."
+            )
 
         if actuator_steps.dtype != int:
-            raise ValueError("The data type is not integer.")
+            raise ValueError(f"Expected integer data type, got {actuator_steps.dtype}.")
 
         self.actuator_steps = actuator_steps
 
     def correct_inclinometer_angle(self, angle, offset=0.94):
-        """Calibrate the inclinometer's value and make sure to limit the
+        """Correct the inclinometer's value and make sure to limit the
         resulting value to the indicated range: (-270, 90).
 
-        Note: This function is translated from vendor's original LabVIEW code.
+        This function is translated from vendor's original LabVIEW code.
         The hard-coded range is related to the configuration of inclinometer
         in the mirror assembly.
 
@@ -156,7 +160,7 @@ class MockControlOpenLoop:
     def get_forces_mirror_weight(self, angle):
         """Get the forces that bear the weight of mirror.
 
-        Note: This function is translated from vendor's original LabVIEW code.
+        This function is translated from vendor's original LabVIEW code.
         This is just an estimation of forces.
 
         Parameters
@@ -175,7 +179,9 @@ class MockControlOpenLoop:
         angle_correct = self.correct_inclinometer_angle(angle)
 
         num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
-        force_mirror_weight = MIRROR_WEIGHT_KG * 9.8
+
+        gravitation_acceleration = 9.8
+        force_mirror_weight = MIRROR_WEIGHT_KG * gravitation_acceleration
 
         forces[:num_axial_actuators] = (
             force_mirror_weight
@@ -224,7 +230,7 @@ class MockControlOpenLoop:
     def calculate_steps_to_forces(self, steps):
         """Calculate the steps to forces.
 
-        Note: This function is translated from vendor's original LabVIEW code.
+        This function is translated from vendor's original LabVIEW code.
         The static transfer matrix is used to simlulate the force change of
         actuator's movement.
 
@@ -246,7 +252,7 @@ class MockControlOpenLoop:
     def calculate_forces_to_steps(self, forces):
         """Calculate the forces to steps.
 
-        Note: This is the reverse of self.calculate_steps_to_forces().
+        This is the reverse of self.calculate_steps_to_forces().
 
         Parameters
         ----------
@@ -272,7 +278,7 @@ class MockControlOpenLoop:
     def calculate_forces_to_positions(self, forces):
         """Calculate the forces to positions.
 
-        Note: This is just an extension of self.calculate_forces_to_steps().
+        This is just an extension of self.calculate_forces_to_steps().
 
         Parameters
         ----------
