@@ -578,6 +578,12 @@ class MockControlClosedLoop:
         ]
         self.tangent_forces["lutGravity"] = force_gravity[-NUM_TANGENT_LINK:]
 
+        # Calculate the hardpoint correction
+        # force_demand = np.append(
+        #     self.check_axial_force_limit(), self.check_tangent_force_limit()
+        # )
+        # self._calc_look_up_forces_hardpoint(force_demand, force_current)
+
     def _calc_look_up_forces_temperature(self, lut_temperature, temperature_ref):
         """Calculate the temperature-related forces based on the look-up table
         (LUT) in Newton.
@@ -666,16 +672,36 @@ class MockControlClosedLoop:
             force_factory_offset,
         )
 
-    def _calc_forces_hardpoint(self):
-        """Calculate the forces of harpoint compensation in Newton.
+    def _calc_look_up_forces_hardpoint(self, force_demanded, force_measured):
+        """Calculate the forces of harpoint compensation based on the look-up
+        table (LUT) in Newton.
+
+        Parameters
+        ----------
+        force_demanded : `numpy.ndarray`
+            Demanded actuator force in Newton.
+        force_measured : `numpy.ndarray`
+            Measured actuator force in Newton.
 
         Returns
         -------
-        `numpy.ndarray`
+        force_hardpoint : `numpy.ndarray`
             Forces for the hardpoint compensation in Newton.
         """
 
-        pass
+        force_demanded_hardpoints = force_demanded[self.hardpoints]
+        force_compensation = np.squeeze(
+            self._hd_comp.dot(force_demanded_hardpoints.reshape(-1, 1))
+        )
+
+        list_non_hardpoints = list(set(range(NUM_ACTUATOR)) - set(self.hardpoints))
+        force_hardpoint = force_compensation - force_measured[list_non_hardpoints]
+
+        # Hardpoints do not do the correction, put 0
+        for hardpoint in self.hardpoints:
+            force_hardpoint = np.insert(force_hardpoint, hardpoint, 0)
+
+        return force_hardpoint
 
     def force_dynamics(self, demand, current, force_rms, force_per_cycle=5):
         """Handle force dynamics.

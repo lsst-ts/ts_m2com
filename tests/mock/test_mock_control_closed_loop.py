@@ -24,7 +24,12 @@ import pathlib
 
 import numpy as np
 
-from lsst.ts.m2com import MockControlClosedLoop, NUM_ACTUATOR, NUM_TANGENT_LINK
+from lsst.ts.m2com import (
+    MockControlClosedLoop,
+    MockControlOpenLoop,
+    NUM_ACTUATOR,
+    NUM_TANGENT_LINK,
+)
 
 
 class TestMockControlClosedLoop(unittest.TestCase):
@@ -314,23 +319,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
     def test_calc_look_up_forces_temperature(self):
 
-        lut_temperature = np.array(
-            [
-                24.49,
-                24.49,
-                26.53,
-                24.49,
-                24.49,
-                24.49,
-                24.49,
-                26.53,
-                26.53,
-                26.53,
-                24.49,
-                24.49,
-            ]
-        )
-
+        lut_temperature = self._get_temperature()
         (
             force_r,
             force_x,
@@ -363,6 +352,24 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertAlmostEqual(force_u[1], -4.417117)
         self.assertAlmostEqual(force_u[2], -0.2456348)
 
+    def _get_temperature(self):
+        return np.array(
+            [
+                24.49,
+                24.49,
+                26.53,
+                24.49,
+                24.49,
+                24.49,
+                24.49,
+                26.53,
+                26.53,
+                26.53,
+                24.49,
+                24.49,
+            ]
+        )
+
     def test_calc_look_up_forces_gravity(self):
 
         (
@@ -393,7 +400,65 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
     def test_calc_force_hardpoint(self):
 
-        pass
+        angle = 120
+        force_measured, lut_angle = self._get_force_measured_and_lut_angle(angle)
+        force_demanded = self._get_force_demanded(lut_angle)
+
+        force_hardpoint = self.control_closed_loop._calc_look_up_forces_hardpoint(
+            force_demanded, force_measured
+        )
+
+        self.assertAlmostEqual(force_hardpoint[0], -58.5906115)
+        self.assertAlmostEqual(force_hardpoint[1], -58.0639305)
+        self.assertAlmostEqual(force_hardpoint[2], -56.7950423)
+        self.assertAlmostEqual(force_hardpoint[5], 0)
+        self.assertAlmostEqual(force_hardpoint[15], 0)
+        self.assertAlmostEqual(force_hardpoint[-6], -96.9923333)
+        self.assertAlmostEqual(force_hardpoint[-5], 0)
+        self.assertAlmostEqual(force_hardpoint[-4], 1902.7131771)
+        self.assertAlmostEqual(force_hardpoint[-3], 0)
+        self.assertAlmostEqual(force_hardpoint[-2], -1996.7958437)
+
+    def _get_force_measured_and_lut_angle(self, angle):
+
+        control_open_loop = MockControlOpenLoop()
+        return control_open_loop.get_forces_mirror_weight(
+            angle
+        ), control_open_loop.correct_inclinometer_angle(angle)
+
+    def _get_force_demanded(self, angle):
+
+        (
+            force_elevation,
+            force_0g_component,
+            force_actuator_bias,
+            force_factory_offset,
+        ) = self.control_closed_loop._calc_look_up_forces_gravity(angle)
+
+        lut_temperature = self._get_temperature()
+        (
+            force_r,
+            force_x,
+            force_y,
+            force_u,
+        ) = self.control_closed_loop._calc_look_up_forces_temperature(
+            lut_temperature, 21
+        )
+        force_r = np.append(force_r, np.zeros(NUM_TANGENT_LINK))
+        force_x = np.append(force_x, np.zeros(NUM_TANGENT_LINK))
+        force_y = np.append(force_y, np.zeros(NUM_TANGENT_LINK))
+        force_u = np.append(force_u, np.zeros(NUM_TANGENT_LINK))
+
+        return (
+            force_elevation
+            + force_0g_component
+            + force_actuator_bias
+            + force_factory_offset
+            + force_r
+            + force_x
+            + force_y
+            + force_u
+        )
 
     def test_force_dynamics_in_position(self):
 
