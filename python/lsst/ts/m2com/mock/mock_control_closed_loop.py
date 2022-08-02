@@ -600,7 +600,8 @@ class MockControlClosedLoop:
             Temperature compensation vector for uniform gradient.
         """
 
-        tcoef = self._lut["temp_inv"].dot(lut_temperature - temperature_ref)
+        temperature = lut_temperature - temperature_ref
+        tcoef = self._lut["temp_inv"].dot(temperature.reshape(-1, 1))
 
         return (
             np.squeeze(tcoef[0] * self._lut["Tr"]),
