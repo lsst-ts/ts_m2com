@@ -212,7 +212,22 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertAlmostEqual(net_moments_total["mz"], 37.3839844)
 
     def test_get_force_balance(self):
-        pass
+
+        self.control_closed_loop.axial_forces["hardpointCorrection"][1:4] = np.array(
+            [1, 2, 3]
+        )
+        self.control_closed_loop.tangent_forces["hardpointCorrection"] = np.array(
+            [1, 2, 3, 4, 5, 6]
+        )
+
+        force_balance = self.control_closed_loop.get_force_balance()
+
+        self.assertAlmostEqual(force_balance["fx"], -3)
+        self.assertAlmostEqual(force_balance["fy"], -5.1961524)
+        self.assertAlmostEqual(force_balance["fz"], 6)
+        self.assertAlmostEqual(force_balance["mx"], 8.37691)
+        self.assertAlmostEqual(force_balance["my"], 4.45836999)
+        self.assertAlmostEqual(force_balance["mz"], 37.3839844)
 
     def test_handle_forces_function(self):
 

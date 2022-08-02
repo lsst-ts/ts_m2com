@@ -482,7 +482,7 @@ class MockControlClosedLoop:
 
         Returns
         -------
-        `dict`
+        force_balance : `dict`
             Data of the force balance system.
         """
 
@@ -492,7 +492,10 @@ class MockControlClosedLoop:
         net_forces = self._calc_net_forces_total(axial_forces, tangent_forces)
         net_moments = self._calc_net_moments_total(axial_forces, tangent_forces)
 
-        return net_forces.update(net_moments)
+        force_balance = net_forces.copy()
+        force_balance.update(net_moments)
+
+        return force_balance
 
     def handle_forces(self, lut_angle, force_rms=0.5, force_per_cycle=5):
         """Handle forces.
