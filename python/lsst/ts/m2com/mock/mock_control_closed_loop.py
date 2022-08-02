@@ -42,9 +42,6 @@ class MockControlClosedLoop:
         Forces of the axial actuators in Newton.
     tangent_forces : `dict`
         Forces of the tangent actuators in Newton.
-    force_balance : `dict`
-        Force balance system contains the information of force and moment.
-        The units are the Newton and Newton * meter.
     hardpoints : `list`
         List of the hardpoints.
     """
@@ -85,10 +82,6 @@ class MockControlClosedLoop:
             ]
         )
         self.tangent_forces["lutTemperature"] = np.array([])
-
-        self.force_balance = dict(
-            [(axis, 0) for axis in ("fx", "fy", "fz", "mx", "my", "mz")]
-        )
 
         self.hardpoints = [5, 15, 25, 73, 75, 77]
 
@@ -420,6 +413,24 @@ class MockControlClosedLoop:
         axial_forces = self.axial_forces["measured"]
         tangent_forces = self.tangent_forces["measured"]
 
+        return self._calc_net_forces_total(axial_forces, tangent_forces)
+
+    def _calc_net_forces_total(self, axial_forces, tangent_forces):
+        """Calculate the total net forces in Newton.
+
+        Parameters
+        ----------
+        axial_forces : `numpy.ndarray`
+            Axial actuator forces in Newton.
+        tangent_forces : `numpy.ndarray`
+            Tangent actuator forces in Newton.
+
+        Returns
+        -------
+        `dict`
+            Total net forces in Newton.
+        """
+
         angle = np.deg2rad(self._cell_geom["locAct_tangent"])
 
         fx = np.sum(np.cos(angle) * tangent_forces)
@@ -440,12 +451,48 @@ class MockControlClosedLoop:
         axial_forces = self.axial_forces["measured"]
         tangent_forces = self.tangent_forces["measured"]
 
+        return self._calc_net_moments_total(axial_forces, tangent_forces)
+
+    def _calc_net_moments_total(self, axial_forces, tangent_forces):
+        """Calculate the total net moments in Newton * meter.
+
+        Parameters
+        ----------
+        axial_forces : `numpy.ndarray`
+            Axial actuator forces in Newton.
+        tangent_forces : `numpy.ndarray`
+            Tangent actuator forces in Newton.
+
+        Returns
+        -------
+        `dict`
+            Total net moments in Newton * meter.
+        """
+
         location_axial_actuator = np.array(self._cell_geom["locAct_axial"])
         mx = np.sum(axial_forces * location_axial_actuator[:, 1])
         my = np.sum(axial_forces * location_axial_actuator[:, 0])
         mz = np.sum(tangent_forces) * self._cell_geom["radiusActTangent"]
 
         return {"mx": mx, "my": my, "mz": mz}
+
+    def get_force_balance(self):
+        """Get the data of force balance system. This contains the net forces
+        (in Newton) and net moments (in Newton * meter).
+
+        Returns
+        -------
+        `dict`
+            Data of the force balance system.
+        """
+
+        axial_forces = self.axial_forces["hardpointCorrection"]
+        tangent_forces = self.tangent_forces["hardpointCorrection"]
+
+        net_forces = self._calc_net_forces_total(axial_forces, tangent_forces)
+        net_moments = self._calc_net_moments_total(axial_forces, tangent_forces)
+
+        return net_forces.update(net_moments)
 
     def handle_forces(self, lut_angle, force_rms=0.5, force_per_cycle=5):
         """Handle forces.
@@ -475,23 +522,6 @@ class MockControlClosedLoop:
         self.calc_look_up_forces(lut_angle)
 
         n_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
-        if self.is_running:
-            self.axial_forces["hardpointCorrection"] = np.random.normal(
-                scale=force_rms,
-                size=n_axial_actuators,
-            )
-
-            self.tangent_forces["hardpointCorrection"] = np.random.normal(
-                scale=force_rms,
-                size=NUM_TANGENT_LINK,
-            )
-
-            self.force_balance = dict(
-                [
-                    (axis, np.random.normal(scale=force_rms))
-                    for axis in ("fx", "fy", "fz", "mx", "my", "mz")
-                ]
-            )
 
         demanded_axial_force = self.check_axial_force_limit()
         demanded_tangent_force = self.check_tangent_force_limit()
@@ -751,7 +781,7 @@ class MockControlClosedLoop:
         else:
             in_position = True
 
-        # Calculate the final fource
+        # Calculate the final force
         actuators_in_cycle = np.where(force_diff <= force_per_cycle)[0]
 
         final_force = np.array(current, copy=True)

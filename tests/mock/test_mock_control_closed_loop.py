@@ -211,6 +211,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertAlmostEqual(net_moments_total["my"], 4.45836999)
         self.assertAlmostEqual(net_moments_total["mz"], 37.3839844)
 
+    def test_get_force_balance(self):
+        pass
+
     def test_handle_forces_function(self):
 
         # No update of force now

@@ -343,7 +343,9 @@ class MockModel:
             self.in_position = self.handle_forces()
             telemetry_data["axialForce"] = self.control_closed_loop.axial_forces
             telemetry_data["tangentForce"] = self.control_closed_loop.tangent_forces
-            telemetry_data["forceBalance"] = self.control_closed_loop.force_balance
+            telemetry_data[
+                "forceBalance"
+            ] = self.control_closed_loop.get_force_balance()
 
             # Get the position data
             telemetry_data["position"] = self._simulate_position_mirror()
