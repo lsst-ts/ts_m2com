@@ -24,7 +24,7 @@ import pathlib
 import unittest
 import asyncio
 
-from lsst.ts.m2com import check_queue_size, read_yaml_file
+from lsst.ts.m2com import check_queue_size, read_yaml_file, get_config_dir
 
 
 class TestUtility(unittest.IsolatedAsyncioTestCase):
@@ -54,6 +54,13 @@ class TestUtility(unittest.IsolatedAsyncioTestCase):
         content = read_yaml_file(yaml_file)
 
         self.assertEqual(content["radiusActTangent"], 1.780189734)
+
+    def test_get_config_dir(self):
+
+        path = get_config_dir()
+
+        self.assertTrue(path.exists())
+        self.assertEqual(path.name, "harrisLUT")
 
 
 if __name__ == "__main__":
