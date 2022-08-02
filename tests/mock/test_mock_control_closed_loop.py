@@ -48,7 +48,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertEqual(len(self.control_closed_loop.temperature), 5)
         self.assertEqual(len(self.control_closed_loop._lut), 10)
         self.assertEqual(len(self.control_closed_loop._cell_geom), 3)
-        self.assertEqual(len(self.control_closed_loop._hd_comp), 2)
+        self.assertEqual(self.control_closed_loop._hd_comp.shape, (72, 6))
 
     def test_simulate_temperature_and_update(self):
 

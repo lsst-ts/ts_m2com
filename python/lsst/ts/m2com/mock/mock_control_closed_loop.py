@@ -23,6 +23,7 @@ __all__ = ["MockControlClosedLoop"]
 
 import numpy as np
 import pandas as pd
+from scipy.linalg import block_diag
 
 from ..constant import NUM_ACTUATOR, NUM_TANGENT_LINK
 from ..utility import read_yaml_file
@@ -98,7 +99,7 @@ class MockControlClosedLoop:
         self._cell_geom = dict()
 
         # Hardpoint compensation matrix
-        self._hd_comp = dict()
+        self._hd_comp = np.array([])
 
     def _get_default_temperatures(
         self,
@@ -282,11 +283,15 @@ class MockControlClosedLoop:
         data = np.array(dataframe.iloc[:, 0])
 
         num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
-        self._hd_comp["axial"] = data.reshape(num_axial_actuators - 3, 3)
 
-        self._hd_comp["tangent"] = np.array(
+        # There are 3 axial actuators to be hardpoints
+        hd_comp_axial = data.reshape(num_axial_actuators - 3, 3)
+
+        hd_comp_tangent = np.array(
             [[2 / 3, -1 / 3, 2 / 3], [2 / 3, 2 / 3, -1 / 3], [-1 / 3, 2 / 3, 2 / 3]]
         )
+
+        self._hd_comp = block_diag(hd_comp_axial, hd_comp_tangent)
 
     def is_cell_temperature_high(self):
         """Cell temperature is high or not.
