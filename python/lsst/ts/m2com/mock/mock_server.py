@@ -155,7 +155,7 @@ class MockServer:
             "cmd_moveActuators": self._command.move_actuators,
             "cmd_resetBreakers": self._command.reset_breakers,
             "cmd_rebootController": self._command.reboot_controller,
-            "cmd_enableOpenLoopMaxLimits": self._command.enable_open_loop_max_limits,
+            "cmd_enableOpenLoopMaxLimit": self._command.enable_open_loop_max_limit,
             "cmd_saveMirrorPosition": self._command.save_mirror_position,
             "cmd_setMirrorHome": self._command.set_mirror_home,
         }
@@ -209,6 +209,12 @@ class MockServer:
                 await self._process_message_command()
 
                 await self._run_and_report_script_engine_status()
+
+                self._run_control_open_loop()
+
+                # Check the force and fault the system if needed
+                if self.model.control_open_loop.is_actuator_force_out_limit():
+                    self.model.fault()
 
         except ConnectionError:
             self.log.info("Command reader disconnected.")
@@ -449,6 +455,19 @@ class MockServer:
                 script_engine.percentage
             )
 
+    def _run_control_open_loop(self, steps=500):
+        """Run the open-loop control.
+
+        Parameters
+        ----------
+        steps : `int`, optional
+            Steps to run. (the default is 500)
+        """
+
+        control_open_loop = self.model.control_open_loop
+        if control_open_loop.is_running:
+            control_open_loop.run_steps(steps)
+
     def _connect_state_changed_callback_telemetry(self, server_telemetry):
         """Called when the telemetry server connection state changes.
 
@@ -527,6 +546,7 @@ class MockServer:
             await self._message_telemetry.write_zenith_angle(
                 telemetry_data["zenithAngle"]
             )
+
             await self._message_telemetry.write_axial_encoder_positions(
                 telemetry_data["axialEncoderPositions"]
             )
@@ -555,7 +575,7 @@ class MockServer:
             name = msg_tel["id"].lower()
             component = msg_tel["compName"].lower()
             if name == "tel_elevation" and component == "mtmount":
-                self.model.zenith_angle = 90.0 - msg_tel["actualPosition"]
+                self.model.update_zenith_angle(90.0 - msg_tel["actualPosition"])
 
         except asyncio.TimeoutError:
             await asyncio.sleep(self.timeout_in_second)
@@ -597,12 +617,12 @@ class MockServer:
         self._message_event = None
         self._message_telemetry = None
 
+        self.model.control_open_loop.open_loop_max_limit_is_enabled = False
+
         self.model.force_balance_system_status = False
         self.model.communication_power_on = False
         self.model.motor_power_on = False
         self.model.error_cleared = True
-
-        self.model.open_loop_max_limits_is_enabled = False
 
         self.model.script_engine.pause()
         self.model.script_engine.clear()

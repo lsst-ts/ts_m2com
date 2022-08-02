@@ -191,12 +191,15 @@ class MockMessageTelemetry:
         Parameters
         ----------
         data : `dict`
-            Data of axial actuator encoder position.
+            Data of axial actuator encoder position in millimeter.
         """
+
+        # Change the unit from mm to um
+        position = [value * 1e3 for value in list(data["position"])]
 
         msg = {
             "id": "axialEncoderPositions",
-            "position": list(data["position"]),
+            "position": position,
         }
         await write_json_packet(self.writer, msg)
 
@@ -206,12 +209,15 @@ class MockMessageTelemetry:
         Parameters
         ----------
         data : `dict`
-            Data of tangent actuator encoder position.
+            Data of tangent actuator encoder position in millimeter.
         """
+
+        # Change the unit from mm to um
+        position = [value * 1e3 for value in list(data["position"])]
 
         msg = {
             "id": "tangentEncoderPositions",
-            "position": list(data["position"]),
+            "position": position,
         }
         await write_json_packet(self.writer, msg)
 

@@ -2,6 +2,15 @@
 Version History
 ===============
 
+v0.3.0
+------
+
+* Add the **MockControlOpenLoop** class.
+* Support the mock commands of engineering user interface (EUI):
+
+  * Set mirror home
+  * Move actuators (under the open-loop control)
+
 v0.2.0
 ------
 

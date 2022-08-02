@@ -25,7 +25,7 @@ __all__ = ["MockScriptEngine"]
 class MockScriptEngine:
     """Mock script engine class to simulate the execution of binary script.
 
-    Parameters
+    Attributes
     ----------
     is_running : `bool`
         The script is running or not.
