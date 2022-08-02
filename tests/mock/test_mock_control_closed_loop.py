@@ -289,6 +289,10 @@ class TestMockControlClosedLoop(unittest.TestCase):
             len(self.control_closed_loop.axial_forces["lutTemperature"]),
             num_axial_actuators,
         )
+        self.assertEqual(
+            len(self.control_closed_loop.axial_forces["hardpointCorrection"]),
+            num_axial_actuators,
+        )
 
         self.assertEqual(
             len(self.control_closed_loop.axial_forces["lutGravity"]),
@@ -296,6 +300,10 @@ class TestMockControlClosedLoop(unittest.TestCase):
         )
         self.assertEqual(
             len(self.control_closed_loop.tangent_forces["lutGravity"]), NUM_TANGENT_LINK
+        )
+        self.assertEqual(
+            len(self.control_closed_loop.tangent_forces["hardpointCorrection"]),
+            NUM_TANGENT_LINK,
         )
 
         # Check the value

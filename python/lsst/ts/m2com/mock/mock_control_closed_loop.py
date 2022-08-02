@@ -579,10 +579,20 @@ class MockControlClosedLoop:
         self.tangent_forces["lutGravity"] = force_gravity[-NUM_TANGENT_LINK:]
 
         # Calculate the hardpoint correction
-        # force_demand = np.append(
-        #     self.check_axial_force_limit(), self.check_tangent_force_limit()
-        # )
-        # self._calc_look_up_forces_hardpoint(force_demand, force_current)
+        force_demanded = np.append(
+            self.check_axial_force_limit(), self.check_tangent_force_limit()
+        )
+        force_measured = np.append(
+            self.axial_forces["measured"], self.tangent_forces["measured"]
+        )
+        force_hardpoint = self._calc_look_up_forces_hardpoint(
+            force_demanded, force_measured
+        )
+
+        self.axial_forces["hardpointCorrection"] = force_hardpoint[
+            : (NUM_ACTUATOR - NUM_TANGENT_LINK)
+        ]
+        self.tangent_forces["hardpointCorrection"] = force_hardpoint[-NUM_TANGENT_LINK:]
 
     def _calc_look_up_forces_temperature(self, lut_temperature, temperature_ref):
         """Calculate the temperature-related forces based on the look-up table
