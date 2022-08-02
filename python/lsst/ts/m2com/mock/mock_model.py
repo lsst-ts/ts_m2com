@@ -242,6 +242,11 @@ class MockModel:
         path_cell_geom = config_dir / lut_path / "cell_geom.yaml"
         self.control_closed_loop.read_file_cell_geometry(path_cell_geom)
 
+        path_hardpoint_compensation = config_dir / lut_path / "Hd_ax_Matrix_Params.csv"
+        self.control_closed_loop.read_file_hardpoint_compensation(
+            path_hardpoint_compensation
+        )
+
         path_disp_ims = config_dir / lut_path / "disp_ims.yaml"
         self._disp_ims = read_yaml_file(path_disp_ims)
 

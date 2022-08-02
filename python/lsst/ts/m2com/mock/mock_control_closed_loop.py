@@ -97,6 +97,9 @@ class MockControlClosedLoop:
         # Cell geometry used in the calculation of net total forces and moments
         self._cell_geom = dict()
 
+        # Hardpoint compensation matrix
+        self._hd_comp = dict()
+
     def _get_default_temperatures(
         self,
         temperature_init_low=24.49,
@@ -265,6 +268,25 @@ class MockControlClosedLoop:
         """
 
         self._cell_geom = read_yaml_file(filepath)
+
+    def read_file_hardpoint_compensation(self, filepath, skiprows=7):
+        """Read the file of hardpoint compensation.
+
+        Parameters
+        ----------
+        filepath : `pathlib.PosixPath`
+            File path of hardpoint compensation.
+        """
+
+        dataframe = pd.read_csv(filepath, skiprows=skiprows)
+        data = np.array(dataframe.iloc[:, 0])
+
+        num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
+        self._hd_comp["axial"] = data.reshape(num_axial_actuators - 3, 3)
+
+        self._hd_comp["tangent"] = np.array(
+            [[2 / 3, -1 / 3, 2 / 3], [2 / 3, 2 / 3, -1 / 3], [-1 / 3, 2 / 3, 2 / 3]]
+        )
 
     def is_cell_temperature_high(self):
         """Cell temperature is high or not.

@@ -40,11 +40,15 @@ class TestMockControlClosedLoop(unittest.TestCase):
         filepath_cell_geometry = filepath_lut / "cell_geom.yaml"
         self.control_closed_loop.read_file_cell_geometry(filepath_cell_geometry)
 
+        filepath_hardpoint = filepath_lut / "Hd_ax_Matrix_Params.csv"
+        self.control_closed_loop.read_file_hardpoint_compensation(filepath_hardpoint)
+
     def test_init(self):
 
         self.assertEqual(len(self.control_closed_loop.temperature), 5)
         self.assertEqual(len(self.control_closed_loop._lut), 10)
         self.assertEqual(len(self.control_closed_loop._cell_geom), 3)
+        self.assertEqual(len(self.control_closed_loop._hd_comp), 2)
 
     def test_simulate_temperature_and_update(self):
 
