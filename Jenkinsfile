@@ -24,6 +24,8 @@ pipeline {
     environment {
         // SAL setup file
         SAL_SETUP_FILE = "/home/saluser/.setup.sh"
+        // SAL checkout repo file
+        SAL_CHECKOUT_FILE = "/home/saluser/.checkout_repo.sh"
         // Pipeline Sims Version
         STACK_VERSION = "current"
         // XML report path
@@ -41,12 +43,27 @@ pipeline {
 
     stages {
 
+        stage('Cloning Repos') {
+            steps {
+                withEnv(["HOME=${env.WORKSPACE}"]) {
+                    sh """
+                        git clone https://github.com/lsst-ts/ts_config_mttcs.git
+                    """
+                }
+            }
+        }
+
         stage('Unit Tests and Coverage Analysis') {
             steps {
                 // Pytest needs to export the junit report.
                 withEnv(["WORK_HOME=${env.WORKSPACE}"]) {
                     sh """
                         source ${env.SAL_SETUP_FILE}
+
+                        cd ${WORK_HOME}/ts_config_mttcs
+                        ${env.SAL_CHECKOUT_FILE} ${env.BRANCH_NAME}
+
+                        export TS_CONFIG_MTTCS_DIR=`pwd`
 
                         cd ${WORK_HOME}
                         setup -k -r .

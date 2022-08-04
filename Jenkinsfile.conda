@@ -1,2 +1,2 @@
 @Library('JenkinsShared')_
-CondaPipeline([], "ts-m2com", "lsst.ts.m2com", "noarch")
+CondaPipeline(["ts_config_mttcs"], "ts-m2com", "lsst.ts.m2com", "noarch")
