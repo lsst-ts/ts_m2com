@@ -23,7 +23,6 @@ import logging
 import copy
 
 import numpy as np
-import pandas as pd
 
 from time import sleep
 
@@ -32,7 +31,7 @@ from lsst.ts.idl.enums import MTM2
 from ..constant import NUM_ACTUATOR, NUM_TANGENT_LINK
 from ..enum import PowerType, DigitalOutput, DigitalInput
 from ..utility import read_yaml_file
-from . import MockScriptEngine, MockControlOpenLoop
+from . import MockScriptEngine, MockControlOpenLoop, MockControlClosedLoop
 
 __all__ = ["MockModel"]
 
@@ -45,6 +44,8 @@ class MockModel:
     log : `logging.Logger` or None, optional
         A logger. If None, a logger will be instantiated. (the default is
         None)
+    inclinometer_angle : `float`, optional
+        Inclinometer angle in degree. (the default is 90)
     telemetry_interval : `float`, optional
         Telemetry interval in second. (the default is 0.05, which means
         20 Hz)
@@ -55,34 +56,18 @@ class MockModel:
         A logger.
     control_open_loop : `MockControlOpenLoop`
         Open-loop control.
+    control_closed_loop : `MockControlClosedLoop`
+        Closed-loop control.
     telemetry_interval : `float`
         Telemetry interval in second.
     inclination_source : `MTM2.InclinationTelemetrySource`
         Source of the inclination.
-    zenith_angle : `float`
-        Zenith angle in degree.
-    mirror_position : `dict`
-        Mirror position. The key is the axis (x, y, z, xRot, yRot, zRot) of
-        mirror. The units are the micron and arcsec.
-    temperature : `dict`
-        Temperature of mirror in degree C.
-    axial_forces : `dict`
-        Forces of the axial actuators in Newton.
-    tangent_forces : `dict`
-        Forces of the tangent actuators in Newton.
-    force_balance : `dict`
-        Force balance system contains the information of force and moment.
-        The units are the Newton and Newton * meter.
-    force_balance_system_status : `bool`
-        Force balance system is on or off.
     communication_power_on : `bool`
         Communication power is on or not.
     motor_power_on : `bool`
         Motor power is on or not.
     in_position : `bool`
         M2 assembly is in position or not.
-    lut : `dict`
-        Look-up table (LUT).
     error_cleared : `bool`
         Error is cleared or not.
     mtmount_in_position : `bool`
@@ -91,7 +76,7 @@ class MockModel:
         Script engine to run the binary script.
     """
 
-    def __init__(self, log=None, telemetry_interval=0.05):
+    def __init__(self, log=None, inclinometer_angle=90, telemetry_interval=0.05):
 
         # Set the logger
         if log is None:
@@ -100,51 +85,15 @@ class MockModel:
             self.log = log.getChild(type(self).__name__)
 
         self.control_open_loop = MockControlOpenLoop()
+        self.control_open_loop.inclinometer_angle = inclinometer_angle
+
+        self.control_closed_loop = MockControlClosedLoop()
 
         self.telemetry_interval = telemetry_interval
 
         self.inclination_source = MTM2.InclinationTelemetrySource.ONBOARD
 
-        self.zenith_angle = 0.0
-        self.update_zenith_angle(0)
-
         self.mirror_position = self.get_default_mirror_position()
-
-        self.temperature = self._get_default_temperatures()
-
-        self.axial_forces = dict(
-            [
-                (item, np.zeros(NUM_ACTUATOR - NUM_TANGENT_LINK))
-                for item in (
-                    "lutGravity",
-                    "lutTemperature",
-                    "applied",
-                    "measured",
-                    "hardpointCorrection",
-                )
-            ]
-        )
-        self.tangent_forces = dict(
-            [
-                (item, np.zeros(NUM_TANGENT_LINK))
-                for item in (
-                    "lutGravity",
-                    "applied",
-                    "measured",
-                    "hardpointCorrection",
-                )
-            ]
-        )
-
-        self._set_default_measured_forces()
-
-        # No LUT temperature correction for tangent links
-        self.tangent_forces["lutTemperature"] = np.array([])
-
-        self.force_balance = dict(
-            [(axis, 0) for axis in ("fx", "fy", "fz", "mx", "my", "mz")]
-        )
-        self.force_balance_system_status = False
 
         self.communication_power_on = False
         self.motor_power_on = False
@@ -156,28 +105,13 @@ class MockModel:
         # Parameters of independent displacement sensors (IMS)
         self._disp_ims = dict()
 
-        # Cell geometry used in the calculation of net total forces and moments
-        self._cell_geom = dict()
-
-        self.lut = dict()
-
         self.error_cleared = True
 
         self.mtmount_in_position = False
 
         self.script_engine = MockScriptEngine()
 
-    def update_zenith_angle(self, angle):
-        """Update the zenith angle.
-
-        Parameters
-        ----------
-        angle : `float`
-            Zenith angle in degree.
-        """
-
-        self.zenith_angle = angle
-        self.control_open_loop.inclinometer_angle = 90 - angle
+        self._set_default_measured_forces()
 
     def get_default_mirror_position(self):
         """Get the default mirror position.
@@ -188,44 +122,6 @@ class MockModel:
             Default mirror position. The key is axis.
         """
         return dict([(axis, 0.0) for axis in ("x", "y", "z", "xRot", "yRot", "zRot")])
-
-    def _get_default_temperatures(
-        self, temperature_init=11.0, temperature_ref=21.0, max_difference=2.0
-    ):
-        """Get the default temperatures. The unit is degree C.
-
-        Parameters
-        ----------
-        temperature_init : `float`, optional
-            Initial temperature in degree C. (default is 11.0)
-        temperature_ref : `float`, optional
-            Reference temperature in degree C. (default is 21.0)
-        max_difference : `float`, optional
-           Maximum difference of temperature in degree C. (default is 2.0)
-
-        Returns
-        -------
-        temperatures : `dict`
-            Temperature sensor data. The key is sensor's position or reference.
-        """
-
-        temperatures = dict()
-        temperatures["ring"] = [temperature_init] * 12
-        temperatures["intake"] = [temperature_init] * 2
-        temperatures["exhaust"] = [temperature_init] * 2
-        temperatures["ref"] = temperature_ref
-        temperatures["maxDiff"] = max_difference
-
-        return temperatures
-
-    def _set_default_measured_forces(self):
-        """Set the default measured forces."""
-
-        forces = self.control_open_loop.get_forces_mirror_weight(
-            self.control_open_loop.inclinometer_angle
-        )
-        self.axial_forces["measured"] = forces[: (NUM_ACTUATOR - NUM_TANGENT_LINK)]
-        self.tangent_forces["measured"] = forces[-NUM_TANGENT_LINK:]
 
     def _uniq_ilc_status_generator(self):
         """Unique inner-loop controller (ILC) status generator.
@@ -243,28 +139,40 @@ class MockModel:
             yield value % 16
             value += 1
 
-    @property
-    def mirror_weight(self):
-        """Mirror weight (in Newton)."""
-        return 15578.0
+    def set_inclinometer_angle(self, angle):
+        """Set the angle of inclinometer.
 
-    @property
-    def max_axial_force(self):
-        """Axial force limit (in Newtons).
-
-        According with the vendor documents these limits are hard-coded in
-        the real system, so they are also hard-coded in the simulator.
+        Parameters
+        ----------
+        angle : `float`
+            Inclinometer angle in degree.
         """
-        return 444.82
 
-    @property
-    def max_tangent_force(self):
-        """Tangent force limit (in Newtons).
+        self.control_open_loop.inclinometer_angle = angle
 
-        According with the vendor documents these limits are hard-coded in
-        the real system, so they are also hard-coded in the simulator.
-        """
-        return 4893.04
+        # In the real hardware, the hardpoint correction based on the look-up
+        # table (LUT) should be udpated continuously. But this will make the
+        # measured force hard to converge in the closed-loop control for the
+        # simplified calculation in the
+        # self.control_closed_loop.calc_look_up_forces(). Therefore, we only
+        # update it when the "angle" is changed.
+        lut_angle = self.control_open_loop.correct_inclinometer_angle(angle)
+        self.control_closed_loop.calc_look_up_forces(lut_angle)
+
+        # The change of elevation angle means the hardpoints may need to update
+        # the force as well.
+        self.control_closed_loop.in_position_hardpoints = False
+
+    def _set_default_measured_forces(self):
+        """Set the default measured forces."""
+
+        forces = self.control_open_loop.get_forces_mirror_weight(
+            self.control_open_loop.inclinometer_angle
+        )
+
+        self.control_closed_loop.set_measured_forces(
+            forces[: (NUM_ACTUATOR - NUM_TANGENT_LINK)], forces[-NUM_TANGENT_LINK:]
+        )
 
     @property
     def position_limit_radial(self):
@@ -352,41 +260,19 @@ class MockModel:
             Look-up table (LUT) path.
         """
 
-        # Look-up table (LUT) factors (filename, basically).
-        lut_factors = set(
-            [
-                "F_0.csv",
-                "F_A.csv",
-                "F_E.csv",
-                "F_F.csv",
-                "Tr.csv",
-                "Tu.csv",
-                "Tx.csv",
-                "Ty.csv",
-                "temp_inv.txt",
-            ]
-        )
-
-        for lut in lut_factors:
-            self.log.debug(f"Reading {lut}...")
-            name, ext = lut.split(".")
-            if ext == "csv":
-                data = pd.read_csv(
-                    config_dir / lut_path / lut,
-                    header="infer" if name.startswith("F") else None,
-                )
-                self.lut[name] = np.float64(data)
-                if name == "F_E":
-                    self.lut["lutInAngle"] = np.float64(data.keys())
-            else:
-                self.lut[name] = np.loadtxt(config_dir / lut_path / lut)
-
-        # Read the yaml files
-        path_disp_ims = config_dir / lut_path / "disp_ims.yaml"
-        self._disp_ims = read_yaml_file(path_disp_ims)
+        path_lut = config_dir / lut_path
+        self.control_closed_loop.read_file_lut(path_lut)
 
         path_cell_geom = config_dir / lut_path / "cell_geom.yaml"
-        self._cell_geom = read_yaml_file(path_cell_geom)
+        self.control_closed_loop.read_file_cell_geometry(path_cell_geom)
+
+        path_hardpoint_compensation = config_dir / lut_path / "Hd_ax_Matrix_Params.csv"
+        self.control_closed_loop.read_file_hardpoint_compensation(
+            path_hardpoint_compensation
+        )
+
+        path_disp_ims = config_dir / lut_path / "disp_ims.yaml"
+        self._disp_ims = read_yaml_file(path_disp_ims)
 
         # Read the static transfer matrix
         path_static_transfer_matrix = config_dir / lut_path / "StaticTransferMatrix.csv"
@@ -394,21 +280,33 @@ class MockModel:
             path_static_transfer_matrix
         )
 
-    def is_cell_temperature_high(self):
-        """Cell temperature is high or not.
+        # By doing this, we can calculate the forces of look-up table.
+        self.set_inclinometer_angle(self.control_open_loop.inclinometer_angle)
+
+    def is_actuator_force_out_limit(self):
+        """The actuator force is out of limit or not.
+
+        By default, return the judgement based on the open-loop control. If
+        the closed-loop control is running, return the result based on it.
 
         Returns
         -------
         `bool`
-            True if the cell temperature is high. Otherwise, False.
+            True if the actuator force is out of limit. Otherwise, False.
         """
 
-        temp_exhaust = self.temperature["exhaust"]
-        temp_intake = self.temperature["intake"]
+        if self.control_closed_loop.is_running:
 
-        diff = (temp_exhaust[0] - temp_intake[0] + temp_exhaust[1] - temp_intake[1]) / 2
+            try:
+                self.control_closed_loop.check_axial_force_limit()
+                self.control_closed_loop.check_tangent_force_limit()
+                return False
 
-        return True if diff > self.temperature["maxDiff"] else False
+            except RuntimeError:
+                return True
+
+        else:
+            return self.control_open_loop.is_actuator_force_out_limit()
 
     def fault(self):
         """Fault the model."""
@@ -419,7 +317,7 @@ class MockModel:
         self.control_open_loop.stop()
 
         self.switch_force_balance_system(False)
-        self.reset_force_offsets()
+        self.control_closed_loop.reset_force_offsets()
 
     def switch_force_balance_system(self, status):
         """Switch the force balance system.
@@ -438,112 +336,19 @@ class MockModel:
         result = True
 
         if (status is True) and (not self.motor_power_on):
-            self.force_balance_system_status = False
+            self.control_closed_loop.is_running = False
             result = False
         else:
-            self.force_balance_system_status = status
+            self.control_closed_loop.is_running = status
 
         # In closed-loop control, the maximum limits of open-loop control is
         # disabled. In addition, the system can not run the closed-loop and
-        # open-loop in the same time.
-        if self.force_balance_system_status is True:
+        # open-loop at the same time.
+        if self.control_closed_loop.is_running is True:
             self.enable_open_loop_max_limit(False)
             self.control_open_loop.is_running = False
 
         return result
-
-    def apply_forces(self, force_axial, force_tangent):
-        """Apply force.
-
-        Parameters
-        ----------
-        force_axial : `list` or `numpy.ndarray`
-            Force of the axial actuators in Newton.
-        force_tangent : `list` or `numpy.ndarray`
-            Force of the tangent actuators in Newton.
-        """
-
-        # Check limits
-        self.check_axial_force_limit(apply=force_axial)
-        self.check_tangent_force_limit(apply=force_tangent)
-
-        self.axial_forces["applied"] = np.array(force_axial)
-        self.tangent_forces["applied"] = np.array(force_tangent)
-
-    def check_axial_force_limit(self, apply=None):
-        """Check if axial forces are out of bounds.
-
-        Parameters
-        ----------
-        apply : `numpy.ndarray` or `None`, optional
-            Forces to apply in Newton. If `None` use current setup. (default is
-            None.)
-
-        Returns
-        -------
-        demanded_axial_force : `numpy.ndarray`
-            Array with the combined total force per actuator in Newton.
-
-        Raises
-        ------
-        RuntimeError
-            If force limit is out of range.
-        """
-
-        demanded_axial_force = (
-            (apply if apply is not None else self.axial_forces["applied"])
-            + self.axial_forces["lutGravity"]
-            + self.axial_forces["lutTemperature"]
-            + self.axial_forces["hardpointCorrection"]
-        )
-
-        if np.any(demanded_axial_force > self.max_axial_force):
-            actuators = np.where(demanded_axial_force > self.max_axial_force)[0]
-            raise RuntimeError(
-                f"Maximum axial force limit [{self.max_axial_force}N] reached in actuators {actuators}."
-            )
-
-        return demanded_axial_force
-
-    def check_tangent_force_limit(self, apply=None):
-        """Check if tangent forces are out of bounds.
-
-        Parameters
-        ----------
-        apply : `numpy.ndarray` or `None`, optional
-            Forces to apply in Newton. If `None` use current setup. (default is
-            None.)
-
-        Returns
-        -------
-        demanded_tanget_force : `numpy.ndarray`
-            Array with the combined total force per actuator in Newton.
-
-        Raises
-        ------
-        RuntimeError
-            If force limit is out of range.
-        """
-
-        demanded_tanget_force = np.array(
-            (apply if apply is not None else self.tangent_forces["applied"])
-            + self.tangent_forces["lutGravity"]
-            + self.tangent_forces["hardpointCorrection"]
-        )
-
-        if np.any(demanded_tanget_force > self.max_tangent_force):
-            actuators = np.where(demanded_tanget_force > self.max_tangent_force)[0]
-            raise RuntimeError(
-                f"Maximum axial force limit [{self.max_tangent_force}N] reached in actuators {actuators}."
-            )
-
-        return demanded_tanget_force
-
-    def reset_force_offsets(self):
-        """Reset the force offsets."""
-
-        self.axial_forces["applied"] = np.zeros(NUM_ACTUATOR - NUM_TANGENT_LINK)
-        self.tangent_forces["applied"] = np.zeros(NUM_TANGENT_LINK)
 
     def clear_errors(self):
         """Clear the errors."""
@@ -579,14 +384,19 @@ class MockModel:
         if self.motor_power_on:
 
             telemetry_data["ilcData"] = self._get_ilc_data()
-            telemetry_data["netForcesTotal"] = self._get_net_forces_total()
-            telemetry_data["netMomentsTotal"] = self._get_net_moments_total()
+            telemetry_data[
+                "netForcesTotal"
+            ] = self.control_closed_loop.get_net_forces_total()
+            telemetry_data[
+                "netMomentsTotal"
+            ] = self.control_closed_loop.get_net_moments_total()
 
             # Get the force data
-            self.in_position = self.handle_forces()
-            telemetry_data["axialForce"] = self.axial_forces
-            telemetry_data["tangentForce"] = self.tangent_forces
-            telemetry_data["forceBalance"] = self.force_balance
+            telemetry_data["axialForce"] = self.control_closed_loop.axial_forces
+            telemetry_data["tangentForce"] = self.control_closed_loop.tangent_forces
+            telemetry_data[
+                "forceBalance"
+            ] = self.control_closed_loop.get_force_balance()
 
             # Get the position data
             telemetry_data["position"] = self._simulate_position_mirror()
@@ -595,9 +405,8 @@ class MockModel:
             telemetry_data["positionIMS"] = position_ims
 
             # Get the temperature data
-            self._simulate_temperature_and_update()
-            temperature = copy.copy(self.temperature)
-            telemetry_data["temperature"] = temperature
+            self.control_closed_loop.simulate_temperature_and_update()
+            telemetry_data["temperature"] = self.control_closed_loop.temperature
 
             # Get the zenith angle
             telemetry_data["zenithAngle"] = self._simulate_zenith_angle()
@@ -722,245 +531,58 @@ class MockModel:
 
         return {"thetaZ": theta_z, "deltaZ": delta_z}
 
-    def _get_net_forces_total(self):
-        """Get the total net forces in Newton.
+    def balance_forces_and_steps(self, force_rms=0.5, force_per_cycle=5):
+        """Balance the forces and steps.
 
-        Returns
-        -------
-        `dict`
-            Total net forces in Newton.
-        """
-
-        axial_forces = self.axial_forces["measured"]
-        tangent_forces = self.tangent_forces["measured"]
-
-        angle = np.deg2rad(self._cell_geom["locAct_tangent"])
-
-        fx = np.sum(np.cos(angle) * tangent_forces)
-        fy = np.sum(np.sin(angle) * tangent_forces)
-        fz = np.sum(axial_forces)
-
-        return {"fx": fx, "fy": fy, "fz": fz}
-
-    def _get_net_moments_total(self):
-        """Get the total net moments in Newton * meter.
-
-        Returns
-        -------
-        `dict`
-            Total net moments in Newton * meter.
-        """
-
-        axial_forces = self.axial_forces["measured"]
-        tangent_forces = self.tangent_forces["measured"]
-
-        location_axial_actuator = np.array(self._cell_geom["locAct_axial"])
-        mx = np.sum(axial_forces * location_axial_actuator[:, 1])
-        my = np.sum(axial_forces * location_axial_actuator[:, 0])
-        mz = np.sum(tangent_forces) * self._cell_geom["radiusActTangent"]
-
-        return {"mx": mx, "my": my, "mz": mz}
-
-    def handle_forces(self, force_rms=0.5):
-        """Handle forces.
-
-        The method will check if the force balance system is activated and,
-        if yes, will compute the forces based on the look up tables. If not,
-        the LUT forces are set to zero. Then, it makes sure the forces are
-        inside range and compute the forces dynamics.
+        This function will check the actuators are in position or not and
+        udpate the self.in_position. If the closed-loop control is running, it
+        will do the force dynamics based on the "force_per_cycle" to try to
+        balance the forces of actuators. In addition, it will try to make sure
+        the internal data in open-loop and closed-loop controls are consistent.
 
         Parameters
         ----------
         force_rms : `float`, optional
             Force rms variation in Newton. (default is 0.5)
+        force_per_cycle : `float`, optional
+            Force per cycle to apply in Newton. (the default is 5)
 
-        Returns
-        -------
-        `bool`
-            M2 assembly is in position or not.
+        Raises
+        ------
+        `RuntimeError`
+            When the open-loop and closed-loop controls are running at the same
+            time.
         """
 
-        # Update the force data
-        self.calc_look_up_forces()
-
-        n_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
-        if self.force_balance_system_status:
-            self.axial_forces["hardpointCorrection"] = np.random.normal(
-                scale=force_rms,
-                size=n_axial_actuators,
+        if self.control_open_loop.is_running and self.control_closed_loop.is_running:
+            raise RuntimeError(
+                "The open-loop and closed-loop controls are running at the same time."
             )
 
-            self.tangent_forces["hardpointCorrection"] = np.random.normal(
-                scale=force_rms,
-                size=NUM_TANGENT_LINK,
-            )
-
-            self.force_balance = dict(
-                [
-                    (axis, np.random.normal(scale=force_rms))
-                    for axis in ("fx", "fy", "fz", "mx", "my", "mz")
-                ]
-            )
-
-        demanded_axial_force = self.check_axial_force_limit()
-        demanded_tangent_force = self.check_tangent_force_limit()
-
-        in_position_axial, final_force_axial = self.force_dynamics(
-            demanded_axial_force, self.axial_forces["measured"], force_rms
-        )
-        in_position_tangent, final_force_axial_tangent = self.force_dynamics(
-            demanded_tangent_force, self.tangent_forces["measured"], force_rms
+        self.in_position = self.control_closed_loop.handle_forces(
+            force_rms=force_rms,
+            force_per_cycle=force_per_cycle,
         )
 
-        # In the closed-loop control, update the measured forces and steps.
-        # Otherwise, do not update the values.
-        if self.force_balance_system_status:
-
-            self.axial_forces["measured"] = final_force_axial + np.random.normal(
-                scale=force_rms,
-                size=n_axial_actuators,
+        # In the open-loop control, update the measured force
+        if self.control_open_loop.is_running:
+            forces = self.control_open_loop.calculate_steps_to_forces(
+                self.control_open_loop.actuator_steps
             )
-            self.tangent_forces[
-                "measured"
-            ] = final_force_axial_tangent + np.random.normal(
-                scale=force_rms,
-                size=NUM_TANGENT_LINK,
+            self.control_closed_loop.set_measured_forces(
+                forces[: (NUM_ACTUATOR - NUM_TANGENT_LINK)], forces[-NUM_TANGENT_LINK:]
             )
 
-            # Update the steps in the open-loop control
+        # In the closed-loop control, update the steps because of the udpated
+        # measured forces.
+        if self.control_closed_loop.is_running:
+
             forces = np.append(
-                self.axial_forces["measured"], self.tangent_forces["measured"]
+                self.control_closed_loop.axial_forces["measured"],
+                self.control_closed_loop.tangent_forces["measured"],
             )
             steps = self.control_open_loop.calculate_forces_to_steps(forces)
             self.control_open_loop.update_actuator_steps(steps)
-
-        return in_position_axial and in_position_tangent
-
-    def calc_look_up_forces(self):
-        """Calculate look-up table (LUT) forces using current system state
-        (position and temperature).
-        """
-
-        # Calculate the LUT forces of temperature component of axial actuators
-        temperature_m2 = np.concatenate(
-            (
-                self.temperature["ring"],
-                self.temperature["intake"],
-                self.temperature["exhaust"],
-            )
-        )
-
-        # Order temperature data based on a12_temperature.ipynb
-        temperature_bin = temperature_m2[
-            [0, 1, 2, 3, 12, 15, 14, 13, 8, 9, 10, 11, 4, 5, 6, 7]
-        ]
-        temperature_lut = temperature_bin[[1, 2, 3, 12, 9, 8, 13, 14, 15, 11, 10, 0]]
-
-        tcoef = self.lut["temp_inv"].dot(temperature_lut - self.temperature["ref"])
-
-        self.axial_forces["lutTemperature"] = np.squeeze(
-            tcoef[0] * self.lut["Tr"]
-            + tcoef[1] * self.lut["Tx"]
-            + tcoef[2] * self.lut["Ty"]
-            + tcoef[3] * self.lut["Tu"]
-        )
-
-        # Calculate the LUT forces of gravity component of axial actuators
-        lut_angle = 90.0 - self.zenith_angle
-
-        self.log.debug(
-            f"Requested zAngle = {self.zenith_angle}," f"LUT angle = {lut_angle}."
-        )
-
-        n_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
-        myfe = np.zeros(n_axial_actuators)
-        myf0 = np.zeros(n_axial_actuators)
-        myfa = np.zeros(n_axial_actuators)
-        myff = np.zeros(n_axial_actuators)
-        for i in range(n_axial_actuators):
-            myfe[i] = np.interp(
-                lut_angle, self.lut["lutInAngle"], self.lut["F_E"][i, :]
-            )
-            myf0[i] = np.interp(
-                lut_angle, self.lut["lutInAngle"], self.lut["F_0"][i, :]
-            )
-            myfa[i] = np.interp(
-                lut_angle, self.lut["lutInAngle"], self.lut["F_A"][i, :]
-            )
-            myff[i] = np.interp(
-                lut_angle, self.lut["lutInAngle"], self.lut["F_F"][i, :]
-            )
-
-        self.axial_forces["lutGravity"] = myfe + myfa
-
-        # Calculate the LUT forces of gravity component of tangent actuators
-        tangent_force = (
-            self.mirror_weight
-            * np.sin(np.radians(self.zenith_angle))
-            / 4.0
-            / np.cos(np.radians(30.0))
-        )
-
-        self.tangent_forces["lutGravity"] = np.array(
-            [0.0, tangent_force, tangent_force, 0.0, -tangent_force, -tangent_force]
-        )
-
-    def force_dynamics(self, demand, current, force_rms, force_rate=100.0):
-        """Handle force dynamics.
-
-        The method works by comparing the `demand` forces with the `current`.
-        forces. For each actuator, if the force differs by less than the
-        amount of "force change per cycle" then the current value is set to
-        the demand value. If the difference is larger, than the current value
-        is modified by the amount of force change per cycle.
-
-        If the difference in force is larger than the force change per
-        cycle for any element, the system is considered "not in position".
-
-        Parameters
-        ----------
-        demand : `numpy.ndarray`
-            Demand forces in Newton.
-        current : `numpy.ndarray`
-            Current forces in Newton.
-        force_rms : `float`
-            force rms variation in Newton.
-        force_rate : `float`, optional
-            Force rate to be able to change in each cycle. The unit is N/sec.
-            (default is 100.0)
-
-        Returns
-        -------
-        in_position : `bool`
-            Are forces in accepted range?
-        final_force : `numpy.ndarray`
-            Resulting forces in Newton.
-        """
-
-        # Check the mirror is in position or not
-        force_diff = demand - current
-        if np.std(force_diff) > 2.0 * force_rms:
-            in_position = False
-        else:
-            in_position = True
-
-        # Calculate the final fource
-
-        # how much force per cycle it can apply
-        force_per_cycle = force_rate * self.telemetry_interval
-
-        actuators_in_cycle = np.where(force_diff <= force_per_cycle)[0]
-
-        final_force = np.array(current, copy=True)
-        final_force[actuators_in_cycle] = demand[actuators_in_cycle]
-
-        actuators_outof_cycle = np.where(force_diff > force_per_cycle)[0]
-
-        for actuator in actuators_outof_cycle:
-            final_force[actuator] += (
-                force_per_cycle * 1.0 if force_diff[actuator] > 0.0 else -1.0
-            )
-        return in_position, final_force
 
     def _simulate_position_mirror(self, position_rms=0.005, angle_rms=0.005):
         """Simulate the position of mirror.
@@ -992,55 +614,6 @@ class MockModel:
 
         return position
 
-    def _simulate_temperature_and_update(
-        self, temperature_rms=0.05, max_temperature=20.0, min_temperature=0.0
-    ):
-        """Simulate the temperature change and update the internal value.
-
-        Parameters
-        ----------
-        temperature_rms : `float`, optional
-            Temperature rms variation in degree C. (default is 0.05)
-        max_temperature : `float`, optional
-            Maximum temperature in degree C. (default is 20.0)
-        min_temperature : `float`, optional
-            Minimum temperature in degree C. (default is 0.0)
-        """
-
-        temperature_ring = self.temperature["ring"]
-
-        # Simulate the change of ring temperature
-        temperature_change = np.random.normal(
-            scale=temperature_rms, size=len(temperature_ring)
-        )
-
-        if np.any(np.array(temperature_ring) > max_temperature):
-            temperature_change = -abs(temperature_change)
-
-        if np.any(np.array(temperature_ring) < min_temperature):
-            temperature_change = abs(temperature_change)
-
-        # Simulate the new intake temperature
-        n_intake_temperatures = len(self.temperature["intake"])
-        temperature_intake_new = (
-            np.mean(np.array(temperature_ring).reshape(-1, 2), axis=0)
-            - 0.5
-            + np.random.normal(scale=temperature_rms, size=n_intake_temperatures)
-        )
-
-        # Simulate the new exhaust temperature
-        n_exhaust_temperatures = len(self.temperature["exhaust"])
-        temperature_exhaust_new = (
-            np.mean(np.array(temperature_ring).reshape(-1, 2), axis=0)
-            + 0.5
-            + np.random.normal(scale=temperature_rms, size=n_exhaust_temperatures)
-        )
-
-        # Update the internal data
-        self.temperature["ring"] = temperature_ring + temperature_change
-        self.temperature["intake"] = temperature_intake_new
-        self.temperature["exhaust"] = temperature_exhaust_new
-
     def _simulate_zenith_angle(self, inclinometer_rms=0.05):
         """Simulate the zenith angle data.
 
@@ -1060,13 +633,8 @@ class MockModel:
             + np.random.normal(scale=inclinometer_rms)
         )
 
-        if self.inclination_source == MTM2.InclinationTelemetrySource.ONBOARD:
-            measured = 90 - inclinometer_value
-        else:
-            measured = self.zenith_angle
-
         zenith_angle = dict()
-        zenith_angle["measured"] = measured
+        zenith_angle["measured"] = 90 - inclinometer_value
         zenith_angle["inclinometerRaw"] = inclinometer_value
         zenith_angle[
             "inclinometerProcessed"
@@ -1097,7 +665,7 @@ class MockModel:
             True if succeeds. Otherwise, False.
         """
 
-        if (not self.motor_power_on) or (self.force_balance_system_status is False):
+        if (not self.motor_power_on) or (self.control_closed_loop.is_running is False):
             return False
 
         # Check limits
@@ -1205,7 +773,7 @@ class MockModel:
 
         result = True
 
-        if (status is True) and (self.force_balance_system_status is True):
+        if (status is True) and self.control_closed_loop.is_running:
             self.control_open_loop.open_loop_max_limit_is_enabled = False
             result = False
         else:

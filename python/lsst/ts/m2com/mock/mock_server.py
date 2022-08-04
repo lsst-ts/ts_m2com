@@ -27,6 +27,7 @@ import asyncio
 from lsst.ts import salobj
 from lsst.ts import tcpip
 from lsst.ts.utils import make_done_future
+from lsst.ts.idl.enums import MTM2
 
 from ..enum import CommandStatus, DetailedState
 from ..utility import write_json_packet
@@ -187,7 +188,7 @@ class MockServer:
                     await self._send_welcome_message()
                     self._welcome_message_sent = True
 
-                if self.model.is_cell_temperature_high():
+                if self.model.control_closed_loop.is_cell_temperature_high():
                     await self._message_event.write_cell_temperature_high_warning(True)
 
                 if self.model.in_position:
@@ -197,7 +198,7 @@ class MockServer:
                     await self._message_event.write_summary_state(salobj.State.FAULT)
                     await self._message_event.write_error_code(self.FAKE_ERROR_CODE)
                     await self._message_event.write_force_balance_system_status(
-                        self.model.force_balance_system_status
+                        self.model.control_closed_loop.is_running
                     )
 
                 await asyncio.sleep(self.PERIOD_TELEMETRY_IN_SECOND)
@@ -209,11 +210,11 @@ class MockServer:
                 await self._process_message_command()
 
                 await self._run_and_report_script_engine_status()
-
                 self._run_control_open_loop()
+                self.model.balance_forces_and_steps()
 
                 # Check the force and fault the system if needed
-                if self.model.control_open_loop.is_actuator_force_out_limit():
+                if self.model.is_actuator_force_out_limit():
                     self.model.fault()
 
         except ConnectionError:
@@ -237,13 +238,19 @@ class MockServer:
 
         await self._message_event.write_tcp_ip_connected(True)
         await self._message_event.write_commandable_by_dds(True)
-        await self._message_event.write_hardpoint_list([6, 16, 26, 74, 76, 78])
+
+        # Note the index begins from 0 in Python
+        hardpoints = [
+            (hardpoint + 1) for hardpoint in self.model.control_closed_loop.hardpoints
+        ]
+        await self._message_event.write_hardpoint_list(hardpoints)
+
         await self._message_event.write_interlock(False)
         await self._message_event.write_inclination_telemetry_source(
             self.model.inclination_source
         )
 
-        temp_offset = self.model.temperature["ref"]
+        temp_offset = self.model.control_closed_loop.temperature["ref"]
         await self._message_event.write_temperature_offset(
             [temp_offset] * 12,
             [temp_offset] * 2,
@@ -574,8 +581,15 @@ class MockServer:
             # lower case
             name = msg_tel["id"].lower()
             component = msg_tel["compName"].lower()
-            if name == "tel_elevation" and component == "mtmount":
-                self.model.update_zenith_angle(90.0 - msg_tel["actualPosition"])
+            if (
+                (name == "tel_elevation")
+                and (component == "mtmount")
+                and (
+                    self.model.inclination_source
+                    == MTM2.InclinationTelemetrySource.MTMOUNT
+                )
+            ):
+                self.model.set_inclinometer_angle(msg_tel["actualPosition"])
 
         except asyncio.TimeoutError:
             await asyncio.sleep(self.timeout_in_second)
@@ -618,8 +632,8 @@ class MockServer:
         self._message_telemetry = None
 
         self.model.control_open_loop.open_loop_max_limit_is_enabled = False
+        self.model.control_closed_loop.is_running = False
 
-        self.model.force_balance_system_status = False
         self.model.communication_power_on = False
         self.model.motor_power_on = False
         self.model.error_cleared = True
