@@ -20,11 +20,15 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import unittest
-import pathlib
 
 import numpy as np
 
-from lsst.ts.m2com import MockControlOpenLoop, NUM_ACTUATOR, ActuatorDisplacementUnit
+from lsst.ts.m2com import (
+    MockControlOpenLoop,
+    NUM_ACTUATOR,
+    ActuatorDisplacementUnit,
+    get_config_dir,
+)
 
 
 class TestMockControlOpenLoop(unittest.TestCase):
@@ -36,10 +40,7 @@ class TestMockControlOpenLoop(unittest.TestCase):
         self.control_open_loop.inclinometer_angle = 120
 
         self.path_file_static_transfer_matrix = (
-            pathlib.Path(__file__).parents[0]
-            / ".."
-            / "harrisLUT"
-            / "StaticTransferMatrix.csv"
+            get_config_dir() / "harrisLUT" / "StaticTransferMatrix.csv"
         )
 
         self.control_open_loop.read_file_static_transfer_matrix(

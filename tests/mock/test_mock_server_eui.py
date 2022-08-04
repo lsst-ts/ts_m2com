@@ -23,11 +23,15 @@ import unittest
 import contextlib
 import asyncio
 import logging
-import pathlib
 
 from lsst.ts import tcpip
 from lsst.ts import salobj
-from lsst.ts.m2com import TcpClient, MockServer, get_queue_message_latest
+from lsst.ts.m2com import (
+    TcpClient,
+    MockServer,
+    get_queue_message_latest,
+    get_config_dir,
+)
 
 
 class TestMockServerEui(unittest.IsolatedAsyncioTestCase):
@@ -39,7 +43,7 @@ class TestMockServerEui(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.config_dir = pathlib.Path(__file__).parents[0] / ".."
+        cls.config_dir = get_config_dir()
         cls.host = tcpip.LOCAL_HOST
         cls.log = logging.getLogger()
         cls.maxsize_queue = 1000
