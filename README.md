@@ -14,6 +14,7 @@
 - [sphinxcontrib-plantuml](https://github.com/sphinx-contrib/plantuml/) (optional, install by `pip`)
 - pytest (optional, install by `conda`)
 - pytest-flake8 (optional, install by `conda -c conda-forge`)
+- [ts_config_mttcs](https://github.com/lsst-ts/ts_config_mttcs) (optional, this is to provide the test data)
 
 ## Code Format
 
@@ -37,7 +38,14 @@ You can run the unit tests by:
 pytest tests/
 ```
 
+You need to have the variable of `TS_CONFIG_MTTCS_DIR` assigned to get the test
+data.
+
 ## Class Diagrams
 
 The class diagrams are in [here](doc/uml).
 You can use the [PlantUML](https://plantuml.com) to read them.
+
+## Note
+
+The environment variable of `TS_CONFIG_MTTCS_DIR` is used to reach the disk position of test data (`ts_config_mttcs`) to adapt both package managers: `conda` and `eups`.
