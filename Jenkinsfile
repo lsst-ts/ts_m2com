@@ -61,7 +61,7 @@ pipeline {
                         source ${env.SAL_SETUP_FILE}
 
                         cd ${WORK_HOME}/ts_config_mttcs
-                        ${env.SAL_CHECKOUT_FILE} ${env.BRANCH_NAME}
+                        ${env.SAL_CHECKOUT_FILE} ${env.CHANGE_BRANCH}
 
                         export TS_CONFIG_MTTCS_DIR=`pwd`
 
