@@ -4,6 +4,7 @@ This configuration only affects single-package Sphinx documentation builds.
 """
 
 from documenteer.conf.pipelinespkg import *
+from os import getenv
 import lsst.ts.m2com
 
 project = "ts_m2com"
@@ -18,4 +19,9 @@ intersphinx_mapping["ts_salobj"] = ("https://ts-salobj.lsst.io", None)
 extensions.append("sphinxcontrib.plantuml")
 
 # Put the path to plantuml.jar
-plantuml = "java -jar /home/saluser/plantuml.jar"
+path_plantuml = (
+    "/home/saluser/plantuml.jar"
+    if getenv("PATH_PLANTUML") is None
+    else getenv("PATH_PLANTUML")
+)
+plantuml = f"java -jar {path_plantuml}"

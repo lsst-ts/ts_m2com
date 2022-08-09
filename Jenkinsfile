@@ -86,6 +86,7 @@ pipeline {
                         pip install sphinxcontrib-plantuml ltd-conveyor
 
                         curl -L ${env.PLANTUML_URL} -o plantuml.jar
+                        export PATH_PLANTUML=${env.WORK_HOME}/plantuml.jar
 
                         cd ${WORK_HOME}
                         setup -k -r .

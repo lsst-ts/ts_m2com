@@ -45,6 +45,8 @@ data.
 
 The class diagrams are in [here](doc/uml).
 You can use the [PlantUML](https://plantuml.com) to read them.
+The environment variable **PATH_PLANTUML** is required to indicate the position of **plantuml.jar**.
+Otherwise, the default position will be used.
 
 ## Note
 
