@@ -261,13 +261,13 @@ class MockModel:
         """
 
         path_lut = config_dir / lut_path
-        self.control_closed_loop.read_file_lut(path_lut)
+        self.control_closed_loop.load_file_lut(path_lut)
 
         path_cell_geom = config_dir / lut_path / "cell_geom.yaml"
-        self.control_closed_loop.read_file_cell_geometry(path_cell_geom)
+        self.control_closed_loop.load_file_cell_geometry(path_cell_geom)
 
         path_hardpoint_compensation = config_dir / lut_path / "Hd_ax_Matrix_Params.csv"
-        self.control_closed_loop.read_file_hardpoint_compensation(
+        self.control_closed_loop.load_file_hardpoint_compensation(
             path_hardpoint_compensation
         )
 

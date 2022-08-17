@@ -40,13 +40,13 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.control_closed_loop = MockControlClosedLoop()
 
         filepath_lut = get_config_dir() / "harrisLUT"
-        self.control_closed_loop.read_file_lut(filepath_lut)
+        self.control_closed_loop.load_file_lut(filepath_lut)
 
         filepath_cell_geometry = filepath_lut / "cell_geom.yaml"
-        self.control_closed_loop.read_file_cell_geometry(filepath_cell_geometry)
+        self.control_closed_loop.load_file_cell_geometry(filepath_cell_geometry)
 
         filepath_hardpoint = filepath_lut / "Hd_ax_Matrix_Params.csv"
-        self.control_closed_loop.read_file_hardpoint_compensation(filepath_hardpoint)
+        self.control_closed_loop.load_file_hardpoint_compensation(filepath_hardpoint)
 
     def test_init(self):
 

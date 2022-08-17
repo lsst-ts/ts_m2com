@@ -65,10 +65,8 @@ pipeline {
                     sh """
                         source ${env.SAL_SETUP_FILE}
 
-                        cd ${WORK_HOME}/ts_config_mttcs
-                        export TS_CONFIG_MTTCS_DIR=`pwd`
+                        export TS_CONFIG_MTTCS_DIR=${WORK_HOME}/ts_config_mttcs
 
-                        cd ${WORK_HOME}
                         setup -k -r .
                         pytest --cov-report html --cov=${env.MODULE_NAME} --junitxml=${env.XML_REPORT}
                     """

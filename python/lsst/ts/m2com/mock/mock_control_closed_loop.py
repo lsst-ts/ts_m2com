@@ -57,7 +57,7 @@ class MockControlClosedLoop:
 
         self.is_running = False
 
-        self.temperature = self._get_default_temperatures()
+        self.temperature = MockControlClosedLoop._get_temperatures()
 
         self.axial_forces = dict(
             [
@@ -91,7 +91,7 @@ class MockControlClosedLoop:
 
         self.in_position_hardpoints = False
 
-        # Look-up table (LUT)
+        # Look-up tables (LUTs)
         self._lut = dict()
 
         # Cell geometry used in the calculation of net total forces and moments
@@ -100,8 +100,8 @@ class MockControlClosedLoop:
         # Hardpoint compensation matrix
         self._hd_comp = np.array([])
 
-    def _get_default_temperatures(
-        self,
+    @staticmethod
+    def _get_temperatures(
         temperature_init_low=24.49,
         temperature_init_high=26.53,
         temperature_ref=21.0,
@@ -216,13 +216,18 @@ class MockControlClosedLoop:
         if (len(force_axial) != (NUM_ACTUATOR - NUM_TANGENT_LINK)) or (
             len(force_tangent) != NUM_TANGENT_LINK
         ):
-            raise ValueError("The input dimensions of forces are wrong.")
+            raise ValueError(
+                "The input dimensions of forces are wrong. "
+                f"Expected {NUM_ACTUATOR - NUM_TANGENT_LINK}/{NUM_TANGENT_LINK} "
+                "for the axial and tangent forcers, "
+                f"got {len(force_axial)}/{len(force_tangent)}, respectively."
+            )
 
         self.axial_forces["measured"] = force_axial
         self.tangent_forces["measured"] = force_tangent
 
-    def read_file_lut(self, filepath):
-        """Read the look-up table (LUT) files.
+    def load_file_lut(self, filepath):
+        """Load the look-up table (LUT) files.
 
         Parameters
         ----------
@@ -258,8 +263,8 @@ class MockControlClosedLoop:
             else:
                 self._lut[name] = np.loadtxt(filepath / lut)
 
-    def read_file_cell_geometry(self, filepath):
-        """Read the file of cell geometry.
+    def load_file_cell_geometry(self, filepath):
+        """Load the file of cell geometry.
 
         Parameters
         ----------
@@ -269,8 +274,8 @@ class MockControlClosedLoop:
 
         self._cell_geom = read_yaml_file(filepath)
 
-    def read_file_hardpoint_compensation(self, filepath, skiprows=7):
-        """Read the file of hardpoint compensation.
+    def load_file_hardpoint_compensation(self, filepath, skiprows=7):
+        """Load the file of hardpoint compensation.
 
         Parameters
         ----------
@@ -307,7 +312,7 @@ class MockControlClosedLoop:
 
         diff = (temp_exhaust[0] - temp_intake[0] + temp_exhaust[1] - temp_intake[1]) / 2
 
-        return True if diff > self.temperature["maxDiff"] else False
+        return diff > self.temperature["maxDiff"]
 
     def apply_forces(self, force_axial, force_tangent):
         """Apply the actuator forces.
@@ -421,12 +426,12 @@ class MockControlClosedLoop:
         `dict`
             Total net forces in Newton.
         """
-        return self._calc_net_forces_total(
+        return self._calculate_xyz_net_forces(
             self.axial_forces["measured"], self.tangent_forces["measured"]
         )
 
-    def _calc_net_forces_total(self, axial_forces, tangent_forces):
-        """Calculate the total net forces in Newton.
+    def _calculate_xyz_net_forces(self, axial_forces, tangent_forces):
+        """Calculate the net forces in Newton on the individual axis.
 
         Parameters
         ----------
@@ -457,12 +462,13 @@ class MockControlClosedLoop:
         `dict`
             Total net moments in Newton * meter.
         """
-        return self._calc_net_moments_total(
+        return self._calculate_xyz_net_moments(
             self.axial_forces["measured"], self.tangent_forces["measured"]
         )
 
-    def _calc_net_moments_total(self, axial_forces, tangent_forces):
-        """Calculate the total net moments in Newton * meter.
+    def _calculate_xyz_net_moments(self, axial_forces, tangent_forces):
+        """Calculate the total net moments in Newton * meter on the individual
+        axis.
 
         Parameters
         ----------
@@ -497,8 +503,8 @@ class MockControlClosedLoop:
         axial_forces = self.axial_forces["hardpointCorrection"]
         tangent_forces = self.tangent_forces["hardpointCorrection"]
 
-        net_forces = self._calc_net_forces_total(axial_forces, tangent_forces)
-        net_moments = self._calc_net_moments_total(axial_forces, tangent_forces)
+        net_forces = self._calculate_xyz_net_forces(axial_forces, tangent_forces)
+        net_moments = self._calculate_xyz_net_moments(axial_forces, tangent_forces)
 
         force_balance = net_forces.copy()
         force_balance.update(net_moments)
