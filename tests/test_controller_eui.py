@@ -24,7 +24,6 @@ import logging
 import sys
 import contextlib
 import unittest
-import pathlib
 
 import numpy as np
 
@@ -44,6 +43,7 @@ from lsst.ts.m2com import (
     NUM_ACTUATOR,
     TEST_DIGITAL_OUTPUT_POWER_COMM,
     TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
+    get_config_dir,
 )
 
 
@@ -56,7 +56,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.config_dir = pathlib.Path(__file__).parents[0]
+        cls.config_dir = get_config_dir()
         cls.host = tcpip.LOCAL_HOST
         cls.timeout_in_second = 0.05
 

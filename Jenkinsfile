@@ -32,6 +32,10 @@ pipeline {
         MODULE_NAME = "lsst.ts.m2com"
         // PlantUML url
         PLANTUML_URL = "https://github.com/plantuml/plantuml/releases/download/v1.2021.13/plantuml-1.2021.13.jar"
+        // Branch name. This is to deal with the condition that the env.BRANCH_NAME
+        // will become "PR-X" at the pull request. When that happens, only the
+        // env.CHANGE_BRANCH will give the expected name.
+        BRANCH = getBranchName(env.CHANGE_BRANCH, env.BRANCH_NAME)
         // Authority to publish the document online
         user_ci = credentials('lsst-io')
         LTD_USERNAME = "${user_ci_USR}"
@@ -41,6 +45,19 @@ pipeline {
 
     stages {
 
+        stage('Cloning Repos') {
+            steps {
+                withEnv(["WORK_HOME=${env.WORKSPACE}"]) {
+                    sh """
+                        git clone https://github.com/lsst-ts/ts_config_mttcs.git
+
+                        cd ${WORK_HOME}/ts_config_mttcs
+                        git checkout -t origin/${env.BRANCH} | true
+                    """
+                }
+            }
+        }
+
         stage('Unit Tests and Coverage Analysis') {
             steps {
                 // Pytest needs to export the junit report.
@@ -48,7 +65,8 @@ pipeline {
                     sh """
                         source ${env.SAL_SETUP_FILE}
 
-                        cd ${WORK_HOME}
+                        export TS_CONFIG_MTTCS_DIR=${WORK_HOME}/ts_config_mttcs
+
                         setup -k -r .
                         pytest --cov-report html --cov=${env.MODULE_NAME} --junitxml=${env.XML_REPORT}
                     """
@@ -66,6 +84,7 @@ pipeline {
                         pip install sphinxcontrib-plantuml ltd-conveyor
 
                         curl -L ${env.PLANTUML_URL} -o plantuml.jar
+                        export PATH_PLANTUML=${env.WORK_HOME}/plantuml.jar
 
                         cd ${WORK_HOME}
                         setup -k -r .
@@ -110,4 +129,10 @@ pipeline {
             deleteDir()
         }
     }
+}
+
+// Return branch name. If changeBranch isn't defined, use branchName.
+def getBranchName(changeBranch, branchName) {
+    def branch = (changeBranch == null) ? branchName : changeBranch
+    return branch
 }

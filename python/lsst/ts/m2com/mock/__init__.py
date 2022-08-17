@@ -24,5 +24,6 @@ from .mock_message_event import *
 from .mock_command import *
 from .mock_script_engine import *
 from .mock_control_open_loop import *
+from .mock_control_closed_loop import *
 from .mock_model import *
 from .mock_server import *

@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v0.4.0
+------
+
+* Add the **MockControlClosedLoop** class.
+* Use the **TS_CONFIG_MTTCS_DIR** to get the configuration files.
+
 v0.3.0
 ------
 

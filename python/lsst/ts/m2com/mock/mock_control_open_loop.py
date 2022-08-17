@@ -38,7 +38,7 @@ class MockControlOpenLoop:
     open_loop_max_limit_is_enabled : `bool`
         The maximum limit of open-loop control is enabled or not.
     is_running : `bool`
-        The script is running or not.
+        The open-loop control is running or not.
     actuator_steps : `numpy.ndarray [int]`
         Current positions of the actuator in steps referenced to the home
         position.

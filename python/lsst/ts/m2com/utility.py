@@ -22,6 +22,8 @@
 import json
 import yaml
 from copy import deepcopy
+from os import getenv
+from pathlib import Path
 
 from lsst.ts import tcpip
 
@@ -31,6 +33,7 @@ __all__ = [
     "read_yaml_file",
     "collect_queue_messages",
     "get_queue_message_latest",
+    "get_config_dir",
 ]
 
 
@@ -62,7 +65,8 @@ def check_queue_size(queue, log, name=""):
     log : `logging.Logger`
         A logger.
     name : `str`, optional
-        Additional string to add to the log message for tracking purposes.
+        Additional string to add to the log message for tracking purposes. (the
+        default is "")
 
     Returns
     -------
@@ -164,3 +168,23 @@ def get_queue_message_latest(queue, name, flush=True):
     messages = collect_queue_messages(queue, name, flush=flush)
 
     return messages[-1]
+
+
+def get_config_dir(env_variable="TS_CONFIG_MTTCS_DIR", relative_path="MTM2/v2"):
+    """Get the directory of configuration files.
+
+    Parameters
+    ----------
+    env_variable : `str`, optional
+        Environment variable of "ts_config_mttcs". (the default is
+        "TS_CONFIG_MTTCS_DIR")
+    relative_path : `str`, optional
+        Relative path to the "ts_config_mttcs". (the default is
+        "MTM2/v2")
+
+    Returns
+    -------
+    `pathlib.PosixPath`
+        Path of the configuration directory.
+    """
+    return Path(getenv(env_variable)) / relative_path

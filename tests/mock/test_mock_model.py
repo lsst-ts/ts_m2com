@@ -21,7 +21,6 @@
 
 import numpy as np
 import unittest
-import pathlib
 
 from lsst.ts.idl.enums import MTM2
 
@@ -36,6 +35,7 @@ from lsst.ts.m2com import (
     TEST_DIGITAL_INPUT_NO_POWER,
     TEST_DIGITAL_INPUT_POWER_COMM,
     TEST_DIGITAL_INPUT_POWER_COMM_MOTOR,
+    get_config_dir,
 )
 
 
@@ -45,25 +45,27 @@ class TestMockModel(unittest.TestCase):
     def setUp(self):
 
         self.model = MockModel()
-
-        config_dir = pathlib.Path(__file__).parents[0] / ".."
-        self.model.configure(config_dir, "harrisLUT")
+        self.model.configure(get_config_dir(), "harrisLUT")
 
     def test_init(self):
 
         # In the default condition, there should be no force error
-        self.assertFalse(self.model.control_open_loop.is_actuator_force_out_limit())
+        self.assertFalse(self.model.is_actuator_force_out_limit())
 
-        self.assertAlmostEqual(self.model.axial_forces["measured"][0], 216.2038167)
-        self.assertEqual(self.model.tangent_forces["measured"][0], 0)
-        self.assertAlmostEqual(self.model.tangent_forces["measured"][1], -63.8528153)
+        self.assertAlmostEqual(
+            self.model.control_closed_loop.axial_forces["measured"][0], 216.2038167
+        )
+        self.assertEqual(
+            self.model.control_closed_loop.tangent_forces["measured"][0], 0
+        )
+        self.assertAlmostEqual(
+            self.model.control_closed_loop.tangent_forces["measured"][1], -63.8528153
+        )
 
-    def test_update_zenith_angle(self):
-
-        self.model.update_zenith_angle(30)
-
-        self.assertEqual(self.model.zenith_angle, 30)
-        self.assertEqual(self.model.control_open_loop.inclinometer_angle, 60)
+        self.assertAlmostEqual(
+            self.model.control_closed_loop.axial_forces["hardpointCorrection"][0],
+            -27.8015275,
+        )
 
     def test_get_default_mirror_position(self):
 
@@ -73,25 +75,35 @@ class TestMockModel(unittest.TestCase):
         for value in mirror_position.values():
             self.assertEqual(value, 0)
 
-    def test_configure(self):
+    def test_set_inclinometer_angle(self):
 
-        self.assertEqual(len(self.model.lut.keys()), 10)
+        self.model.set_inclinometer_angle(120)
 
-    def test_is_cell_temperature_high(self):
+        self.assertEqual(self.model.control_open_loop.inclinometer_angle, 120)
+        self.assertAlmostEqual(
+            self.model.control_closed_loop.axial_forces["hardpointCorrection"][0],
+            -89.3301199,
+        )
 
-        # Temperature is normal
-        self.assertFalse(self.model.is_cell_temperature_high())
+    def test_is_actuator_force_out_limit_closed_loop(self):
 
-        # Temperature is high
-        self.model.temperature["exhaust"] = [99, 99]
+        self.model.control_closed_loop.is_running = True
+        self.model.control_closed_loop.axial_forces["applied"][0] = 1000
 
-        self.assertTrue(self.model.is_cell_temperature_high())
+        self.assertTrue(self.model.is_actuator_force_out_limit())
+
+    def test_is_actuator_force_out_limit(self):
+
+        # By default, use the result from the open-loop control.
+        self.model.control_open_loop.actuator_steps[0] -= 6000
+
+        self.assertTrue(self.model.is_actuator_force_out_limit())
 
     def test_fault_motor_power_not_on(self):
 
         self.model.fault()
         self.assertFalse(self.model.error_cleared)
-        self.assertFalse(self.model.force_balance_system_status)
+        self.assertFalse(self.model.control_closed_loop.is_running)
 
     def test_fault_motor_power_on(self):
 
@@ -101,7 +113,7 @@ class TestMockModel(unittest.TestCase):
         # Turn on the power and the switch should work
         self.model.motor_power_on = True
         self.assertTrue(self.model.switch_force_balance_system(True))
-        self.assertTrue(self.model.force_balance_system_status)
+        self.assertTrue(self.model.control_closed_loop.is_running)
 
         # Fault the model
         self.model.fault()
@@ -110,13 +122,13 @@ class TestMockModel(unittest.TestCase):
         self.assertFalse(self.model.script_engine.is_running)
         self.assertFalse(self.model.control_open_loop.is_running)
 
-        self.assertFalse(self.model.force_balance_system_status)
+        self.assertFalse(self.model.control_closed_loop.is_running)
 
     def test_switch_force_balance_system(self):
 
         # This should fail
         self.assertFalse(self.model.switch_force_balance_system(True))
-        self.assertFalse(self.model.force_balance_system_status)
+        self.assertFalse(self.model.control_closed_loop.is_running)
 
         # The system should not run the open-loop control when the force
         # balance system is on
@@ -127,71 +139,11 @@ class TestMockModel(unittest.TestCase):
 
         self.assertTrue(self.model.switch_force_balance_system(True))
         self.assertFalse(self.model.control_open_loop.is_running)
-        self.assertTrue(self.model.force_balance_system_status)
+        self.assertTrue(self.model.control_closed_loop.is_running)
 
         # Switch off the force balance system
         self.assertTrue(self.model.switch_force_balance_system(False))
-        self.assertFalse(self.model.force_balance_system_status)
-
-    def test_apply_forces(self):
-
-        force_axial, force_tangent = self._apply_forces()
-
-        np.testing.assert_array_equal(self.model.axial_forces["applied"], force_axial)
-        np.testing.assert_array_equal(
-            self.model.tangent_forces["applied"], force_tangent
-        )
-
-    def _apply_forces(self):
-
-        force_axial = [1] * (NUM_ACTUATOR - NUM_TANGENT_LINK)
-        force_tangent = [2] * NUM_TANGENT_LINK
-        self.model.apply_forces(force_axial, force_tangent)
-
-        return force_axial, force_tangent
-
-    def test_check_axial_force_limit(self):
-
-        force_axial = self._apply_forces()[0]
-        demanded_axial_force = self.model.check_axial_force_limit()
-
-        np.testing.assert_array_equal(demanded_axial_force, force_axial)
-
-    def test_check_axial_force_limit_error(self):
-
-        force_axial = [0] * (NUM_ACTUATOR - NUM_TANGENT_LINK)
-        force_axial[2] = 999
-
-        self.assertRaises(RuntimeError, self.model.check_axial_force_limit, force_axial)
-
-    def test_check_tangent_force_limit(self):
-
-        force_tangent = self._apply_forces()[1]
-        demanded_tanget_force = self.model.check_tangent_force_limit()
-
-        np.testing.assert_array_equal(demanded_tanget_force, force_tangent)
-
-    def test_check_tangent_force_limit_error(self):
-
-        force_tangent = [0] * NUM_TANGENT_LINK
-        force_tangent[2] = 9999
-
-        self.assertRaises(
-            RuntimeError, self.model.check_tangent_force_limit, force_tangent
-        )
-
-    def test_reset_force_offsets(self):
-
-        self._apply_forces()
-
-        self.model.reset_force_offsets()
-
-        np.testing.assert_array_equal(
-            self.model.axial_forces["applied"], [0] * (NUM_ACTUATOR - NUM_TANGENT_LINK)
-        )
-        np.testing.assert_array_equal(
-            self.model.tangent_forces["applied"], [0] * NUM_TANGENT_LINK
-        )
+        self.assertFalse(self.model.control_closed_loop.is_running)
 
     def test_clear_errors(self):
 
@@ -244,6 +196,14 @@ class TestMockModel(unittest.TestCase):
 
         tangent_actuator_positions = telemetry_data["tangentEncoderPositions"]
         self.assertEqual(len(tangent_actuator_positions["position"]), NUM_TANGENT_LINK)
+
+    def _apply_forces(self):
+
+        force_axial = [1] * (NUM_ACTUATOR - NUM_TANGENT_LINK)
+        force_tangent = [2] * NUM_TANGENT_LINK
+        self.model.control_closed_loop.apply_forces(force_axial, force_tangent)
+
+        return force_axial, force_tangent
 
     def test_get_power_status(self):
 
@@ -335,119 +295,33 @@ class TestMockModel(unittest.TestCase):
 
         return matrix.dot((position_ims_update - offset).reshape(-1, 1)).ravel()
 
-    def test_get_net_forces_total(self):
+    def test_balance_forces_and_steps_exception(self):
 
-        self._set_measured_forces_to_zero()
-        self.model.axial_forces["measured"][1:3] = np.array([1, 2])
-        self.model.tangent_forces["measured"] = np.array([1, 2, 3, 4, 5, 6])
+        self.model.control_open_loop.is_running = True
+        self.model.control_closed_loop.is_running = True
 
-        net_forces_total = self.model._get_net_forces_total()
+        self.assertRaises(RuntimeError, self.model.balance_forces_and_steps)
 
-        self.assertAlmostEqual(net_forces_total["fx"], -3)
-        self.assertAlmostEqual(net_forces_total["fy"], -5.1961524)
-        self.assertAlmostEqual(net_forces_total["fz"], 3)
+    def test_balance_forces_and_steps(self):
 
-    def _set_measured_forces_to_zero(self):
+        self.model.control_closed_loop.is_running = True
 
-        self.model.axial_forces["measured"] = np.zeros(NUM_ACTUATOR - NUM_TANGENT_LINK)
-        self.model.tangent_forces["measured"] = np.zeros(NUM_TANGENT_LINK)
+        # In the initial beginning, the actuators are not in position
+        self.model.balance_forces_and_steps()
+        self.assertFalse(self.model.in_position)
 
-    def test_get_net_moments_total(self):
+        # After some running of closed-loop control, the actuators are in
+        # position
+        in_position_happened = False
+        for idx in range(100):
+            self.model.balance_forces_and_steps()
 
-        self._set_measured_forces_to_zero()
-        self.model.axial_forces["measured"][1:4] = np.array([1, 2, 3])
-        self.model.tangent_forces["measured"] = np.array([1, 2, 3, 4, 5, 6])
+            if (not in_position_happened) and self.model.in_position:
+                in_position_happened = True
 
-        net_moments_total = self.model._get_net_moments_total()
+        self.assertTrue(in_position_happened)
 
-        self.assertAlmostEqual(net_moments_total["mx"], 8.37691)
-        self.assertAlmostEqual(net_moments_total["my"], 4.45836999)
-        self.assertAlmostEqual(net_moments_total["mz"], 37.3839844)
-
-    def test_handle_forces_function(self):
-
-        # No update of force now
-        self.model.handle_forces()
-
-        value_original = self.model.axial_forces["measured"][0]
-        self.assertAlmostEqual(value_original, 216.2038167)
-
-        # There is the update of force
-        self.model.force_balance_system_status = True
-
-        self.model.handle_forces()
-
-        self.assertGreater(self.model.axial_forces["measured"][0] - value_original, 1)
-
-    def test_handle_forces(self):
-
-        self._set_measured_forces_to_zero()
-        self.model.force_balance_system_status = True
-        force_axial, force_tangent = self._apply_forces()
-
-        force_rms = 0.5
-        in_position = self.model.handle_forces(force_rms=0.5)
-
-        self.assertFalse(in_position)
-
-        # Check the axial forces
-        self.assertNotEqual(
-            np.sum(np.abs(self.model.axial_forces["hardpointCorrection"])), 0
-        )
-        self.assertLess(
-            np.std(self.model.axial_forces["hardpointCorrection"]), 3 * force_rms
-        )
-        self.assertNotEqual(np.sum(np.abs(self.model.axial_forces["measured"])), 0)
-        self.assertLess(np.std(self.model.axial_forces["measured"]), 3 * force_rms)
-
-        # Check the tangent forces
-        self.assertNotEqual(
-            np.sum(np.abs(self.model.tangent_forces["hardpointCorrection"])), 0
-        )
-        self.assertLess(
-            np.std(self.model.tangent_forces["hardpointCorrection"]), 3 * force_rms
-        )
-        self.assertNotEqual(np.sum(np.abs(self.model.tangent_forces["measured"])), 0)
-        self.assertLess(np.std(self.model.tangent_forces["measured"]), 3 * force_rms)
-
-    def test_calc_look_up_forces(self):
-
-        self.model.zenith_angle = 10
-        self.model.calc_look_up_forces()
-
-        self.assertAlmostEqual(self.model.axial_forces["lutTemperature"][0], -9.683872)
-        self.assertAlmostEqual(self.model.axial_forces["lutGravity"][0], 319.58224)
-
-        self.assertAlmostEqual(self.model.tangent_forces["lutGravity"][0], 0)
-        self.assertAlmostEqual(self.model.tangent_forces["lutGravity"][1], 780.89259849)
-
-        np.testing.assert_array_equal(
-            self.model.tangent_forces["lutTemperature"], np.array([])
-        )
-
-    def test_force_dynamics_in_position(self):
-
-        demand = np.array([1, 2])
-        current = demand.copy()
-        force_rms = 0.5
-        in_position, final_force = self.model.force_dynamics(
-            demand, current, force_rms, force_rate=100.0
-        )
-
-        self.assertTrue(in_position)
-        np.testing.assert_array_equal(final_force, demand)
-
-    def test_force_dynamics_not_in_position(self):
-
-        demand = np.array([1, 2])
-        current = np.array([5, -5])
-        force_rms = 0.5
-        in_position, final_force = self.model.force_dynamics(
-            demand, current, force_rms, force_rate=100.0
-        )
-
-        self.assertFalse(in_position)
-        np.testing.assert_array_equal(final_force, [1, 0])
+        self.assertTrue(self.model.control_closed_loop.in_position_hardpoints)
 
     def test_simulate_zenith_angle(self):
 

@@ -24,11 +24,10 @@ import logging
 import sys
 import contextlib
 import unittest
-import pathlib
 
 from lsst.ts import tcpip
 from lsst.ts import salobj
-from lsst.ts.m2com import MockServer, Controller, CommandStatus, MsgType
+from lsst.ts.m2com import MockServer, Controller, CommandStatus, MsgType, get_config_dir
 
 
 class TestController(unittest.IsolatedAsyncioTestCase):
@@ -36,7 +35,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.config_dir = pathlib.Path(__file__).parents[0]
+        cls.config_dir = get_config_dir()
         cls.host = tcpip.LOCAL_HOST
         cls.timeout_in_second = 0.05
 

@@ -24,7 +24,6 @@ import contextlib
 import asyncio
 import logging
 import numpy as np
-import pathlib
 
 from lsst.ts import tcpip
 from lsst.ts import salobj
@@ -45,6 +44,7 @@ from lsst.ts.m2com import (
     TEST_DIGITAL_INPUT_NO_POWER,
     TEST_DIGITAL_INPUT_POWER_COMM,
     TEST_DIGITAL_INPUT_POWER_COMM_MOTOR,
+    get_config_dir,
 )
 
 
@@ -53,7 +53,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.config_dir = pathlib.Path(__file__).parents[0] / ".."
+        cls.config_dir = get_config_dir()
         cls.host = tcpip.LOCAL_HOST
         cls.log = logging.getLogger()
         cls.maxsize_queue = 1000
@@ -81,7 +81,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(server._message_event)
         self.assertIsNone(server._message_telemetry)
 
-        self.assertFalse(server.model.force_balance_system_status)
+        self.assertFalse(server.model.control_closed_loop.is_running)
         self.assertFalse(server.model.motor_power_on)
         self.assertTrue(server.model.error_cleared)
 
@@ -229,7 +229,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_tel,
         ):
 
-            server.model.temperature["exhaust"] = [99, 99]
+            server.model.control_closed_loop.temperature["exhaust"] = [99, 99]
             await asyncio.sleep(0.5)
 
             msg_high_temp = get_queue_message_latest(
@@ -270,7 +270,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(msg_success["id"], "success")
 
             self.assertTrue(server.model.motor_power_on)
-            self.assertTrue(server.model.force_balance_system_status)
+            self.assertTrue(server.model.control_closed_loop.is_running)
 
             msg_digital_input = get_queue_message_latest(
                 client_cmd.queue, "digitalInput", flush=False
@@ -293,7 +293,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
         ):
             server.model.communication_power_on = True
             server.model.motor_power_on = True
-            server.model.force_balance_system_status = True
+            server.model.control_closed_loop.is_running = True
 
             await client_cmd.write(MsgType.Command, "disable")
             await asyncio.sleep(0.5)
@@ -304,7 +304,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(msg_fb["status"])
 
             self.assertFalse(server.model.motor_power_on)
-            self.assertFalse(server.model.force_balance_system_status)
+            self.assertFalse(server.model.control_closed_loop.is_running)
 
             msg_digital_input = get_queue_message_latest(
                 client_cmd.queue, "digitalInput", flush=False
@@ -448,10 +448,11 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(0.5)
 
             np.testing.assert_array_equal(
-                server.model.axial_forces["applied"], force_axial
+                server.model.control_closed_loop.axial_forces["applied"], force_axial
             )
             np.testing.assert_array_equal(
-                server.model.tangent_forces["applied"], force_tangent
+                server.model.control_closed_loop.tangent_forces["applied"],
+                force_tangent,
             )
 
     async def test_cmd_position_mirror(self):
@@ -487,16 +488,28 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            server.model.axial_forces["applied"] = np.ones(
+            server.model.control_closed_loop.axial_forces["applied"] = np.ones(
                 NUM_ACTUATOR - NUM_TANGENT_LINK
             )
-            server.model.tangent_forces["applied"] = np.ones(NUM_TANGENT_LINK)
+            server.model.control_closed_loop.tangent_forces["applied"] = np.ones(
+                NUM_TANGENT_LINK
+            )
 
             await client_cmd.write(MsgType.Command, "resetForceOffsets")
             await asyncio.sleep(0.5)
 
-            self.assertEqual(np.sum(np.abs(server.model.axial_forces["applied"])), 0)
-            self.assertEqual(np.sum(np.abs(server.model.tangent_forces["applied"])), 0)
+            self.assertEqual(
+                np.sum(
+                    np.abs(server.model.control_closed_loop.axial_forces["applied"])
+                ),
+                0,
+            )
+            self.assertEqual(
+                np.sum(
+                    np.abs(server.model.control_closed_loop.tangent_forces["applied"])
+                ),
+                0,
+            )
 
     async def test_cmd_clear_errors(self):
         async with self.make_server() as server, self.make_clients(server) as (
@@ -538,7 +551,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(msg_fb["status"], False)
 
-            self.assertFalse(server.model.force_balance_system_status)
+            self.assertFalse(server.model.control_closed_loop.is_running)
 
     async def test_cmd_switch_force_balance_system_success(self):
         async with self.make_server() as server, self.make_clients(server) as (
@@ -559,7 +572,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(msg_fb["status"], True)
 
-            self.assertTrue(server.model.force_balance_system_status)
+            self.assertTrue(server.model.control_closed_loop.is_running)
 
     async def test_cmd_select_inclination_source(self):
         async with self.make_server() as server, self.make_clients(server) as (
@@ -605,9 +618,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(msg_temp_offset["intake"], intake)
             self.assertEqual(msg_temp_offset["exhaust"], exhaust)
 
-            np.testing.assert_array_equal(server.model.temperature["ring"], ring)
-            np.testing.assert_array_equal(server.model.temperature["intake"], intake)
-            np.testing.assert_array_equal(server.model.temperature["exhaust"], exhaust)
+            self.assertEqual(server.model.control_closed_loop.temperature["ref"], 11)
 
     async def test_telemetry_no_motor_power(self):
         async with self.make_server() as server, self.make_clients(server) as (
@@ -636,6 +647,11 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
+
+            server.model.select_inclination_source(
+                MTM2.InclinationTelemetrySource.MTMOUNT
+            )
+
             elevation_angle = 30.0
             await client_tel.write(
                 MsgType.Telemetry,
@@ -646,7 +662,9 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             await asyncio.sleep(0.5)
 
-            self.assertEqual(server.model.zenith_angle, 90.0 - elevation_angle)
+            self.assertEqual(
+                server.model.control_open_loop.inclinometer_angle, elevation_angle
+            )
 
     async def test_telemetry_power_status(self):
         async with self.make_server() as server, self.make_clients(server) as (
