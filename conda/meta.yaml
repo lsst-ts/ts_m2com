@@ -12,6 +12,7 @@ build:
 
 test:
   requires:
+    - scipy
     - ts-conda-build =0.3
     - ts-simactuators
     - ts-idl {{ idl_version }}
@@ -20,7 +21,6 @@ test:
     - ts-utils
   source_files:
     - python
-    - bin
     - tests
     - setup.cfg
     - pyproject.toml
@@ -43,9 +43,10 @@ requirements:
     - python {{ python }}
     - setuptools
     - setuptools_scm
+    - scipy
+    - pandas
     - ts-salobj
     - ts-idl
     - ts-simactuators
-    - pandas
     - ts-tcpip
     - ts-utils
