@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v0.4.2
+------
+
+* Add the **.pre-commit-config.yaml**.
+* Support the **isort**.
+
 v0.4.1
 ------
 

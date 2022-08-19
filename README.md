@@ -9,7 +9,9 @@
 
 ## Needed Package
 
-- [black](https://github.com/psf/black) (22.3.0, optional)
+- [black](https://github.com/psf/black) (22.6.0, optional)
+- [flake8](https://github.com/PyCQA/flake8) (4.0.1, optional)
+- [isort](https://github.com/PyCQA/isort) (5.10.1, optional)
 - [documenteer](https://github.com/lsst-sqre/documenteer) (optional)
 - [sphinxcontrib-plantuml](https://github.com/sphinx-contrib/plantuml/) (optional, install by `pip`)
 - pytest (optional, install by `conda`)
@@ -18,11 +20,8 @@
 
 ## Code Format
 
-This code is automatically formatted by `black` using a git pre-commit hook.
-To enable this:
-
-1. Install the `black` Python package.
-2. Run `git config core.hooksPath .githooks` once in this repository.
+This code is automatically formatted by `black` using a git pre-commit hook (see `.pre-commit-config.yaml`).
+To enable this, see [pre-commit](https://pre-commit.com).
 
 ## Build the Document
 
