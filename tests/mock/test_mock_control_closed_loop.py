@@ -22,12 +22,11 @@
 import unittest
 
 import numpy as np
-
 from lsst.ts.m2com import (
-    MockControlClosedLoop,
-    MockControlOpenLoop,
     NUM_ACTUATOR,
     NUM_TANGENT_LINK,
+    MockControlClosedLoop,
+    MockControlOpenLoop,
     get_config_dir,
 )
 

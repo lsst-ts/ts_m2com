@@ -20,30 +20,28 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import contextlib
 import logging
 import sys
-import contextlib
 import unittest
 
 import numpy as np
-
-from lsst.ts import tcpip
-from lsst.ts import salobj
+from lsst.ts import salobj, tcpip
 from lsst.ts.m2com import (
-    MockServer,
-    Controller,
-    CommandStatus,
-    CommandScript,
-    CommandActuator,
-    ActuatorDisplacementUnit,
-    PowerType,
-    DigitalOutput,
-    collect_queue_messages,
-    get_queue_message_latest,
     NUM_ACTUATOR,
     TEST_DIGITAL_OUTPUT_POWER_COMM,
     TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
+    ActuatorDisplacementUnit,
+    CommandActuator,
+    CommandScript,
+    CommandStatus,
+    Controller,
+    DigitalOutput,
+    MockServer,
+    PowerType,
+    collect_queue_messages,
     get_config_dir,
+    get_queue_message_latest,
 )
 
 

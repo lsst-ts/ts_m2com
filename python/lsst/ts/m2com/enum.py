@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from enum import auto, Enum, IntEnum
+from enum import Enum, IntEnum, auto
 
 __all__ = [
     "MsgType",

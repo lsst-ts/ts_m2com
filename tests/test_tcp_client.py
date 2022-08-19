@@ -20,17 +20,16 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import unittest
-import contextlib
 import asyncio
-import socket
-import logging
+import contextlib
 import json
+import logging
+import socket
+import unittest
 
 from lsst.ts import tcpip
-from lsst.ts.utils import index_generator
 from lsst.ts.m2com import MsgType, TcpClient, write_json_packet
-
+from lsst.ts.utils import index_generator
 
 # Read timeout in second
 READ_TIMEOUT = 1

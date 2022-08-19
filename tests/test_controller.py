@@ -20,14 +20,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import contextlib
 import logging
 import sys
-import contextlib
 import unittest
 
-from lsst.ts import tcpip
-from lsst.ts import salobj
-from lsst.ts.m2com import MockServer, Controller, CommandStatus, MsgType, get_config_dir
+from lsst.ts import salobj, tcpip
+from lsst.ts.m2com import CommandStatus, Controller, MockServer, MsgType, get_config_dir
 
 
 class TestController(unittest.IsolatedAsyncioTestCase):

@@ -20,11 +20,11 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import json
-import yaml
 from copy import deepcopy
 from os import getenv
 from pathlib import Path
 
+import yaml
 from lsst.ts import tcpip
 
 __all__ = [

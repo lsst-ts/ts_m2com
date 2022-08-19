@@ -19,18 +19,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import unittest
-import contextlib
 import asyncio
+import contextlib
 import logging
+import unittest
 
-from lsst.ts import tcpip
-from lsst.ts import salobj
+from lsst.ts import salobj, tcpip
 from lsst.ts.m2com import (
-    TcpClient,
     MockServer,
-    get_queue_message_latest,
+    TcpClient,
     get_config_dir,
+    get_queue_message_latest,
 )
 
 

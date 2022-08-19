@@ -25,15 +25,14 @@ from lsst.ts import salobj
 from lsst.ts.idl.enums import MTM2
 
 from ..enum import (
-    DetailedState,
-    CommandStatus,
-    CommandScript,
-    CommandActuator,
     ActuatorDisplacementUnit,
-    PowerType,
+    CommandActuator,
+    CommandScript,
+    CommandStatus,
+    DetailedState,
     DigitalOutput,
+    PowerType,
 )
-
 
 __all__ = ["MockCommand"]
 

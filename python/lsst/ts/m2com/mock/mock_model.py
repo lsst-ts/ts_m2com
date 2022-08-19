@@ -19,19 +19,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import logging
 import copy
-
-import numpy as np
-
+import logging
 from time import sleep
 
+import numpy as np
 from lsst.ts.idl.enums import MTM2
 
 from ..constant import NUM_ACTUATOR, NUM_TANGENT_LINK
-from ..enum import PowerType, DigitalOutput, DigitalInput
+from ..enum import DigitalInput, DigitalOutput, PowerType
 from ..utility import read_yaml_file
-from . import MockScriptEngine, MockControlOpenLoop, MockControlClosedLoop
+from . import MockControlClosedLoop, MockControlOpenLoop, MockScriptEngine
 
 __all__ = ["MockModel"]
 
