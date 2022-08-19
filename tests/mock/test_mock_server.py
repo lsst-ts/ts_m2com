@@ -638,7 +638,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             # Check the telemetry
             await asyncio.sleep(4)
-            self.assertGreater(client_tel.queue.qsize(), 350)
+            self.assertGreater(client_tel.queue.qsize(), 150)
 
     async def test_telemetry_get_mtmount_elevation(self):
         async with self.make_server() as server, self.make_clients(server) as (
