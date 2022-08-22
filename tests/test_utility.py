@@ -19,11 +19,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import asyncio
 import logging
 import unittest
-import asyncio
 
-from lsst.ts.m2com import check_queue_size, read_yaml_file, get_config_dir
+from lsst.ts.m2com import check_queue_size, get_config_dir, read_yaml_file
 
 
 class TestUtility(unittest.IsolatedAsyncioTestCase):

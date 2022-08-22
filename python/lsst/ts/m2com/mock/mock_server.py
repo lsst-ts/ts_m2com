@@ -19,20 +19,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import asyncio
+import json
 import logging
 import socket
-import json
-import asyncio
 
-from lsst.ts import salobj
-from lsst.ts import tcpip
-from lsst.ts.utils import make_done_future
+from lsst.ts import salobj, tcpip
 from lsst.ts.idl.enums import MTM2
+from lsst.ts.utils import make_done_future
 
 from ..enum import CommandStatus, DetailedState
 from ..utility import write_json_packet
-from . import MockModel, MockMessageTelemetry, MockMessageEvent, MockCommand
-
+from . import MockCommand, MockMessageEvent, MockMessageTelemetry, MockModel
 
 __all__ = ["MockServer"]
 

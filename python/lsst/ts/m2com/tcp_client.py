@@ -19,15 +19,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import logging
 import asyncio
-import json
 import copy
+import json
+import logging
 
 from lsst.ts import tcpip
-from lsst.ts.utils import make_done_future, index_generator
+from lsst.ts.utils import index_generator, make_done_future
 
-from . import MsgType, write_json_packet, check_queue_size
+from . import MsgType, check_queue_size, write_json_packet
 
 __all__ = ["TcpClient"]
 

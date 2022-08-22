@@ -19,22 +19,21 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import numpy as np
 import unittest
 
+import numpy as np
 from lsst.ts.idl.enums import MTM2
-
 from lsst.ts.m2com import (
-    MockModel,
-    PowerType,
     NUM_ACTUATOR,
     NUM_TANGENT_LINK,
-    TEST_DIGITAL_OUTPUT_NO_POWER,
-    TEST_DIGITAL_OUTPUT_POWER_COMM,
-    TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
     TEST_DIGITAL_INPUT_NO_POWER,
     TEST_DIGITAL_INPUT_POWER_COMM,
     TEST_DIGITAL_INPUT_POWER_COMM_MOTOR,
+    TEST_DIGITAL_OUTPUT_NO_POWER,
+    TEST_DIGITAL_OUTPUT_POWER_COMM,
+    TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
+    MockModel,
+    PowerType,
     get_config_dir,
 )
 

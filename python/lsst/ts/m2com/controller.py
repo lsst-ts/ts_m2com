@@ -26,8 +26,7 @@ import time
 from lsst.ts import salobj
 from lsst.ts.utils import make_done_future
 
-from . import TcpClient, CommandStatus, check_queue_size, MsgType
-
+from . import CommandStatus, MsgType, TcpClient, check_queue_size
 
 __all__ = ["Controller"]
 

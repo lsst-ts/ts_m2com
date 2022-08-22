@@ -19,32 +19,30 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import unittest
-import contextlib
 import asyncio
+import contextlib
 import logging
+import unittest
+
 import numpy as np
-
-from lsst.ts import tcpip
-from lsst.ts import salobj
+from lsst.ts import salobj, tcpip
 from lsst.ts.idl.enums import MTM2
-
 from lsst.ts.m2com import (
-    MsgType,
-    DetailedState,
-    TcpClient,
-    MockServer,
-    collect_queue_messages,
-    get_queue_message_latest,
     NUM_ACTUATOR,
     NUM_TANGENT_LINK,
-    TEST_DIGITAL_OUTPUT_NO_POWER,
-    TEST_DIGITAL_OUTPUT_POWER_COMM,
-    TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
     TEST_DIGITAL_INPUT_NO_POWER,
     TEST_DIGITAL_INPUT_POWER_COMM,
     TEST_DIGITAL_INPUT_POWER_COMM_MOTOR,
+    TEST_DIGITAL_OUTPUT_NO_POWER,
+    TEST_DIGITAL_OUTPUT_POWER_COMM,
+    TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
+    DetailedState,
+    MockServer,
+    MsgType,
+    TcpClient,
+    collect_queue_messages,
     get_config_dir,
+    get_queue_message_latest,
 )
 
 
@@ -640,7 +638,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             # Check the telemetry
             await asyncio.sleep(4)
-            self.assertGreater(client_tel.queue.qsize(), 350)
+            self.assertGreater(client_tel.queue.qsize(), 150)
 
     async def test_telemetry_get_mtmount_elevation(self):
         async with self.make_server() as server, self.make_clients(server) as (

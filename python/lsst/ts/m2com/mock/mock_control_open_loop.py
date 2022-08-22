@@ -24,7 +24,7 @@ __all__ = ["MockControlOpenLoop"]
 import numpy as np
 import pandas as pd
 
-from ..constant import NUM_ACTUATOR, NUM_TANGENT_LINK, MIRROR_WEIGHT_KG
+from ..constant import MIRROR_WEIGHT_KG, NUM_ACTUATOR, NUM_TANGENT_LINK
 from ..enum import ActuatorDisplacementUnit
 
 

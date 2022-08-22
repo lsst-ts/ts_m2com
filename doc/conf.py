@@ -3,9 +3,10 @@
 This configuration only affects single-package Sphinx documentation builds.
 """
 
-from documenteer.conf.pipelinespkg import *
 from os import getenv
+
 import lsst.ts.m2com
+from documenteer.conf.pipelinespkg import *
 
 project = "ts_m2com"
 html_theme_options["logotext"] = project
