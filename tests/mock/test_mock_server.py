@@ -562,7 +562,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 "switchForceBalanceSystem",
                 msg_details={"status": True},
             )
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(2)
 
             msg_fb = get_queue_message_latest(
                 client_cmd.queue, "forceBalanceSystemStatus"
@@ -637,7 +637,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             server.model.switch_force_balance_system(True)
 
             # Check the telemetry
-            await asyncio.sleep(4)
+            await asyncio.sleep(8)
             self.assertGreater(client_tel.queue.qsize(), 150)
 
     async def test_telemetry_get_mtmount_elevation(self):

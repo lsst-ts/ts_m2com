@@ -97,6 +97,12 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(asyncio.TimeoutError):
             await client.connect(timeout=3.0)
 
+    async def test_connect_timeout_wrong_host(self):
+        client = TcpClient("127.0.0.2", 8888)
+
+        with self.assertRaises(asyncio.TimeoutError):
+            await client.connect(timeout=3.0)
+
     async def test_close(self):
         client = TcpClient(tcpip.LOCAL_HOST, 0)
         await client.close()

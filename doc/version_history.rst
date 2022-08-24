@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v0.4.3
+------
+
+* Fix the bug to connect to wrong host.
+* Release the test because the TSSW Jenkins has the limited resource.
+
 v0.4.2
 ------
 

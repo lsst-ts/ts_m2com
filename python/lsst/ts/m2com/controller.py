@@ -165,10 +165,17 @@ class Controller:
             if self.are_clients_connected():
                 await asyncio.sleep(1)
             else:
-                await asyncio.gather(
-                    self.client_command.connect(timeout=timeout),
-                    self.client_telemetry.connect(timeout=timeout),
-                )
+
+                try:
+                    await asyncio.gather(
+                        self.client_command.connect(timeout=timeout),
+                        self.client_telemetry.connect(timeout=timeout),
+                    )
+
+                except asyncio.TimeoutError:
+                    self.log.debug("Timeout error when connects to servers.")
+                    await self.close()
+
                 self.log.info("Servers are connected.")
 
         self.log.info("Stop the connection with servers.")
