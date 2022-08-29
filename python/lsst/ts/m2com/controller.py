@@ -172,8 +172,12 @@ class Controller:
                         self.client_telemetry.connect(timeout=timeout),
                     )
 
-                except asyncio.TimeoutError:
-                    self.log.debug("Timeout error when connects to servers.")
+                except asyncio.TimeoutError as error:
+                    self.log.debug(
+                        "Timeouted when connecting to servers - "
+                        f"{self.client_command.host}:{self.client_command.port} "
+                        f"and/or {self.client_telemetry.host}:{self.client_telemetry.port}: {str(error)}"
+                    )
                     await self.close()
 
                 self.log.info("Servers are connected.")
