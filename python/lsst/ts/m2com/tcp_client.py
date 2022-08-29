@@ -154,7 +154,7 @@ class TcpClient:
                     host=self.host, port=self.port
                 )
 
-            except ConnectionRefusedError:
+            except (ConnectionRefusedError, OSError):
                 await asyncio.sleep(connect_retry_interval)
 
                 retry_times += 1

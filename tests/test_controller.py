@@ -128,6 +128,28 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(1)
             self.assertTrue(controller.are_clients_connected())
 
+    async def test_task_connection_timeout(self):
+
+        # Let the controller connects to the wrong host position
+        controller = Controller(log=self.log)
+        controller.start(
+            "127.0.0.2",
+            1,
+            2,
+            timeout=3.0,
+        )
+
+        # Sleep some time for the connection task to be done
+        await asyncio.sleep(6)
+
+        self.assertFalse(controller.are_clients_connected())
+
+        # Because the connection timeout, the Controller.close() will be
+        # triggered.
+        self.assertFalse(controller._start_connection)
+        self.assertIsNone(controller.client_command)
+        self.assertIsNone(controller.client_telemetry)
+
     async def test_task_analyze_message(self):
         async with self.make_server() as server, self.make_controller(
             server

@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v0.4.3
+------
+
+* Properly reports cause when connecting to non-existing host.
+* Increase test timeouts as running those on TSSW Jenkins takes more time than expected (due to limited container resources).
+
 v0.4.2
 ------
 
