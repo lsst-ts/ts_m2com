@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v0.4.4
+------
+
+* Ignore and log the errors when run the open-loop control or script.
+
 v0.4.3
 ------
 
