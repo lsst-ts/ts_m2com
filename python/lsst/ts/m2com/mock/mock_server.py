@@ -455,7 +455,13 @@ class MockServer:
 
         script_engine = self.model.script_engine
         if script_engine.is_running:
-            script_engine.run_steps(steps)
+
+            try:
+                script_engine.run_steps(steps)
+
+            except Exception as error:
+                self.log.debug(f"Error when run the script: {error}")
+
             await self._message_event.write_script_execution_status(
                 script_engine.percentage
             )
@@ -471,7 +477,12 @@ class MockServer:
 
         control_open_loop = self.model.control_open_loop
         if control_open_loop.is_running:
-            control_open_loop.run_steps(steps)
+
+            try:
+                control_open_loop.run_steps(steps)
+
+            except Exception as error:
+                self.log.debug(f"Error when run the open-loop control: {error}")
 
     def _connect_state_changed_callback_telemetry(self, server_telemetry):
         """Called when the telemetry server connection state changes.
