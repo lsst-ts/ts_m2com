@@ -23,7 +23,7 @@ import asyncio
 import logging
 import unittest
 
-from lsst.ts.m2com import check_queue_size, get_config_dir, read_yaml_file
+from lsst.ts.m2com import check_queue_size, get_config_dir, is_coroutine, read_yaml_file
 
 
 class TestUtility(unittest.IsolatedAsyncioTestCase):
@@ -60,6 +60,14 @@ class TestUtility(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(path.exists())
         self.assertEqual(path.name, "v2")
+
+    def test_is_coroutine(self):
+
+        self.assertTrue(is_coroutine(asyncio.sleep))
+        self.assertFalse(is_coroutine(self._function))
+
+    def _function(self):
+        pass
 
 
 if __name__ == "__main__":

@@ -111,7 +111,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             server
         ) as controller:
 
-            self.assertFalse(controller._is_csc)
+            self.assertFalse(controller.is_csc)
 
             await asyncio.sleep(1)
             self.assertEqual(controller.controller_state, salobj.State.STANDBY)

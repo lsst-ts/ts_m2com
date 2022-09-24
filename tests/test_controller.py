@@ -125,7 +125,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(controller.are_clients_connected())
 
             # Wait a little time to reconstruct the connection
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
             self.assertTrue(controller.are_clients_connected())
 
     async def test_task_connection_timeout(self):
@@ -156,7 +156,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         ) as controller:
 
             # Wait a little time to collect the event messages
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
             self.assertGreaterEqual(controller.queue_event.qsize(), 11)
 
     async def test_controller_state(self):
@@ -165,12 +165,12 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         ) as controller:
 
             # Wait a little time to collect the event messages
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
             self.assertEqual(controller.controller_state, salobj.State.OFFLINE)
 
             # Check to get the Fault state
             server.model.fault()
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
 
             self.assertEqual(controller.controller_state, salobj.State.FAULT)
 
@@ -265,7 +265,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
 
             # Fake the error
             server.model.fault()
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
             self.assertEqual(controller.controller_state, salobj.State.FAULT)
 
             # Clear the error
