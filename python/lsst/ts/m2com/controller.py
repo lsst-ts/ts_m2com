@@ -64,6 +64,9 @@ class Controller:
         Last command status.
     timeout : `float`
         Time limit for reading data from the TCP/IP interface (sec).
+    is_csc : `bool`
+        Is CSC or not. Remove this after the state machines in cell controller
+        are unified.
     controller_state: enum `lsst.ts.salobj.State`
         Controller's state.
     """
@@ -87,13 +90,11 @@ class Controller:
 
         self.timeout = timeout_in_second
 
-        # Is CSC or not. Remove this after the state machines in cell
-        # controller are unified.
-        self._is_csc = is_csc
+        self.is_csc = is_csc
 
         # In EUI, there is no OFFLINE state.
         self.controller_state = (
-            salobj.State.OFFLINE if self._is_csc else salobj.State.STANDBY
+            salobj.State.OFFLINE if self.is_csc else salobj.State.STANDBY
         )
 
         # Start the connection task or not
@@ -382,7 +383,7 @@ class Controller:
 
         # In EUI, there is no OFFLINE state.
         controller_state_expected = (
-            salobj.State.OFFLINE if self._is_csc else salobj.State.STANDBY
+            salobj.State.OFFLINE if self.is_csc else salobj.State.STANDBY
         )
         await self.write_command_to_server(
             "clearErrors", controller_state_expected=controller_state_expected
