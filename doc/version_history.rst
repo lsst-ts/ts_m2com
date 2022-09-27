@@ -2,7 +2,7 @@
 Version History
 ===============
 
-v0.4.5
+v0.5.0
 ------
 
 * Add the **ControllerCell** class.

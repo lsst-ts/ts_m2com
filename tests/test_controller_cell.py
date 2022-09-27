@@ -68,9 +68,9 @@ class TestControllerCell(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(controller.are_clients_connected())
 
             controller.run_loops = True
-            controller.run_task_event_loop(self._process_event)
-            controller.run_task_telemetry_loop(self._process_telemetry)
-            controller.run_task_connection_monitor_loop(self._process_lost_connection)
+            controller.start_task_event_loop(self._process_event)
+            controller.start_task_telemetry_loop(self._process_telemetry)
+            controller.start_task_connection_monitor_loop(self._process_lost_connection)
 
             await asyncio.sleep(2)
 

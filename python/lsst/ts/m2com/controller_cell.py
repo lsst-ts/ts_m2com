@@ -78,6 +78,8 @@ class ControllerCell(Controller):
     # Maximum timeout to wait the telemetry in second
     TELEMETRY_WAIT_TIMEOUT = 900
 
+    SLEEP_TIME_CLOSE_MOCK_SERVER = 10
+
     def __init__(
         self,
         log=None,
@@ -166,9 +168,10 @@ class ControllerCell(Controller):
             port_command = self.mock_server.server_command.port
             port_telemetry = self.mock_server.server_telemetry.port
 
-        self.log.debug(f"Host in connection request: {self.host}")
-        self.log.debug(f"Command port in connection request: {port_command}")
-        self.log.debug(f"Telemetry port in connection request: {port_telemetry}")
+        self.log.debug(
+            f"Host in connection request: {self.host} with command port: "
+            f"{port_command} and telemetry port: {port_telemetry}."
+        )
 
         self.start(
             self.host,
@@ -192,8 +195,8 @@ class ControllerCell(Controller):
                 f"{port_command} and {port_telemetry}."
             )
 
-    def run_task_event_loop(self, process_event, *args, **kwargs):
-        """Run the task of event loop.
+    def start_task_event_loop(self, process_event, *args, **kwargs):
+        """Start the task of event loop.
 
         Parameters
         ----------
@@ -255,8 +258,8 @@ class ControllerCell(Controller):
 
         self.log.debug("Component's event loop exited.")
 
-    def run_task_telemetry_loop(self, process_telemetry, *args, period=2, **kwargs):
-        """Run the task of telemetry loop.
+    def start_task_telemetry_loop(self, process_telemetry, *args, period=2, **kwargs):
+        """Start the task of telemetry loop.
 
         Parameters
         ----------
@@ -333,6 +336,8 @@ class ControllerCell(Controller):
                 if is_telemetry_timed_out:
                     self.log.info("Telemetry is up and running after failure.")
 
+                # Intentional to express this variable will be False if there
+                # is the new message.
                 is_telemetry_timed_out = False
 
                 message = self.client_telemetry.queue.get_nowait()
@@ -358,10 +363,10 @@ class ControllerCell(Controller):
 
         self.log.debug("The component's telemetry loop exited/ended.")
 
-    def run_task_connection_monitor_loop(
+    def start_task_connection_monitor_loop(
         self, process_lost_connection, *args, period=1, **kwargs
     ):
-        """Run the task of connection monitor loop.
+        """Start the task of connection monitor loop.
 
         Parameters
         ----------
@@ -449,7 +454,7 @@ class ControllerCell(Controller):
         if self.mock_server is not None:
             # Wait some time to let the mock server notices the controller has
             # closed the connection.
-            await asyncio.sleep(10)
+            await asyncio.sleep(self.SLEEP_TIME_CLOSE_MOCK_SERVER)
 
             await self.mock_server.close()
             self.mock_server = None
