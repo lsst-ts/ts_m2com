@@ -64,6 +64,7 @@ m2com
 
 * **Controller** has the business logic to communicate with hardware by TCP/IP interface.
 * **TcpClient** is a TCP/IP client.
+* **ControllerCell** is a high-level class to integrate with the **Controller** class to communicate with the M2 cell controller.
 
 .. _lsst.ts.m2com-modules_m2com_mock:
 

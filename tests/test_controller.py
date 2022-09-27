@@ -28,6 +28,8 @@ import unittest
 from lsst.ts import salobj, tcpip
 from lsst.ts.m2com import CommandStatus, Controller, MockServer, MsgType, get_config_dir
 
+SLEEP_TIME_SHORT = 2
+
 
 class TestController(unittest.IsolatedAsyncioTestCase):
     """Test the Controller class."""
@@ -78,7 +80,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         )
 
         # Wait a little time to construct the connection
-        await asyncio.sleep(2)
+        await asyncio.sleep(SLEEP_TIME_SHORT)
 
         try:
             yield controller
@@ -125,7 +127,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(controller.are_clients_connected())
 
             # Wait a little time to reconstruct the connection
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertTrue(controller.are_clients_connected())
 
     async def test_task_connection_timeout(self):
@@ -156,7 +158,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         ) as controller:
 
             # Wait a little time to collect the event messages
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertGreaterEqual(controller.queue_event.qsize(), 11)
 
     async def test_controller_state(self):
@@ -165,12 +167,12 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         ) as controller:
 
             # Wait a little time to collect the event messages
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertEqual(controller.controller_state, salobj.State.OFFLINE)
 
             # Check to get the Fault state
             server.model.fault()
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
 
             self.assertEqual(controller.controller_state, salobj.State.FAULT)
 
@@ -182,7 +184,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             await controller.client_command.write(MsgType.Command, "enable")
 
             # Wait a little time to collect the messages
-            await asyncio.sleep(2)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertEqual(controller.last_command_status, CommandStatus.Ack)
 
             # Wait a little time to collect the messages
@@ -265,7 +267,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
 
             # Fake the error
             server.model.fault()
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertEqual(controller.controller_state, salobj.State.FAULT)
 
             # Clear the error

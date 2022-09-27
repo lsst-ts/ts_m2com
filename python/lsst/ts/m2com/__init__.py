@@ -30,3 +30,4 @@ from .utility import *
 from .mock import *
 from .tcp_client import *
 from .controller import *
+from .controller_cell import *

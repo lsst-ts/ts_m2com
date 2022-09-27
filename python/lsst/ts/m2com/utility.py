@@ -19,6 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import asyncio
 import json
 from copy import deepcopy
 from os import getenv
@@ -34,6 +35,7 @@ __all__ = [
     "collect_queue_messages",
     "get_queue_message_latest",
     "get_config_dir",
+    "is_coroutine",
 ]
 
 
@@ -188,3 +190,19 @@ def get_config_dir(env_variable="TS_CONFIG_MTTCS_DIR", relative_path="MTM2/v2"):
         Path of the configuration directory.
     """
     return Path(getenv(env_variable)) / relative_path
+
+
+def is_coroutine(function):
+    """Input function is a coroution or not.
+
+    Parameters
+    ----------
+    function : `func` or `coroutine`
+        Function.
+
+    Returns
+    -------
+    `bool`
+        True if the function is a corountine. Otherwise, False.
+    """
+    return asyncio.iscoroutine(function) or asyncio.iscoroutinefunction(function)
