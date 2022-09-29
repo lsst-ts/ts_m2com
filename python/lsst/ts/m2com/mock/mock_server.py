@@ -176,10 +176,25 @@ class MockServer:
                 self._monitor_message_command()
             )
 
-    async def _monitor_message_command(self):
-        """Monitor the message from command server."""
+    async def _monitor_message_command(self, counts_min=5):
+        """Monitor the message from command server.
+
+        Parameters
+        ----------
+        counts_min : `int`, optional
+            Minimum counts to decide to update the actuator steps or not. (the
+            default is 5)
+        """
+
+        # Decide the counts per second to update the actuator steps
+        counts_per_second = int(1 / self.PERIOD_TELEMETRY_IN_SECOND)
+        counts_per_second = (
+            counts_per_second if counts_per_second >= counts_min else counts_min
+        )
 
         try:
+            count = 0
+            update_steps = False
             while self.server_command.connected:
 
                 if not self._welcome_message_sent:
@@ -209,7 +224,23 @@ class MockServer:
 
                 await self._run_and_report_script_engine_status()
                 self._run_control_open_loop()
-                self.model.balance_forces_and_steps()
+
+                # Balance the forces and steps. Because the calculation of
+                # steps takes some CPU resource, we will do it in a slow pace
+                # to decrease the CPU usage.
+                is_updated = self.model.balance_forces_and_steps(
+                    update_steps=update_steps
+                )
+
+                # Decide the value of update_steps
+                if is_updated:
+                    update_steps = False
+
+                if count >= counts_per_second:
+                    count = 0
+                    update_steps = True
+                else:
+                    count += 1
 
                 # Check the force and fault the system if needed
                 if self.model.is_actuator_force_out_limit():
