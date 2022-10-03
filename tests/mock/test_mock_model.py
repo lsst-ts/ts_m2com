@@ -306,8 +306,12 @@ class TestMockModel(unittest.TestCase):
         self.model.control_closed_loop.is_running = True
 
         # In the initial beginning, the actuators are not in position
-        self.model.balance_forces_and_steps()
+        is_updated = self.model.balance_forces_and_steps()
         self.assertFalse(self.model.in_position)
+        self.assertTrue(is_updated)
+
+        # Do not update the steps
+        self.assertFalse(self.model.balance_forces_and_steps(update_steps=False))
 
         # After some running of closed-loop control, the actuators are in
         # position

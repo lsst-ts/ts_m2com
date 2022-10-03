@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v0.5.1
+------
+
+* Slow down the pace to udpate the actuator steps according to forces in **MockServer** to decrease the CPU usage.
+
 v0.5.0
 ------
 

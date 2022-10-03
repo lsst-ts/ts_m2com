@@ -529,7 +529,9 @@ class MockModel:
 
         return {"thetaZ": theta_z, "deltaZ": delta_z}
 
-    def balance_forces_and_steps(self, force_rms=0.5, force_per_cycle=5):
+    def balance_forces_and_steps(
+        self, force_rms=0.5, force_per_cycle=5, update_steps=True
+    ):
         """Balance the forces and steps.
 
         This function will check the actuators are in position or not and
@@ -544,6 +546,16 @@ class MockModel:
             Force rms variation in Newton. (default is 0.5)
         force_per_cycle : `float`, optional
             Force per cycle to apply in Newton. (the default is 5)
+        update_steps : `bool`, optional
+            If True, update the steps based on the force change. Otherwise, no
+            update. This takes a significant CPU usage (np.linalg.inv()). (the
+            default is True)
+
+        Returns
+        -------
+        `bool`
+            True if the steps had been updated according to the force change.
+            Otherwise, False.
 
         Raises
         ------
@@ -573,7 +585,7 @@ class MockModel:
 
         # In the closed-loop control, update the steps because of the udpated
         # measured forces.
-        if self.control_closed_loop.is_running:
+        if self.control_closed_loop.is_running and update_steps:
 
             forces = np.append(
                 self.control_closed_loop.axial_forces["measured"],
@@ -581,6 +593,10 @@ class MockModel:
             )
             steps = self.control_open_loop.calculate_forces_to_steps(forces)
             self.control_open_loop.update_actuator_steps(steps)
+
+            return True
+
+        return False
 
     def _simulate_position_mirror(self, position_rms=0.005, angle_rms=0.005):
         """Simulate the position of mirror.
