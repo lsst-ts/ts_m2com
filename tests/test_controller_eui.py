@@ -564,6 +564,52 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(server.model.mirror_position["x"], 0)
 
+    async def test_switch_digital_output_fail(self):
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+
+            # No this bit value
+            with self.assertRaises(RuntimeError):
+                await controller.write_command_to_server(
+                    "switchDigitalOutput", message_details={"bit": 0}
+                )
+
+    async def test_switch_digital_output_success(self):
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+
+            # Switch the communication power
+            await controller.write_command_to_server(
+                "switchDigitalOutput",
+                message_details={"bit": DigitalOutput.CommunicationPower.value},
+            )
+
+            await asyncio.sleep(1)
+
+            msg_latest = get_queue_message_latest(
+                controller.queue_event, "digitalOutput"
+            )
+            self.assertTrue(
+                msg_latest["value"] & DigitalOutput.CommunicationPower.value
+            )
+            self.assertTrue(server.model.communication_power_on)
+
+            # Switch the motor power
+            await controller.write_command_to_server(
+                "switchDigitalOutput",
+                message_details={"bit": DigitalOutput.MotorPower.value},
+            )
+
+            await asyncio.sleep(1)
+
+            msg_latest = get_queue_message_latest(
+                controller.queue_event, "digitalOutput"
+            )
+            self.assertTrue(msg_latest["value"] & DigitalOutput.MotorPower.value)
+            self.assertTrue(server.model.motor_power_on)
+
 
 if __name__ == "__main__":
 
