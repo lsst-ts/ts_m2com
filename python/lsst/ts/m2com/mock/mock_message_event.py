@@ -227,3 +227,31 @@ class MockMessageEvent:
         await write_json_packet(
             self.writer, {"id": "digitalInput", "value": digital_input}
         )
+
+    async def write_config(self):
+        """Write the message: config."""
+        await write_json_packet(
+            self.writer,
+            {
+                "id": "config",
+                "configuration": "Configurable_File_Description_surrogate_handling.csv",
+                "version": "20180831T092556",
+                "controlParameters": "CtrlParameterFiles_surg",
+                "lutParameters": "FinalHandlingLUTs",
+                "powerWarningMotor": 5.0,
+                "powerFaultMotor": 10.0,
+                "powerThresholdMotor": 20.0,
+                "powerWarningComm": 5.0,
+                "powerFaultComm": 10.0,
+                "powerThresholdComm": 10.0,
+                "inPositionAxial": 0.158,
+                "inPositionTangent": 1.1,
+                "inPositionSample": 1.0,
+                "timeoutSal": 15.0,
+                "timeoutCrio": 1.0,
+                "timeoutIlc": 3,
+                "inclinometerDelta": 2.0,
+                "inclinometerDiffEnabled": True,
+                "cellTemperatureDelta": 2.0,
+            },
+        )

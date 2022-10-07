@@ -26,7 +26,7 @@ from time import sleep
 import numpy as np
 from lsst.ts.idl.enums import MTM2
 
-from ..constant import NUM_ACTUATOR, NUM_TANGENT_LINK
+from ..constant import MIRROR_WEIGHT_KG, NUM_ACTUATOR, NUM_TANGENT_LINK
 from ..enum import DigitalInput, DigitalOutput, PowerType
 from ..utility import read_yaml_file
 from . import MockControlClosedLoop, MockControlOpenLoop, MockScriptEngine
@@ -376,8 +376,6 @@ class MockModel:
 
         telemetry_data = dict()
 
-        telemetry_data["powerStatus"] = self._get_power_status()
-
         position_ims = None
         if self.motor_power_on:
 
@@ -392,6 +390,9 @@ class MockModel:
             # Get the force data
             telemetry_data["axialForce"] = self.control_closed_loop.axial_forces
             telemetry_data["tangentForce"] = self.control_closed_loop.tangent_forces
+            telemetry_data["forceErrorTangent"] = self._calculate_force_error_tangent(
+                self.control_closed_loop.tangent_forces["measured"]
+            )
             telemetry_data[
                 "forceBalance"
             ] = self.control_closed_loop.get_force_balance()
@@ -428,6 +429,11 @@ class MockModel:
             telemetry_data["tangentEncoderPositions"] = {
                 "position": positions[-NUM_TANGENT_LINK:].tolist()
             }
+
+        telemetry_data["powerStatus"] = self._get_power_status()
+        telemetry_data["powerStatusRaw"] = self._get_power_status()
+
+        telemetry_data["inclinometerAngleTma"] = self._simulate_zenith_angle()
 
         telemetry_data["displacementSensors"] = self._get_displacement_sensors(
             mirror_position=position_ims
@@ -497,6 +503,71 @@ class MockModel:
         """
 
         return {"status": [next(self._ilc_status)] * NUM_ACTUATOR}
+
+    def _calculate_force_error_tangent(self, tangent_force_current):
+        """Calculate the tangent force error.
+
+        This function is translated from TangentLoadCellFaultDetection.vi in
+        ts_mtm2 LabVIEW project.
+
+        Parameters
+        ----------
+        tangent_force_current : `numpy.ndarray`
+            Currant tangent force (A1-A6) in Newton.
+
+        Returns
+        -------
+        `dict`
+            Data of tangent force error.
+        """
+
+        # Calculate the individual tangent force error
+
+        # When the mirror is on tilt orientation, tangential forces (A2, A3,
+        # A5, A6) have to compensate gravity force of mirror.
+        indexes = [1, 2, 4, 5]
+
+        # The orientation of tangent links is hexagon. Therefore, the
+        # projection angle is 30 degree.
+        projection_angle = 30
+        tangent_force_support = tangent_force_current[indexes] * np.cos(
+            np.deg2rad(projection_angle)
+        )
+
+        gravitational_acceleration = 9.8
+        mirror_weight_projection = (
+            MIRROR_WEIGHT_KG
+            * gravitational_acceleration
+            * np.sin(np.deg2rad(90 - self.control_open_loop.inclinometer_angle))
+        )
+        divided_mirror_division = mirror_weight_projection / len(indexes)
+
+        direction = np.array([1, 1, -1, -1])
+        weight_error = tangent_force_support + direction * divided_mirror_division
+
+        force_error_tangent = [
+            tangent_force_current[0],
+            weight_error[0],
+            weight_error[1],
+            tangent_force_current[3],
+            weight_error[2],
+            weight_error[3],
+        ]
+
+        # Calculate the total weight error
+        total_weight_error = (
+            -tangent_force_support[0]
+            - tangent_force_support[1]
+            + tangent_force_support[2]
+            + tangent_force_support[3]
+            - mirror_weight_projection
+        )
+
+        return {
+            "force": force_error_tangent,
+            "weight": total_weight_error,
+            "sum": sum(tangent_force_current),
+        }
 
     def _get_displacement_sensors(self, mirror_position=None):
         """Get the displacement sensors.
@@ -858,3 +929,24 @@ class MockModel:
             digital_input -= sum([item.value for item in self.digital_input_motor])
 
         return digital_input
+
+    def switch_digital_output(self, digital_output, bit):
+        """Switch the digital output with the specific bit.
+
+        Parameters
+        ----------
+        digital_output : `int`
+            Digital output.
+        bit : enum `DigitalOutput`
+            Bit to switch.
+
+        Returns
+        -------
+        `int`
+            Updated value of the digital output.
+        """
+        return (
+            (digital_output - bit.value)
+            if (digital_output & bit.value)
+            else (digital_output + bit.value)
+        )
