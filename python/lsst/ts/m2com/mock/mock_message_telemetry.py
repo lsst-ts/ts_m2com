@@ -121,6 +121,23 @@ class MockMessageTelemetry:
         }
         await write_json_packet(self.writer, msg)
 
+    async def write_force_error_tangent(self, data):
+        """Write the message: tangent force error.
+
+        Parameters
+        ----------
+        data : `dict`
+            Data of tangent force error.
+        """
+
+        msg = {
+            "id": "forceErrorTangent",
+            "force": data["force"],
+            "weight": data["weight"],
+            "sum": data["sum"],
+        }
+        await write_json_packet(self.writer, msg)
+
     async def write_temperature(self, data):
         """Write the message: cell temperature in degree C.
 
@@ -152,6 +169,22 @@ class MockMessageTelemetry:
             "measured": data["measured"],
             "inclinometerRaw": data["inclinometerRaw"],
             "inclinometerProcessed": data["inclinometerProcessed"],
+        }
+        await write_json_packet(self.writer, msg)
+
+    async def write_inclinometer_angle_tma(self, data):
+        """Write the message: telescope mount assembly (TMA) inclinometer angle
+        in degree.
+
+        Parameters
+        ----------
+        data : `dict`
+            Data of TMA angle.
+        """
+
+        msg = {
+            "id": "inclinometerAngleTma",
+            "inclinometer": data["inclinometerRaw"],
         }
         await write_json_packet(self.writer, msg)
 
@@ -319,6 +352,24 @@ class MockMessageTelemetry:
 
         msg = {
             "id": "powerStatus",
+            "motorVoltage": data["motorVoltage"],
+            "motorCurrent": data["motorCurrent"],
+            "commVoltage": data["commVoltage"],
+            "commCurrent": data["commCurrent"],
+        }
+        await write_json_packet(self.writer, msg)
+
+    async def write_power_status_raw(self, data):
+        """Write the message: raw power status.
+
+        Parameters
+        ----------
+        data : `dict`
+            Data of raw power status.
+        """
+
+        msg = {
+            "id": "powerStatusRaw",
             "motorVoltage": data["motorVoltage"],
             "motorCurrent": data["motorCurrent"],
             "commVoltage": data["commVoltage"],

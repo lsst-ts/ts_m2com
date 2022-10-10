@@ -32,6 +32,7 @@ from lsst.ts.m2com import (
     TEST_DIGITAL_OUTPUT_NO_POWER,
     TEST_DIGITAL_OUTPUT_POWER_COMM,
     TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
+    DigitalOutput,
     MockModel,
     PowerType,
     get_config_dir,
@@ -169,7 +170,7 @@ class TestMockModel(unittest.TestCase):
         telemetry_data = self.model.get_telemetry_data()
 
         self.assertFalse(self.model.in_position)
-        self.assertEqual(len(telemetry_data), 2)
+        self.assertEqual(len(telemetry_data), 4)
 
         # With power
         self.model.motor_power_on = True
@@ -179,7 +180,7 @@ class TestMockModel(unittest.TestCase):
         telemetry_data = self.model.get_telemetry_data()
 
         self.assertFalse(self.model.in_position)
-        self.assertEqual(len(telemetry_data), 16)
+        self.assertEqual(len(telemetry_data), 19)
 
         # Check the steps and positions
         num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
@@ -237,6 +238,49 @@ class TestMockModel(unittest.TestCase):
         for idx in range(30):
             ilc_status = self.model._get_ilc_data()["status"]
             self.assertEqual(ilc_status[0], idx % 16)
+
+    def test_calculate_force_error_tangent(self):
+
+        (
+            angle,
+            tangent_force_current,
+            force_error_tangent_expected,
+        ) = self._get_force_error_tangent_expected()
+
+        self.model.control_open_loop.inclinometer_angle = angle
+        force_error_tangent = self.model._calculate_force_error_tangent(
+            tangent_force_current
+        )
+
+        for key in force_error_tangent_expected.keys():
+            if isinstance(force_error_tangent_expected[key], list):
+                for value, value_expected in zip(
+                    force_error_tangent[key], force_error_tangent_expected[key]
+                ):
+                    self.assertAlmostEqual(value, value_expected)
+            else:
+                self.assertAlmostEqual(
+                    force_error_tangent[key], force_error_tangent_expected[key]
+                )
+
+    def _get_force_error_tangent_expected(self):
+
+        return (
+            89.853,
+            np.array([-325.307, -447.377, 1128.37, -1249.98, 458.63, 267.627]),
+            {
+                "force": [
+                    -325.307,
+                    -377.4539166,
+                    987.1830153,
+                    -1249.98,
+                    387.1993005,
+                    221.7858503,
+                ],
+                "weight": -0.743948,
+                "sum": -168.037,
+            },
+        )
 
     def test_get_displacement_sensors(self):
 
@@ -409,6 +453,24 @@ class TestMockModel(unittest.TestCase):
         self.model.motor_power_on = True
         self.assertEqual(
             self.model.get_digital_input(), TEST_DIGITAL_INPUT_POWER_COMM_MOTOR
+        )
+
+    def test_switch_digital_output(self):
+
+        digital_output = self.model.get_digital_output()
+
+        digital_output_with_motor_power = self.model.switch_digital_output(
+            digital_output, DigitalOutput.MotorPower
+        )
+        self.assertTrue(
+            digital_output_with_motor_power & DigitalOutput.MotorPower.value
+        )
+
+        digital_output_interlock_disabled = self.model.switch_digital_output(
+            digital_output, DigitalOutput.InterlockEnable
+        )
+        self.assertFalse(
+            digital_output_interlock_disabled & DigitalOutput.InterlockEnable.value
         )
 
 

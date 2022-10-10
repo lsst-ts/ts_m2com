@@ -2,6 +2,17 @@
 Version History
 ===============
 
+v0.5.2
+------
+
+* Support the EUI specifc items:
+
+  * Switch digital output command.
+  * Configuration event.
+  * Tangent force error telemetry.
+  * Telescope mount assembly (TMA) inclinometer angle telemetry.
+  * Raw power status telemetry.
+
 v0.5.1
 ------
 

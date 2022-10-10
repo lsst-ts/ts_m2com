@@ -121,7 +121,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             # Check the one-time message
             await asyncio.sleep(0.5)
-            self.assertGreaterEqual(client_cmd.queue.qsize(), 11)
+            self.assertGreaterEqual(client_cmd.queue.qsize(), 12)
 
             # Check the TCP/IP connection
             msg_tcpip = client_cmd.queue.get_nowait()
@@ -185,6 +185,11 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(msg_digital_output["id"], "digitalOutput")
             self.assertEqual(msg_digital_output["value"], TEST_DIGITAL_OUTPUT_NO_POWER)
 
+            msg_config = client_cmd.queue.get_nowait()
+            self.assertEqual(len(msg_config), 20)
+            self.assertEqual(msg_config["id"], "config")
+            self.assertTrue(msg_config["inclinometerDiffEnabled"])
+
     async def test_monitor_msg_cmd_ack(self):
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
@@ -246,9 +251,22 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             # The above short sleep time will not get the acknowledgement of
             # success
-            msgs_success = collect_queue_messages(client_cmd.queue, "success")
+            msg_success = collect_queue_messages(client_cmd.queue, "success")
 
-            self.assertEqual(len(msgs_success), 0)
+            self.assertEqual(len(msg_success), 0)
+
+    async def test_cmd_enable_fail(self):
+        async with self.make_server() as server, self.make_clients(server) as (
+            client_cmd,
+            client_tel,
+        ):
+            # Command should fail because there is no communication power
+            await client_cmd.write(MsgType.Command, "enable")
+
+            await asyncio.sleep(8)
+
+            msg_fail = get_queue_message_latest(client_cmd.queue, "fail")
+            self.assertEqual(msg_fail["id"], "fail")
 
     async def test_cmd_enable_success(self):
         async with self.make_server() as server, self.make_clients(server) as (

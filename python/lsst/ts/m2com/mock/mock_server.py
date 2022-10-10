@@ -157,6 +157,7 @@ class MockServer:
             "cmd_enableOpenLoopMaxLimit": self._command.enable_open_loop_max_limit,
             "cmd_saveMirrorPosition": self._command.save_mirror_position,
             "cmd_setMirrorHome": self._command.set_mirror_home,
+            "cmd_switchDigitalOutput": self._command.switch_digital_output,
         }
 
     def _connect_state_changed_callback_command(self, server_command):
@@ -303,6 +304,8 @@ class MockServer:
 
         digital_output = self.model.get_digital_output()
         await self._message_event.write_digital_output(digital_output)
+
+        await self._message_event.write_config()
 
     async def _process_message_command(self):
         """Process the incoming message from command server."""
@@ -606,6 +609,20 @@ class MockServer:
             await self._message_telemetry.write_tangent_actuator_steps(
                 telemetry_data["tangentActuatorSteps"]
             )
+
+        # Specific telemetry for EUI
+        if not self._is_csc:
+            await self._message_telemetry.write_power_status_raw(
+                telemetry_data["powerStatusRaw"]
+            )
+
+            if self.model.motor_power_on:
+                await self._message_telemetry.write_force_error_tangent(
+                    telemetry_data["forceErrorTangent"]
+                )
+                await self._message_telemetry.write_inclinometer_angle_tma(
+                    telemetry_data["inclinometerAngleTma"]
+                )
 
     async def _process_message_telemetry(self):
         """Read and process data from telemetry server."""

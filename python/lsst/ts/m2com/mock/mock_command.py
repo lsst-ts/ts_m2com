@@ -55,6 +55,8 @@ class MockCommand:
         # Is CSC or not.
         self._is_csc = is_csc
 
+        self._digital_output = 0
+
     async def enable(self, message, model, message_event):
         """Enable the system.
 
@@ -75,13 +77,24 @@ class MockCommand:
             Status of command execution.
         """
 
+        # If there is no communication power, fail the command.
+        if not model.communication_power_on:
+            return model, CommandStatus.Fail
+
         model.motor_power_on = True
-        command_success = model.switch_force_balance_system(True)
 
-        if not command_success:
-            model.motor_power_on = False
+        # Only turn on the force balance system when the CSC is the commander.
+        # Need to unify the behaviors of CSC and EUI after the cell controller
+        # in cRIO is fixed (there are two state machines at this moment).
+        command_success = True
+        if self._is_csc:
+            command_success = model.switch_force_balance_system(True)
 
-        await message_event.write_m2_assembly_in_position(False)
+            if not command_success:
+                model.motor_power_on = False
+
+            await message_event.write_m2_assembly_in_position(False)
+
         await message_event.write_force_balance_system_status(
             model.control_closed_loop.is_running
         )
@@ -113,8 +126,8 @@ class MockCommand:
         digital_input = model.get_digital_input()
         await message_event.write_digital_input(digital_input)
 
-        digital_output = model.get_digital_output()
-        await message_event.write_digital_output(digital_output)
+        self._digital_output = model.get_digital_output()
+        await message_event.write_digital_output(self._digital_output)
 
     async def disable(self, message, model, message_event):
         """Disable the system.
@@ -767,5 +780,46 @@ class MockCommand:
         """
 
         model.mirror_position = model.get_default_mirror_position()
+
+        return model, CommandStatus.Success
+
+    async def switch_digital_output(self, message, model, message_event):
+        """Switch the digital output.
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        # Get the switched bit
+        try:
+            bit = DigitalOutput(message["bit"])
+        except ValueError:
+            return model, CommandStatus.Fail
+
+        self._digital_output = model.switch_digital_output(self._digital_output, bit)
+        await message_event.write_digital_output(self._digital_output)
+
+        # Turn on/off the power based on the bit value
+        model.communication_power_on = (
+            True
+            if self._digital_output & DigitalOutput.CommunicationPower.value
+            else False
+        )
+        model.motor_power_on = (
+            True if self._digital_output & DigitalOutput.MotorPower.value else False
+        )
 
         return model, CommandStatus.Success
