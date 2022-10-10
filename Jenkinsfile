@@ -68,7 +68,7 @@ pipeline {
                         export TS_CONFIG_MTTCS_DIR=${WORK_HOME}/ts_config_mttcs
 
                         setup -k -r .
-                        pytest tests/ --cov-report html --cov=${env.MODULE_NAME} --junitxml=${env.XML_REPORT}
+                        pytest --cov-report html --cov=${env.MODULE_NAME} --junitxml=${env.XML_REPORT}
                     """
                 }
             }

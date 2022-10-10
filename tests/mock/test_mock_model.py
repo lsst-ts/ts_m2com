@@ -241,22 +241,46 @@ class TestMockModel(unittest.TestCase):
 
     def test_calculate_force_error_tangent(self):
 
-        self.model.control_open_loop.inclinometer_angle = 89.853
-        tangent_force_current = np.array(
-            [-325.307, -447.377, 1128.37, -1249.98, 458.63, 267.627]
+        (
+            angle,
+            tangent_force_current,
+            force_error_tangent_expected,
+        ) = self._get_force_error_tangent_expected()
+
+        self.model.control_open_loop.inclinometer_angle = angle
+        force_error_tangent = self.model._calculate_force_error_tangent(
+            tangent_force_current
         )
-        data = self.model._calculate_force_error_tangent(tangent_force_current)
 
-        force_error_tangent = data["force"]
-        self.assertEqual(force_error_tangent[0], -325.307)
-        self.assertAlmostEqual(force_error_tangent[1], -377.4539166)
-        self.assertAlmostEqual(force_error_tangent[2], 987.1830153)
-        self.assertEqual(force_error_tangent[3], -1249.98)
-        self.assertAlmostEqual(force_error_tangent[4], 387.1993005)
-        self.assertAlmostEqual(force_error_tangent[5], 221.7858503)
+        for key in force_error_tangent_expected.keys():
+            if isinstance(force_error_tangent_expected[key], list):
+                for value, value_expected in zip(
+                    force_error_tangent[key], force_error_tangent_expected[key]
+                ):
+                    self.assertAlmostEqual(value, value_expected)
+            else:
+                self.assertAlmostEqual(
+                    force_error_tangent[key], force_error_tangent_expected[key]
+                )
 
-        self.assertAlmostEqual(data["weight"], -0.743948)
-        self.assertAlmostEqual(data["sum"], -168.037)
+    def _get_force_error_tangent_expected(self):
+
+        return (
+            89.853,
+            np.array([-325.307, -447.377, 1128.37, -1249.98, 458.63, 267.627]),
+            {
+                "force": [
+                    -325.307,
+                    -377.4539166,
+                    987.1830153,
+                    -1249.98,
+                    387.1993005,
+                    221.7858503,
+                ],
+                "weight": -0.743948,
+                "sum": -168.037,
+            },
+        )
 
     def test_get_displacement_sensors(self):
 

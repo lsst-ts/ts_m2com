@@ -44,6 +44,8 @@ from lsst.ts.m2com import (
     get_queue_message_latest,
 )
 
+SLEEP_TIME_SHORT = 1
+
 
 class TestControllerEui(unittest.IsolatedAsyncioTestCase):
     """Test the Controller class for the engineering user interface (EUI).
@@ -113,7 +115,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
 
             self.assertFalse(controller.is_csc)
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertEqual(controller.controller_state, salobj.State.STANDBY)
 
     async def test_clear_errors(self):
@@ -123,7 +125,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
 
             # Fake the error
             server.model.fault()
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertEqual(controller.controller_state, salobj.State.FAULT)
 
             # Clear the error
@@ -194,7 +196,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             Is commandable by the data distribution system (DDS) or not.
         """
 
-        await asyncio.sleep(1)
+        await asyncio.sleep(SLEEP_TIME_SHORT)
 
         msg_latest = get_queue_message_latest(queue, "commandableByDDS")
         return msg_latest["state"]
@@ -229,7 +231,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             )
 
             # Wait a little time to collect the messages
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
 
             script_engine = server.model.script_engine
             self.assertEqual(script_engine._name, script_name)
@@ -265,7 +267,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             )
 
             # Wait a little time to collect the messages
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertEqual(script_engine._name, "")
 
     async def test_run_script_success_pause(self):
@@ -300,7 +302,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             )
 
             # Check the results
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
             message_pause = get_queue_message_latest(
                 controller.queue_event, "scriptExecutionStatus"
             )
@@ -339,7 +341,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             )
 
             # Check the results
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertFalse(script_engine.is_running)
 
     async def test_move_actuators_fail(self):
@@ -371,7 +373,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                 },
             )
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
 
             # Check the result
             message_axial_steps = get_queue_message_latest(
@@ -404,7 +406,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                 },
             )
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
 
             self.assertFalse(server.model.error_cleared)
             self.assertFalse(server.model.control_open_loop.is_running)
@@ -433,7 +435,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                 },
             )
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
 
             # Pause
             await controller.write_command_to_server(
@@ -454,7 +456,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                 message_details={"actuatorCommand": CommandActuator.Resume},
             )
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
 
             # Stop
             await controller.write_command_to_server(
@@ -526,7 +528,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await controller.write_command_to_server("rebootController")
 
             # Wait a little time to collect the messages
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertFalse(controller.are_clients_connected())
 
     async def test_enable_open_loop_max_limit(self):
@@ -537,7 +539,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await controller.write_command_to_server("enableOpenLoopMaxLimit")
 
             # Wait a little time to let the internal process to finish
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertTrue(
                 server.model.control_open_loop.open_loop_max_limit_is_enabled
             )
@@ -550,7 +552,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await controller.write_command_to_server("saveMirrorPosition")
 
             # Wait a little time to collect the messages
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertEqual(controller.last_command_status, CommandStatus.Success)
 
     async def test_set_mirror_home(self):
@@ -586,7 +588,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                 message_details={"bit": DigitalOutput.CommunicationPower.value},
             )
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
 
             msg_latest = get_queue_message_latest(
                 controller.queue_event, "digitalOutput"
@@ -602,7 +604,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                 message_details={"bit": DigitalOutput.MotorPower.value},
             )
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(SLEEP_TIME_SHORT)
 
             msg_latest = get_queue_message_latest(
                 controller.queue_event, "digitalOutput"
