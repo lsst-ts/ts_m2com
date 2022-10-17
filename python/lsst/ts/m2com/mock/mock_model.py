@@ -27,9 +27,14 @@ import numpy as np
 from lsst.ts.idl.enums import MTM2
 
 from ..constant import MIRROR_WEIGHT_KG, NUM_ACTUATOR, NUM_TANGENT_LINK
-from ..enum import DigitalInput, DigitalOutput, PowerType
+from ..enum import DigitalInput, DigitalOutput, MockErrorCode, PowerType
 from ..utility import read_yaml_file
-from . import MockControlClosedLoop, MockControlOpenLoop, MockScriptEngine
+from . import (
+    MockControlClosedLoop,
+    MockControlOpenLoop,
+    MockErrorHandler,
+    MockScriptEngine,
+)
 
 __all__ = ["MockModel"]
 
@@ -66,12 +71,12 @@ class MockModel:
         Motor power is on or not.
     in_position : `bool`
         M2 assembly is in position or not.
-    error_cleared : `bool`
-        Error is cleared or not.
     mtmount_in_position : `bool`
         MTMount in position or not.
     script_engine : `MockScriptEngine`
         Script engine to run the binary script.
+    error_handler : `MockErrorHandler`
+        Error handler to manage the error codes.
     """
 
     def __init__(self, log=None, inclinometer_angle=90, telemetry_interval=0.05):
@@ -103,11 +108,10 @@ class MockModel:
         # Parameters of independent displacement sensors (IMS)
         self._disp_ims = dict()
 
-        self.error_cleared = True
-
         self.mtmount_in_position = False
 
         self.script_engine = MockScriptEngine()
+        self.error_handler = MockErrorHandler()
 
         self._set_default_measured_forces()
 
@@ -291,25 +295,49 @@ class MockModel:
         -------
         `bool`
             True if the actuator force is out of limit. Otherwise, False.
+        enum `MockErrorCode`
+            Error code.
+        `list`
+            Triggered retracted limit switches.
+        `list`
+            Triggered extended limit switches.
         """
 
+        error_code = MockErrorCode.NoError
         if self.control_closed_loop.is_running:
 
-            try:
-                self.control_closed_loop.check_axial_force_limit()
-                self.control_closed_loop.check_tangent_force_limit()
-                return False
+            (
+                is_out_limit,
+                limit_switches_retract,
+                limit_switches_extend,
+            ) = self.control_closed_loop.is_actuator_force_out_limit()
 
-            except RuntimeError:
-                return True
+            if is_out_limit:
+                error_code = MockErrorCode.LimitSwitchTriggeredClosedloop
 
         else:
-            return self.control_open_loop.is_actuator_force_out_limit()
 
-    def fault(self):
-        """Fault the model."""
+            (
+                is_out_limit,
+                limit_switches_retract,
+                limit_switches_extend,
+            ) = self.control_open_loop.is_actuator_force_out_limit()
 
-        self.error_cleared = False
+            if is_out_limit:
+                error_code = MockErrorCode.LimitSwitchTriggeredOpenloop
+
+        return is_out_limit, error_code, limit_switches_retract, limit_switches_extend
+
+    def fault(self, error_code):
+        """Fault the model.
+
+        Parameters
+        ----------
+        error_code : enum `MockErrorCode`
+            Error code.
+        """
+
+        self.error_handler.add_new_error(int(error_code))
 
         self.script_engine.stop()
         self.control_open_loop.stop()
@@ -350,8 +378,7 @@ class MockModel:
 
     def clear_errors(self):
         """Clear the errors."""
-
-        self.error_cleared = True
+        self.error_handler.clear()
 
     def select_inclination_source(self, source):
         """Select the inclination source.

@@ -31,6 +31,8 @@ __all__ = [
     "PowerType",
     "DigitalOutput",
     "DigitalInput",
+    "LimitSwitchType",
+    "MockErrorCode",
 ]
 
 
@@ -153,3 +155,21 @@ class DigitalInput(BitEnum):
     SpareInput_29 = auto()
     SpareInput_30 = auto()
     InterlockPowerReplay = auto()
+
+
+class LimitSwitchType(IntEnum):
+    """Type of the limit switches on actuators."""
+
+    Retract = 1
+    Extend = auto()
+
+
+class MockErrorCode(IntEnum):
+    """Mock error code used by the mock server.
+
+    The values here are based on the ts_m2gui/policy/error_code_m2.tsv.
+    """
+
+    NoError = 1
+    LimitSwitchTriggeredClosedloop = 6056
+    LimitSwitchTriggeredOpenloop = 6057

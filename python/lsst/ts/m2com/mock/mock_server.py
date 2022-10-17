@@ -28,7 +28,7 @@ from lsst.ts import salobj, tcpip
 from lsst.ts.idl.enums import MTM2
 from lsst.ts.utils import make_done_future
 
-from ..enum import CommandStatus, DetailedState
+from ..enum import CommandStatus, DetailedState, LimitSwitchType
 from ..utility import write_json_packet
 from . import MockCommand, MockMessageEvent, MockMessageTelemetry, MockModel
 
@@ -77,8 +77,6 @@ class MockServer:
 
     # 20 Hz (= 0.05 second)
     PERIOD_TELEMETRY_IN_SECOND = 0.05
-
-    FAKE_ERROR_CODE = 99
 
     def __init__(
         self,
@@ -202,18 +200,7 @@ class MockServer:
                     await self._send_welcome_message()
                     self._welcome_message_sent = True
 
-                if self.model.control_closed_loop.is_cell_temperature_high():
-                    await self._message_event.write_cell_temperature_high_warning(True)
-
-                if self.model.in_position:
-                    await self._message_event.write_m2_assembly_in_position(True)
-
-                if not self.model.error_cleared:
-                    await self._message_event.write_summary_state(salobj.State.FAULT)
-                    await self._message_event.write_error_code(self.FAKE_ERROR_CODE)
-                    await self._message_event.write_force_balance_system_status(
-                        self.model.control_closed_loop.is_running
-                    )
+                await self._monitor_and_report_system_status()
 
                 await asyncio.sleep(self.PERIOD_TELEMETRY_IN_SECOND)
 
@@ -243,9 +230,8 @@ class MockServer:
                 else:
                     count += 1
 
-                # Check the force and fault the system if needed
-                if self.model.is_actuator_force_out_limit():
-                    self.model.fault()
+                # Check the force error
+                self._check_error_force()
 
         except ConnectionError:
             self.log.info("Command reader disconnected.")
@@ -306,6 +292,45 @@ class MockServer:
         await self._message_event.write_digital_output(digital_output)
 
         await self._message_event.write_config()
+
+    async def _monitor_and_report_system_status(self):
+        """Monitor the system status and report the specific events."""
+
+        if self.model.control_closed_loop.is_cell_temperature_high():
+            await self._message_event.write_cell_temperature_high_warning(True)
+
+        if self.model.in_position:
+            await self._message_event.write_m2_assembly_in_position(True)
+
+        # Report the error code and related events
+        error_handler = self.model.error_handler
+        if error_handler.exists_new_error():
+            await self._message_event.write_summary_state(salobj.State.FAULT)
+            await self._report_errors()
+            await self._message_event.write_force_balance_system_status(
+                self.model.control_closed_loop.is_running
+            )
+
+        # Report the triggered limit switches
+        if error_handler.exists_new_limit_switch(
+            LimitSwitchType.Retract
+        ) or error_handler.exists_new_limit_switch(LimitSwitchType.Extend):
+            limit_switches_retract = error_handler.get_limit_switches_to_report(
+                LimitSwitchType.Retract
+            )
+            limit_switches_extend = error_handler.get_limit_switches_to_report(
+                LimitSwitchType.Extend
+            )
+            await self._message_event.write_limit_switch_status(
+                sorted(limit_switches_retract), sorted(limit_switches_extend)
+            )
+
+    async def _report_errors(self):
+        """Report the errors."""
+
+        errors = self.model.error_handler.get_errors_to_report()
+        for error in errors:
+            await self._message_event.write_error_code(error)
 
     async def _process_message_command(self):
         """Process the incoming message from command server."""
@@ -518,6 +543,29 @@ class MockServer:
             except Exception as error:
                 self.log.debug(f"Error when run the open-loop control: {error}")
 
+    def _check_error_force(self):
+        """Check the force error and fault the system if needed."""
+
+        (
+            is_out_limit,
+            error_code,
+            limit_switches_retract,
+            limit_switches_extend,
+        ) = self.model.is_actuator_force_out_limit()
+
+        if is_out_limit:
+            self.model.fault(error_code)
+
+        for switch in limit_switches_retract:
+            self.model.error_handler.add_new_limit_switch(
+                switch, LimitSwitchType.Retract
+            )
+
+        for switch in limit_switches_extend:
+            self.model.error_handler.add_new_limit_switch(
+                switch, LimitSwitchType.Extend
+            )
+
     def _connect_state_changed_callback_telemetry(self, server_telemetry):
         """Called when the telemetry server connection state changes.
 
@@ -693,7 +741,7 @@ class MockServer:
 
         self.model.communication_power_on = False
         self.model.motor_power_on = False
-        self.model.error_cleared = True
+        self.model.error_handler.clear()
 
         self.model.script_engine.pause()
         self.model.script_engine.clear()
