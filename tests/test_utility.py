@@ -23,7 +23,15 @@ import asyncio
 import logging
 import unittest
 
-from lsst.ts.m2com import check_queue_size, get_config_dir, is_coroutine, read_yaml_file
+import numpy as np
+from lsst.ts.m2com import (
+    NUM_ACTUATOR,
+    check_limit_switches,
+    check_queue_size,
+    get_config_dir,
+    is_coroutine,
+    read_yaml_file,
+)
 
 
 class TestUtility(unittest.IsolatedAsyncioTestCase):
@@ -68,6 +76,41 @@ class TestUtility(unittest.IsolatedAsyncioTestCase):
 
     def _function(self):
         pass
+
+    def test_check_limit_switches(self):
+
+        # Nothing is triggered
+        actuator_forces = np.zeros(NUM_ACTUATOR)
+        limit_force_axial = 3
+        limit_force_tangent = 10
+
+        is_triggered, limit_switch_retract, limit_switch_extend = check_limit_switches(
+            actuator_forces, limit_force_axial, limit_force_tangent
+        )
+
+        self.assertFalse(is_triggered)
+        self.assertEqual(limit_switch_retract, [])
+        self.assertEqual(limit_switch_extend, [])
+
+        # Limit switches are triggered
+        actuator_forces[[0, 1, 5, 71, 72, 73, 74, 77]] = [
+            4.3,
+            -3.1,
+            -5.1,
+            3,
+            10,
+            -20.3,
+            -10,
+            30,
+        ]
+
+        is_triggered, limit_switch_retract, limit_switch_extend = check_limit_switches(
+            actuator_forces, limit_force_axial, limit_force_tangent
+        )
+
+        self.assertTrue(is_triggered)
+        self.assertEqual(limit_switch_retract, [0, 71, 72, 77])
+        self.assertEqual(limit_switch_extend, [1, 5, 73, 74])
 
 
 if __name__ == "__main__":

@@ -33,6 +33,7 @@ from lsst.ts.m2com import (
     TEST_DIGITAL_OUTPUT_POWER_COMM,
     TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
     DigitalOutput,
+    MockErrorCode,
     MockModel,
     PowerType,
     get_config_dir,
@@ -50,7 +51,16 @@ class TestMockModel(unittest.TestCase):
     def test_init(self):
 
         # In the default condition, there should be no force error
-        self.assertFalse(self.model.is_actuator_force_out_limit())
+        (
+            is_out_limit,
+            error_code,
+            limit_switches_retract,
+            limit_switches_extend,
+        ) = self.model.is_actuator_force_out_limit()
+        self.assertFalse(is_out_limit)
+        self.assertEqual(error_code, MockErrorCode.NoError)
+        self.assertEqual(len(limit_switches_retract), 0)
+        self.assertEqual(len(limit_switches_extend), 0)
 
         self.assertAlmostEqual(
             self.model.control_closed_loop.axial_forces["measured"][0], 216.2038167
@@ -90,19 +100,37 @@ class TestMockModel(unittest.TestCase):
         self.model.control_closed_loop.is_running = True
         self.model.control_closed_loop.axial_forces["applied"][0] = 1000
 
-        self.assertTrue(self.model.is_actuator_force_out_limit())
+        (
+            is_out_limit,
+            error_code,
+            limit_switches_retract,
+            limit_switches_extend,
+        ) = self.model.is_actuator_force_out_limit()
+        self.assertTrue(is_out_limit)
+        self.assertEqual(error_code, MockErrorCode.LimitSwitchTriggeredClosedloop)
+        self.assertEqual(limit_switches_retract, [0])
+        self.assertEqual(limit_switches_extend, [])
 
     def test_is_actuator_force_out_limit(self):
 
         # By default, use the result from the open-loop control.
         self.model.control_open_loop.actuator_steps[0] -= 6000
 
-        self.assertTrue(self.model.is_actuator_force_out_limit())
+        (
+            is_out_limit,
+            error_code,
+            limit_switches_retract,
+            limit_switches_extend,
+        ) = self.model.is_actuator_force_out_limit()
+        self.assertTrue(is_out_limit)
+        self.assertEqual(error_code, MockErrorCode.LimitSwitchTriggeredOpenloop)
+        self.assertEqual(limit_switches_retract, [0])
+        self.assertEqual(limit_switches_extend, [])
 
     def test_fault_motor_power_not_on(self):
 
-        self.model.fault()
-        self.assertFalse(self.model.error_cleared)
+        self.model.fault(MockErrorCode.LimitSwitchTriggeredOpenloop)
+        self.assertTrue(self.model.error_handler.exists_new_error())
         self.assertFalse(self.model.control_closed_loop.is_running)
 
     def test_fault_motor_power_on(self):
@@ -116,8 +144,8 @@ class TestMockModel(unittest.TestCase):
         self.assertTrue(self.model.control_closed_loop.is_running)
 
         # Fault the model
-        self.model.fault()
-        self.assertFalse(self.model.error_cleared)
+        self.model.fault(MockErrorCode.LimitSwitchTriggeredOpenloop)
+        self.assertTrue(self.model.error_handler.exists_new_error())
 
         self.assertFalse(self.model.script_engine.is_running)
         self.assertFalse(self.model.control_open_loop.is_running)
@@ -147,10 +175,10 @@ class TestMockModel(unittest.TestCase):
 
     def test_clear_errors(self):
 
-        self.model.error_cleared = False
+        self.model.error_handler.add_new_error(1)
         self.model.clear_errors()
 
-        self.assertTrue(self.model.error_cleared)
+        self.assertFalse(self.model.error_handler.exists_new_error())
 
     def test_select_inclination_source(self):
 

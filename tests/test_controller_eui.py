@@ -37,6 +37,7 @@ from lsst.ts.m2com import (
     CommandStatus,
     Controller,
     DigitalOutput,
+    MockErrorCode,
     MockServer,
     PowerType,
     collect_queue_messages,
@@ -124,7 +125,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         ) as controller:
 
             # Fake the error
-            server.model.fault()
+            server.model.fault(MockErrorCode.LimitSwitchTriggeredClosedloop)
             await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertEqual(controller.controller_state, salobj.State.FAULT)
 
@@ -132,7 +133,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await controller.clear_errors()
 
             # Check the controller's state
-            self.assertTrue(server.model.error_cleared)
+            self.assertFalse(server.model.error_handler.exists_error())
             self.assertEqual(controller.controller_state, salobj.State.STANDBY)
 
     async def test_enter_control(self):
@@ -408,13 +409,19 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
 
             await asyncio.sleep(SLEEP_TIME_SHORT)
 
-            self.assertFalse(server.model.error_cleared)
+            self.assertTrue(server.model.error_handler.exists_error())
             self.assertFalse(server.model.control_open_loop.is_running)
 
             message_summary_state = get_queue_message_latest(
-                controller.queue_event, "summaryState"
+                controller.queue_event, "summaryState", flush=False
             )
             self.assertEqual(message_summary_state["summaryState"], salobj.State.FAULT)
+
+            message_limit_switch_status = get_queue_message_latest(
+                controller.queue_event, "limitSwitchStatus", flush=False
+            )
+            self.assertEqual(message_limit_switch_status["retract"], [0])
+            self.assertEqual(message_limit_switch_status["extend"], [])
 
     async def test_move_actuators_success_pause(self):
         async with self.make_server() as server, self.make_controller(
@@ -543,6 +550,11 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(
                 server.model.control_open_loop.open_loop_max_limit_is_enabled
             )
+
+            msg_open_loop_max_limit = get_queue_message_latest(
+                controller.queue_event, "openLoopMaxLimit"
+            )
+            self.assertTrue(msg_open_loop_max_limit["status"])
 
     async def test_save_mirror_position(self):
         async with self.make_server() as server, self.make_controller(

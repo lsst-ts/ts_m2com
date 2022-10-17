@@ -133,56 +133,56 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
         return force_axial, force_tangent
 
-    def test_check_axial_force_limit(self):
+    def test_get_demanded_force_axial(self):
 
         # Without the applying of force
         self.control_closed_loop.calc_look_up_forces(59.06)
-        demanded_axial_force = self.control_closed_loop.check_axial_force_limit()
+        demanded_force = self.control_closed_loop.get_demanded_force()
 
-        self.assertAlmostEqual(demanded_axial_force[0], 130.3597559)
-        self.assertAlmostEqual(demanded_axial_force[1], 166.0450977)
+        self.assertAlmostEqual(demanded_force[0], 130.3597559)
+        self.assertAlmostEqual(demanded_force[1], 166.0450977)
 
         # Applying the force
         self._apply_forces()
-        demanded_axial_force_apply = self.control_closed_loop.check_axial_force_limit()
+        demanded_force_apply = self.control_closed_loop.get_demanded_force()
 
-        self.assertAlmostEqual(demanded_axial_force_apply[0], 131.3597559)
+        self.assertAlmostEqual(demanded_force_apply[0], 131.3597559)
 
-    def test_check_axial_force_limit_error(self):
-
-        force_axial = [0] * (NUM_ACTUATOR - NUM_TANGENT_LINK)
-        force_axial[2] = 999
-
-        self.assertRaises(
-            RuntimeError, self.control_closed_loop.check_axial_force_limit, force_axial
-        )
-
-    def test_check_tangent_force_limit(self):
+    def test_get_demanded_force_tangent(self):
 
         # Without the applying of force
         self.control_closed_loop.calc_look_up_forces(59.06)
-        demanded_tanget_force = self.control_closed_loop.check_tangent_force_limit()
+        demanded_force = self.control_closed_loop.get_demanded_force()
 
-        self.assertAlmostEqual(demanded_tanget_force[0], 16.113)
-        self.assertAlmostEqual(demanded_tanget_force[1], -131.72)
+        self.assertAlmostEqual(demanded_force[72], 16.113)
+        self.assertAlmostEqual(demanded_force[73], -131.72)
 
         # Applying the force
         self._apply_forces()
-        demanded_tanget_force_apply = (
-            self.control_closed_loop.check_tangent_force_limit()
+        demanded_force_apply = self.control_closed_loop.get_demanded_force()
+
+        self.assertAlmostEqual(demanded_force_apply[72], 18.113)
+
+    def test_is_actuator_force_out_limit_axial(self):
+
+        applied_force_axial = [0] * (NUM_ACTUATOR - NUM_TANGENT_LINK)
+        applied_force_axial[2] = 999
+
+        self.assertTrue(
+            self.control_closed_loop.is_actuator_force_out_limit(
+                applied_force_axial=applied_force_axial
+            )[0]
         )
 
-        self.assertAlmostEqual(demanded_tanget_force_apply[0], 18.113)
+    def test_is_actuator_force_out_limit_tangent(self):
 
-    def test_check_tangent_force_limit_error(self):
+        applied_force_tangent = [0] * NUM_TANGENT_LINK
+        applied_force_tangent[2] = 9999
 
-        force_tangent = [0] * NUM_TANGENT_LINK
-        force_tangent[2] = 9999
-
-        self.assertRaises(
-            RuntimeError,
-            self.control_closed_loop.check_tangent_force_limit,
-            force_tangent,
+        self.assertTrue(
+            self.control_closed_loop.is_actuator_force_out_limit(
+                applied_force_tangent=applied_force_tangent
+            )[0]
         )
 
     def test_reset_force_offsets(self):

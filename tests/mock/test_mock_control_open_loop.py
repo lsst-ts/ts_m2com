@@ -114,33 +114,91 @@ class TestMockControlOpenLoop(unittest.TestCase):
 
     def test_is_actuator_force_out_limit_default(self):
 
-        self.assertFalse(self.control_open_loop.is_actuator_force_out_limit())
+        (
+            is_out_limit,
+            limit_switch_retract,
+            limit_switch_extend,
+        ) = self.control_open_loop.is_actuator_force_out_limit()
+
+        self.assertFalse(is_out_limit)
+        self.assertEqual(limit_switch_retract, [])
+        self.assertEqual(limit_switch_extend, [])
 
     def test_is_actuator_force_out_limit_axial(self):
 
         # Maximum limit is not enabled
         self.control_open_loop.actuator_steps[0] -= 6000
-        self.assertTrue(self.control_open_loop.is_actuator_force_out_limit())
+
+        (
+            is_out_limit,
+            limit_switch_retract,
+            limit_switch_extend,
+        ) = self.control_open_loop.is_actuator_force_out_limit()
+
+        self.assertTrue(is_out_limit)
+        self.assertEqual(limit_switch_retract, [0])
+        self.assertEqual(limit_switch_extend, [])
 
         # Maximum limit is enabled
         self.control_open_loop.open_loop_max_limit_is_enabled = True
-        self.assertFalse(self.control_open_loop.is_actuator_force_out_limit())
+
+        (
+            is_out_limit,
+            limit_switch_retract,
+            limit_switch_extend,
+        ) = self.control_open_loop.is_actuator_force_out_limit()
+
+        self.assertFalse(is_out_limit)
 
         self.control_open_loop.actuator_steps[0] -= 2000
-        self.assertTrue(self.control_open_loop.is_actuator_force_out_limit())
+
+        (
+            is_out_limit,
+            limit_switch_retract,
+            limit_switch_extend,
+        ) = self.control_open_loop.is_actuator_force_out_limit()
+
+        self.assertTrue(is_out_limit)
+        self.assertEqual(limit_switch_retract, [0])
+        self.assertEqual(limit_switch_extend, [])
 
     def test_is_actuator_force_out_limit_tangent(self):
 
         # Maximum limit is not enabled
         self.control_open_loop.actuator_steps[-1] += 50000
-        self.assertTrue(self.control_open_loop.is_actuator_force_out_limit())
+
+        (
+            is_out_limit,
+            limit_switch_retract,
+            limit_switch_extend,
+        ) = self.control_open_loop.is_actuator_force_out_limit()
+
+        self.assertTrue(is_out_limit)
+        self.assertEqual(limit_switch_retract, [77])
+        self.assertEqual(limit_switch_extend, [])
 
         # Maximum limit is enabled
         self.control_open_loop.open_loop_max_limit_is_enabled = True
-        self.assertFalse(self.control_open_loop.is_actuator_force_out_limit())
+
+        (
+            is_out_limit,
+            limit_switch_retract,
+            limit_switch_extend,
+        ) = self.control_open_loop.is_actuator_force_out_limit()
+
+        self.assertFalse(is_out_limit)
 
         self.control_open_loop.actuator_steps[-1] += 1000
-        self.assertTrue(self.control_open_loop.is_actuator_force_out_limit())
+
+        (
+            is_out_limit,
+            limit_switch_retract,
+            limit_switch_extend,
+        ) = self.control_open_loop.is_actuator_force_out_limit()
+
+        self.assertTrue(is_out_limit)
+        self.assertEqual(limit_switch_retract, [77])
+        self.assertEqual(limit_switch_extend, [])
 
     def test_calculate_steps_to_forces(self):
 
