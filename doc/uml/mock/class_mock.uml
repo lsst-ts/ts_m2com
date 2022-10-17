@@ -15,5 +15,6 @@ MockCommand --> MockModel
 MockModel *-- MockScriptEngine
 MockModel *-- MockControlOpenLoop
 MockModel *-- MockControlClosedLoop
+MockModel *-- MockErrorHandler
 
 @enduml

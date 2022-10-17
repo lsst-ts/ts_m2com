@@ -82,6 +82,7 @@ m2com.mock
 * **MockCommand** simulates the execution of command in real hardware.
 * **MockMessageEvent** simulates the message of event from real hardware.
 * **MockMessageTelemetry** simulates the message of telemetry from real hardware.
+* **MockErrorHandler** manages the error codes to report.
 
 .. _API:
 
