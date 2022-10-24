@@ -255,3 +255,36 @@ class MockMessageEvent:
                 "cellTemperatureDelta": 2.0,
             },
         )
+
+    async def write_open_loop_max_limit(self, status):
+        """Write the message: open-loop maximum limit is enabled or not.
+
+        Parameters
+        ----------
+        status : `bool`
+            Open-loop maximum limit is enabled or not.
+        """
+        await write_json_packet(
+            self.writer, {"id": "openLoopMaxLimit", "status": status}
+        )
+
+    async def write_limit_switch_status(
+        self, limit_switch_retract, limit_switch_extend
+    ):
+        """Write the message: limit switch status.
+
+        Parameters
+        ----------
+        limit_switch_retract : `list`
+            Triggered retracted limit switch.
+        limit_switch_extend : `list`
+            Triggered extended limit switch.
+        """
+        await write_json_packet(
+            self.writer,
+            {
+                "id": "limitSwitchStatus",
+                "retract": limit_switch_retract,
+                "extend": limit_switch_extend,
+            },
+        )

@@ -26,7 +26,7 @@ import pandas as pd
 from scipy.linalg import block_diag
 
 from ..constant import NUM_ACTUATOR, NUM_TANGENT_LINK
-from ..utility import read_yaml_file
+from ..utility import check_limit_switches, read_yaml_file
 
 
 class MockControlClosedLoop:
@@ -323,91 +323,94 @@ class MockControlClosedLoop:
             Force of the axial actuators in Newton.
         force_tangent : `list` or `numpy.ndarray`
             Force of the tangent actuators in Newton.
-        """
-
-        # Check limits
-        self.check_axial_force_limit(applied_force=force_axial)
-        self.check_tangent_force_limit(applied_force=force_tangent)
-
-        self.axial_forces["applied"] = np.array(force_axial)
-        self.tangent_forces["applied"] = np.array(force_tangent)
-
-    def check_axial_force_limit(self, applied_force=None):
-        """Check if axial forces are out of bounds.
-
-        Parameters
-        ----------
-        applied_force : `numpy.ndarray` or `None`, optional
-            Forces to apply in Newton. If `None` use current setup. (the
-            default is None.)
-
-        Returns
-        -------
-        demanded_axial_force : `numpy.ndarray`
-            Array with the combined total force per actuator in Newton.
 
         Raises
         ------
         `RuntimeError`
-            If force limit is out of range.
+            When the maximum force limits reached.
         """
 
-        demanded_axial_force = (
+        # Check limits
+        is_out_limit = self.is_actuator_force_out_limit(
+            applied_force_axial=np.array(force_axial),
+            applied_force_tangent=np.array(force_tangent),
+        )[0]
+        if is_out_limit:
+            raise RuntimeError("Maximum force limits reached in actuators.")
+
+        self.axial_forces["applied"] = np.array(force_axial)
+        self.tangent_forces["applied"] = np.array(force_tangent)
+
+    def is_actuator_force_out_limit(
+        self, applied_force_axial=None, applied_force_tangent=None
+    ):
+        """The actuator force is out of limit or not.
+
+        Parameters
+        ----------
+        applied_force_axial : `numpy.ndarray` or `None`, optional
+            Axial forces to apply in Newton. If `None` use current setup. (the
+            default is None.)
+        applied_force_tangent : `numpy.ndarray` or `None`, optional
+            Tangent forces to apply in Newton. If `None` use current setup. (
+            the default is None.)
+
+        Returns
+        -------
+        `bool`
+            True if the actuator force is out of limit. Otherwise, False.
+        `list`
+            Triggered retracted limit switches.
+        `list`
+            Triggered extended limit switches.
+        """
+
+        demanded_force = self.get_demanded_force(
+            applied_force_axial=applied_force_axial,
+            applied_force_tangent=applied_force_tangent,
+        )
+
+        return check_limit_switches(
+            demanded_force, self.LIMIT_FORCE_AXIAL, self.LIMIT_FORCE_TANGENT
+        )
+
+    def get_demanded_force(self, applied_force_axial=None, applied_force_tangent=None):
+        """Get the demanded force in Newton.
+
+        Parameters
+        ----------
+        applied_force_axial : `numpy.ndarray` or `None`, optional
+            Axial forces to apply in Newton. If `None` use current setup. (the
+            default is None.)
+        applied_force_tangent : `numpy.ndarray` or `None`, optional
+            Tangent forces to apply in Newton. If `None` use current setup. (
+            the default is None.)
+
+        Returns
+        -------
+        `numpy.ndarray`
+            Array with the combined total force per actuator in Newton.
+        """
+
+        demanded_force_axial = (
             (
-                applied_force
-                if applied_force is not None
+                applied_force_axial
+                if applied_force_axial is not None
                 else self.axial_forces["applied"]
             )
             + self.axial_forces["lutGravity"]
             + self.axial_forces["lutTemperature"]
         )
 
-        if np.any(demanded_axial_force > self.LIMIT_FORCE_AXIAL):
-            actuators = np.where(demanded_axial_force > self.LIMIT_FORCE_AXIAL)[0]
-            raise RuntimeError(
-                f"Maximum axial force limit [{self.LIMIT_FORCE_AXIAL}N] reached in actuators {actuators}."
-            )
+        # Compared with the axial actuators (demanded_force_axial), there is no
+        # temperature correction from the look-up table
+        demanded_force_tanget = (
+            applied_force_tangent
+            if applied_force_tangent is not None
+            else self.tangent_forces["applied"]
+        ) + self.tangent_forces["lutGravity"]
 
-        return demanded_axial_force
-
-    def check_tangent_force_limit(self, applied_force=None):
-        """Check if tangent forces are out of bounds.
-
-        Parameters
-        ----------
-        applied_force : `numpy.ndarray` or `None`, optional
-            Forces to apply in Newton. If `None` use current setup. (the
-            default is None.)
-
-        Returns
-        -------
-        demanded_tanget_force : `numpy.ndarray`
-            Array with the combined total force per actuator in Newton.
-
-        Raises
-        ------
-        `RuntimeError`
-            If force limit is out of range.
-        """
-
-        # Compared with the axial actuators (self.check_axial_force_limit()),
-        # there is no temperature correction from the look-up table
-        demanded_tanget_force = np.array(
-            (
-                applied_force
-                if applied_force is not None
-                else self.tangent_forces["applied"]
-            )
-            + self.tangent_forces["lutGravity"]
-        )
-
-        if np.any(demanded_tanget_force > self.LIMIT_FORCE_TANGENT):
-            actuators = np.where(demanded_tanget_force > self.LIMIT_FORCE_TANGENT)[0]
-            raise RuntimeError(
-                f"Maximum axial force limit [{self.LIMIT_FORCE_TANGENT}N] reached in actuators {actuators}."
-            )
-
-        return demanded_tanget_force
+        return np.append(demanded_force_axial, demanded_force_tanget)
 
     def reset_force_offsets(self):
         """Reset the force offsets.
@@ -563,9 +566,7 @@ class MockControlClosedLoop:
         self.tangent_forces["lutGravity"] = force_gravity[-NUM_TANGENT_LINK:]
 
         # Calculate the hardpoint correction
-        force_demanded = np.append(
-            self.check_axial_force_limit(), self.check_tangent_force_limit()
-        )
+        force_demanded = self.get_demanded_force()
         force_measured = np.append(
             self.axial_forces["measured"], self.tangent_forces["measured"]
         )
@@ -841,9 +842,7 @@ class MockControlClosedLoop:
             Measured actuator force in Newton.
         """
 
-        force_demanded = np.append(
-            self.check_axial_force_limit(), self.check_tangent_force_limit()
-        )
+        force_demanded = self.get_demanded_force()
         force_hardpoint = np.append(
             self.axial_forces["hardpointCorrection"],
             self.tangent_forces["hardpointCorrection"],

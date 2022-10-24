@@ -104,6 +104,10 @@ class MockCommand:
 
         await message_event.write_summary_state(salobj.State.ENABLED)
 
+        await message_event.write_open_loop_max_limit(
+            model.control_open_loop.open_loop_max_limit_is_enabled
+        )
+
         if command_success:
             await self._report_digital_input_and_ouput(model, message_event)
 
@@ -159,6 +163,10 @@ class MockCommand:
         await message_event.write_summary_state(salobj.State.DISABLED)
 
         await self._report_digital_input_and_ouput(model, message_event)
+
+        await message_event.write_open_loop_max_limit(
+            model.control_open_loop.open_loop_max_limit_is_enabled
+        )
 
         return model, CommandStatus.Success
 
@@ -458,6 +466,10 @@ class MockCommand:
             model.control_closed_loop.is_running
         )
 
+        await message_event.write_open_loop_max_limit(
+            model.control_open_loop.open_loop_max_limit_is_enabled
+        )
+
         return (
             model,
             CommandStatus.Success if command_success is True else CommandStatus.Fail,
@@ -666,22 +678,37 @@ class MockCommand:
         power_type = PowerType(message["powerType"])
         command_success = model.reset_breakers(power_type)
 
+        digital_input_default = model.get_digital_input()
+
         # If success, simulate the update of digital output
         if command_success:
             digital_output_default = model.get_digital_output()
 
             digital_output_reset = digital_output_default
+            digital_input_reset = digital_input_default
+
             if power_type == PowerType.Motor:
                 digital_output_reset -= DigitalOutput.ResetMotorBreakers.value
+                digital_input_reset += sum(
+                    [item.value for item in model.digital_input_motor]
+                )
+
             elif power_type == PowerType.Communication:
                 digital_output_reset -= DigitalOutput.ResetCommunicationBreakers.value
+                digital_input_reset += sum(
+                    [item.value for item in model.digital_input_communication]
+                )
 
             await message_event.write_digital_output(digital_output_reset)
+            await message_event.write_digital_input(digital_input_reset)
 
             # Sleep a short time to simulate the reset process
             await asyncio.sleep(self.SLEEP_TIME_NORMAL)
 
             await message_event.write_digital_output(digital_output_default)
+
+        # Report the digital input
+        await message_event.write_digital_input(digital_input_default)
 
         return (
             model,
@@ -731,6 +758,10 @@ class MockCommand:
         """
 
         command_success = model.enable_open_loop_max_limit(True)
+
+        await message_event.write_open_loop_max_limit(
+            model.control_open_loop.open_loop_max_limit_is_enabled
+        )
 
         return (
             model,

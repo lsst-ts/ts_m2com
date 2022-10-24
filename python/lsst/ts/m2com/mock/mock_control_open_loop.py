@@ -26,6 +26,7 @@ import pandas as pd
 
 from ..constant import MIRROR_WEIGHT_KG, NUM_ACTUATOR, NUM_TANGENT_LINK
 from ..enum import ActuatorDisplacementUnit
+from ..utility import check_limit_switches
 
 
 class MockControlOpenLoop:
@@ -206,11 +207,13 @@ class MockControlOpenLoop:
         -------
         `bool`
             True if the actuator force is out of limit. Otherwise, False.
+        `list`
+            Triggered retracted limit switches.
+        `list`
+            Triggered extended limit switches.
         """
 
         forces = self.calculate_steps_to_forces(self.actuator_steps)
-        forces_axial = forces[: (NUM_ACTUATOR - NUM_TANGENT_LINK)]
-        forces_tangent = forces[-NUM_TANGENT_LINK:]
 
         limit_force_axial = (
             self.MAX_LIMIT_FORCE_AXIAL
@@ -223,9 +226,7 @@ class MockControlOpenLoop:
             else self.LIMIT_FORCE_TANGENT
         )
 
-        return np.any(np.abs(forces_axial) > limit_force_axial) or np.any(
-            np.abs(forces_tangent) > limit_force_tangent
-        )
+        return check_limit_switches(forces, limit_force_axial, limit_force_tangent)
 
     def calculate_steps_to_forces(self, steps):
         """Calculate the steps to forces.
@@ -418,7 +419,7 @@ class MockControlOpenLoop:
             self.move_actuator_steps(self._selected_actuators, steps_to_move)
             self._displacement_steps -= steps_to_move
 
-        if (self._displacement_steps == 0) or self.is_actuator_force_out_limit():
+        if (self._displacement_steps == 0) or self.is_actuator_force_out_limit()[0]:
             self.is_running = False
 
     def move_actuator_steps(self, actuators, steps):
@@ -445,7 +446,7 @@ class MockControlOpenLoop:
         if (actuators.dtype != int) or (steps.dtype != int):
             raise ValueError("The data type is not integer.")
 
-        if self.is_actuator_force_out_limit():
+        if self.is_actuator_force_out_limit()[0]:
             raise RuntimeError("The actuator force is out of limit now.")
         else:
             self.actuator_steps[actuators] += steps

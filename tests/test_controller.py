@@ -26,7 +26,14 @@ import sys
 import unittest
 
 from lsst.ts import salobj, tcpip
-from lsst.ts.m2com import CommandStatus, Controller, MockServer, MsgType, get_config_dir
+from lsst.ts.m2com import (
+    CommandStatus,
+    Controller,
+    MockErrorCode,
+    MockServer,
+    MsgType,
+    get_config_dir,
+)
 
 SLEEP_TIME_SHORT = 2
 
@@ -171,7 +178,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(controller.controller_state, salobj.State.OFFLINE)
 
             # Check to get the Fault state
-            server.model.fault()
+            server.model.fault(MockErrorCode.LimitSwitchTriggeredClosedloop)
             await asyncio.sleep(SLEEP_TIME_SHORT)
 
             self.assertEqual(controller.controller_state, salobj.State.FAULT)
@@ -267,7 +274,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         ) as controller:
 
             # Fake the error
-            server.model.fault()
+            server.model.fault(MockErrorCode.LimitSwitchTriggeredClosedloop)
             await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertEqual(controller.controller_state, salobj.State.FAULT)
 
@@ -275,7 +282,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             await controller.clear_errors()
 
             # Check the controller's state
-            self.assertTrue(server.model.error_cleared)
+            self.assertFalse(server.model.error_handler.exists_error())
             self.assertEqual(controller.controller_state, salobj.State.OFFLINE)
 
     def test_is_controller_state(self):

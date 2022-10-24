@@ -25,8 +25,11 @@ from copy import deepcopy
 from os import getenv
 from pathlib import Path
 
+import numpy as np
 import yaml
 from lsst.ts import tcpip
+
+from . import NUM_ACTUATOR, NUM_TANGENT_LINK
 
 __all__ = [
     "write_json_packet",
@@ -36,6 +39,7 @@ __all__ = [
     "get_queue_message_latest",
     "get_config_dir",
     "is_coroutine",
+    "check_limit_switches",
 ]
 
 
@@ -206,3 +210,70 @@ def is_coroutine(function):
         True if the function is a corountine. Otherwise, False.
     """
     return asyncio.iscoroutine(function) or asyncio.iscoroutinefunction(function)
+
+
+def check_limit_switches(actuator_forces, limit_force_axial, limit_force_tangent):
+    """Check the limit switches are triggered or not.
+
+    Parameters
+    ----------
+    actuator_forces : `numpy.ndarray`
+        Actuator forces in Newton. The number should be the same as
+        "NUM_ACTUATOR".
+    limit_force_axial : `float`
+        Maximum limit force of the axial actuator in Newton.
+    limit_force_tangent : `float`
+        Maximum limit force of the tangent actuator in Newton.
+
+    Returns
+    -------
+    is_triggered : `bool`
+        Limit switch is triggered or not.
+    `list`
+        Triggered retracted limit switches.
+    `list`
+        Triggered extended limit switches.
+
+    Raises
+    ------
+    `ValueError`
+        If the number of "actuator_forces" is wrong.
+    """
+
+    # Check the number of actuators is correct
+    num_actuator_forces = len(actuator_forces)
+    if num_actuator_forces != NUM_ACTUATOR:
+        raise ValueError(
+            f"Number of actuator_forces ({num_actuator_forces}) should be {NUM_ACTUATOR}."
+        )
+
+    # Get the triggered limit switches
+    num_actuator_axial = NUM_ACTUATOR - NUM_TANGENT_LINK
+
+    limit_switch_axial_retract = np.where(
+        actuator_forces[:num_actuator_axial] >= limit_force_axial
+    )[0]
+    limit_switch_axial_extend = np.where(
+        actuator_forces[:num_actuator_axial] <= -limit_force_axial
+    )[0]
+
+    limit_switch_tangent_retract = (
+        np.where(actuator_forces[-NUM_TANGENT_LINK:] >= limit_force_tangent)[0]
+        + num_actuator_axial
+    )
+    limit_switch_tangent_extend = (
+        np.where(actuator_forces[-NUM_TANGENT_LINK:] <= -limit_force_tangent)[0]
+        + num_actuator_axial
+    )
+
+    limit_switch_retract = np.append(
+        limit_switch_axial_retract, limit_switch_tangent_retract
+    ).astype(int)
+
+    limit_switch_extend = np.append(
+        limit_switch_axial_extend, limit_switch_tangent_extend
+    ).astype(int)
+
+    is_triggered = (len(limit_switch_retract) != 0) or (len(limit_switch_extend) != 0)
+
+    return is_triggered, limit_switch_retract.tolist(), limit_switch_extend.tolist()

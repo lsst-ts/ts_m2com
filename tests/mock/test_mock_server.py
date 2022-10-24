@@ -37,6 +37,7 @@ from lsst.ts.m2com import (
     TEST_DIGITAL_OUTPUT_POWER_COMM,
     TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
     DetailedState,
+    MockErrorCode,
     MockServer,
     MsgType,
     TcpClient,
@@ -81,7 +82,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(server.model.control_closed_loop.is_running)
         self.assertFalse(server.model.motor_power_on)
-        self.assertTrue(server.model.error_cleared)
+        self.assertFalse(server.model.error_handler.exists_error())
 
     @contextlib.asynccontextmanager
     async def make_clients(self, server):
@@ -302,6 +303,11 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 msg_digital_output["value"], TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR
             )
 
+            msg_open_loop_max_limit = get_queue_message_latest(
+                client_cmd.queue, "openLoopMaxLimit", flush=False
+            )
+            self.assertFalse(msg_open_loop_max_limit["status"])
+
     async def test_cmd_disable(self):
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
@@ -333,6 +339,11 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 msg_digital_output["value"], TEST_DIGITAL_OUTPUT_POWER_COMM
             )
+
+            msg_open_loop_max_limit = get_queue_message_latest(
+                client_cmd.queue, "openLoopMaxLimit", flush=False
+            )
+            self.assertFalse(msg_open_loop_max_limit["status"])
 
     async def test_cmd_standby(self):
         async with self.make_server() as server, self.make_clients(server) as (
@@ -533,18 +544,21 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_tel,
         ):
             # Put the system into Fault and wait for some error message
-            server.model.fault()
+            server.model.fault(MockErrorCode.LimitSwitchTriggeredClosedloop)
             await asyncio.sleep(1)
 
             # Check the error code
             msg_error_code = get_queue_message_latest(client_cmd.queue, "errorCode")
-            self.assertEqual(msg_error_code["errorCode"], server.FAKE_ERROR_CODE)
+            self.assertEqual(
+                msg_error_code["errorCode"],
+                MockErrorCode.LimitSwitchTriggeredClosedloop.value,
+            )
 
             # Clear the error
             await client_cmd.write(MsgType.Command, "clearErrors")
             await asyncio.sleep(0.5)
 
-            self.assertTrue(server.model.error_cleared)
+            self.assertFalse(server.model.error_handler.exists_error())
 
             msg_state = get_queue_message_latest(client_cmd.queue, "summaryState")
             self.assertEqual(msg_state["summaryState"], int(salobj.State.OFFLINE))
@@ -562,12 +576,16 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(0.5)
 
             msg_fb = get_queue_message_latest(
-                client_cmd.queue, "forceBalanceSystemStatus"
+                client_cmd.queue, "forceBalanceSystemStatus", flush=False
             )
-
-            self.assertEqual(msg_fb["status"], False)
+            self.assertFalse(msg_fb["status"])
 
             self.assertFalse(server.model.control_closed_loop.is_running)
+
+            msg_open_loop_max_limit = get_queue_message_latest(
+                client_cmd.queue, "openLoopMaxLimit", flush=False
+            )
+            self.assertFalse(msg_open_loop_max_limit["status"])
 
     async def test_cmd_switch_force_balance_system_success(self):
         async with self.make_server() as server, self.make_clients(server) as (
@@ -583,12 +601,16 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(2)
 
             msg_fb = get_queue_message_latest(
-                client_cmd.queue, "forceBalanceSystemStatus"
+                client_cmd.queue, "forceBalanceSystemStatus", flush=False
             )
-
-            self.assertEqual(msg_fb["status"], True)
+            self.assertTrue(msg_fb["status"])
 
             self.assertTrue(server.model.control_closed_loop.is_running)
+
+            msg_open_loop_max_limit = get_queue_message_latest(
+                client_cmd.queue, "openLoopMaxLimit", flush=False
+            )
+            self.assertFalse(msg_open_loop_max_limit["status"])
 
     async def test_cmd_select_inclination_source(self):
         async with self.make_server() as server, self.make_clients(server) as (

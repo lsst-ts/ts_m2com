@@ -2,6 +2,16 @@
 Version History
 ===============
 
+v0.6.0
+------
+
+* Add the **MockErrorHandler** class.
+* Add the enums of **LimitSwitchType** and **MockErrorCode**.
+* Add the following events:
+
+  * openLoopMaxLimit
+  * limitSwitchStatus
+
 v0.5.2
 ------
 
