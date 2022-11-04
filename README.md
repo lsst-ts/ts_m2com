@@ -29,6 +29,11 @@ To build project documentation, run `package-docs build` to build the documentat
 To clean the built documents, use `package-docs clean`.
 See [Building single-package documentation locally](https://developer.lsst.io/stack/building-single-package-docs.html) for further details.
 
+## Figure
+
+The map of temperature sensors is [here](doc/figure/temperature_sensor_map.jpg).
+See the `MockControlClosedLoop._calc_temp_inv_matrix()` for the details.
+
 ## Unit Tests
 
 You can run the unit tests by:
