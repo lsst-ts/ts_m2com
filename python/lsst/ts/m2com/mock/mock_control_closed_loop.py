@@ -246,7 +246,6 @@ class MockControlClosedLoop:
                 "Tu.csv",
                 "Tx.csv",
                 "Ty.csv",
-                "temp_inv.txt",
             ]
         )
 
@@ -260,8 +259,45 @@ class MockControlClosedLoop:
                 self._lut[name] = np.float64(data)
                 if name == "F_E":
                     self._lut["lutInAngle"] = np.float64(data.keys())
-            else:
-                self._lut[name] = np.loadtxt(filepath / lut)
+
+        self._lut["temp_inv"] = self._calc_temp_inv_matrix()
+
+    def _calc_temp_inv_matrix(self):
+        """Calculate the temperature inversion matrix.
+
+        Based on the "LSST_M2_temperature_sensors_20171102.pdf". The sensor map
+        is at "doc/figure/temperature_sensor_map.jpg".
+
+        Radial gradient: T(r) = Tr * r / R
+        X gradient: T(x) = Tx * x / R = Tx * r * cos(theta) / R
+        Y gradient: T(y) = Ty * y / R = Ty * r * sin(theta) / R
+        Uniform bias: T(u) = Tu
+
+        The matrix is: [r/R, r/R * cos(theta), r/R * sin(theta), 1], and we
+        have: matrix * [Tr, Tx, Ty, Tu].T = [T1, T2, ..., T12].T
+
+        Returns
+        -------
+        `numpy.ndarray`
+            Temperature inversion matrix.
+        """
+
+        # Radius of mirror in inch
+        R = 68.3
+
+        # Positions of 12 temperature sensors
+        # Radias is in inch, theta is in degree
+        r_normalized = np.array([36.91, 64.36, 68.3] * 4) / R
+        theta = np.kron(np.array([98.5, 278.5, 0, 180]), np.ones(3))
+
+        matrix = np.zeros([len(r_normalized), 4])
+        matrix[:, 0] = r_normalized
+        matrix[:, 1] = r_normalized * np.cos(np.deg2rad(theta))
+        matrix[:, 2] = r_normalized * np.sin(np.deg2rad(theta))
+        matrix[:, 3] = 1
+
+        # Do the pseudo-inverse
+        return np.linalg.pinv(matrix)
 
     def load_file_cell_geometry(self, filepath):
         """Load the file of cell geometry.

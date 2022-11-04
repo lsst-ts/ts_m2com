@@ -359,6 +359,12 @@ class MockModel:
             True if succeeds. Otherwise, False.
         """
 
+        # In closed-loop control, the maximum limits of open-loop control
+        # should be disabled.
+        if (status is True) and self.control_open_loop.open_loop_max_limit_is_enabled:
+            return False
+
+        # Run the closed-loop control
         result = True
 
         if (status is True) and (not self.motor_power_on):
@@ -367,11 +373,8 @@ class MockModel:
         else:
             self.control_closed_loop.is_running = status
 
-        # In closed-loop control, the maximum limits of open-loop control is
-        # disabled. In addition, the system can not run the closed-loop and
-        # open-loop at the same time.
-        if self.control_closed_loop.is_running is True:
-            self.enable_open_loop_max_limit(False)
+        # The system cannot run the closed-loop and open-loop at the same time.
+        if self.control_closed_loop.is_running:
             self.control_open_loop.is_running = False
 
         return result
