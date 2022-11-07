@@ -139,14 +139,14 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.control_closed_loop.calc_look_up_forces(59.06)
         demanded_force = self.control_closed_loop.get_demanded_force()
 
-        self.assertAlmostEqual(demanded_force[0], 130.3597559)
-        self.assertAlmostEqual(demanded_force[1], 166.0450977)
+        self.assertAlmostEqual(demanded_force[0], 130.3581281)
+        self.assertAlmostEqual(demanded_force[1], 166.0471629)
 
         # Applying the force
         self._apply_forces()
         demanded_force_apply = self.control_closed_loop.get_demanded_force()
 
-        self.assertAlmostEqual(demanded_force_apply[0], 131.3597559)
+        self.assertAlmostEqual(demanded_force_apply[0], 131.3581281)
 
     def test_get_demanded_force_tangent(self):
 
@@ -260,7 +260,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
         # Check the value
         self.assertAlmostEqual(
-            self.control_closed_loop.axial_forces["lutTemperature"][0], 3.5039021
+            self.control_closed_loop.axial_forces["lutTemperature"][0], 3.5022743
         )
         self.assertAlmostEqual(
             self.control_closed_loop.axial_forces["lutGravity"][0], 126.8558538
@@ -296,21 +296,21 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertEqual(len(force_y), num_axial_actuators)
         self.assertEqual(len(force_u), num_axial_actuators)
 
-        self.assertAlmostEqual(force_r[0], 0.0394274)
-        self.assertAlmostEqual(force_r[1], 0.1676719)
-        self.assertAlmostEqual(force_r[2], -0.1255785)
+        self.assertAlmostEqual(force_r[0], 0.0394233)
+        self.assertAlmostEqual(force_r[1], 0.1676541)
+        self.assertAlmostEqual(force_r[2], -0.1255652)
 
-        self.assertAlmostEqual(force_x[0], -0.0233559)
-        self.assertAlmostEqual(force_x[1], -0.0780716)
-        self.assertAlmostEqual(force_x[2], 0.0444155)
+        self.assertAlmostEqual(force_x[0], -0.0233514)
+        self.assertAlmostEqual(force_x[1], -0.0780565)
+        self.assertAlmostEqual(force_x[2], 0.044407)
 
-        self.assertAlmostEqual(force_y[0], 0.0115954)
-        self.assertAlmostEqual(force_y[1], -0.0090821)
-        self.assertAlmostEqual(force_y[2], 0.020449)
+        self.assertAlmostEqual(force_y[0], 0.0115937)
+        self.assertAlmostEqual(force_y[1], -0.0090808)
+        self.assertAlmostEqual(force_y[2], 0.020446)
 
-        self.assertAlmostEqual(force_u[0], 3.4762351)
-        self.assertAlmostEqual(force_u[1], -4.417117)
-        self.assertAlmostEqual(force_u[2], -0.2456348)
+        self.assertAlmostEqual(force_u[0], 3.4746087)
+        self.assertAlmostEqual(force_u[1], -4.4150503)
+        self.assertAlmostEqual(force_u[2], -0.2455199)
 
     def _get_temperature(self):
         return np.array(
@@ -368,9 +368,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
             force_demanded, force_measured
         )
 
-        self.assertAlmostEqual(force_hardpoint[0], -58.5906115)
-        self.assertAlmostEqual(force_hardpoint[1], -58.0639305)
-        self.assertAlmostEqual(force_hardpoint[2], -56.7950423)
+        self.assertAlmostEqual(force_hardpoint[0], -58.5897104)
+        self.assertAlmostEqual(force_hardpoint[1], -58.0630293)
+        self.assertAlmostEqual(force_hardpoint[2], -56.7941411)
         self.assertAlmostEqual(force_hardpoint[5], 0)
         self.assertAlmostEqual(force_hardpoint[15], 0)
         self.assertAlmostEqual(force_hardpoint[-6], -96.9923333)

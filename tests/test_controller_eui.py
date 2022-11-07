@@ -543,7 +543,9 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             server
         ) as controller:
 
-            await controller.write_command_to_server("enableOpenLoopMaxLimit")
+            await controller.write_command_to_server(
+                "enableOpenLoopMaxLimit", message_details={"status": True}
+            )
 
             # Wait a little time to let the internal process to finish
             await asyncio.sleep(SLEEP_TIME_SHORT)

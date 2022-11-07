@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v0.6.1
+------
+
+* Calculate the temperature inversion matrix.
+* Add the **status** to **enableOpenLoopMaxLimit** command.
+
 v0.6.0
 ------
 

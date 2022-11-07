@@ -757,7 +757,7 @@ class MockCommand:
             Status of command execution.
         """
 
-        command_success = model.enable_open_loop_max_limit(True)
+        command_success = model.enable_open_loop_max_limit(message["status"])
 
         await message_event.write_open_loop_max_limit(
             model.control_open_loop.open_loop_max_limit_is_enabled

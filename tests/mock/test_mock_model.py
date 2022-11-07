@@ -74,7 +74,7 @@ class TestMockModel(unittest.TestCase):
 
         self.assertAlmostEqual(
             self.model.control_closed_loop.axial_forces["hardpointCorrection"][0],
-            -27.8015275,
+            -27.8006264,
         )
 
     def test_get_default_mirror_position(self):
@@ -92,7 +92,7 @@ class TestMockModel(unittest.TestCase):
         self.assertEqual(self.model.control_open_loop.inclinometer_angle, 120)
         self.assertAlmostEqual(
             self.model.control_closed_loop.axial_forces["hardpointCorrection"][0],
-            -89.3301199,
+            -89.3292188,
         )
 
     def test_is_actuator_force_out_limit_closed_loop(self):
@@ -438,9 +438,10 @@ class TestMockModel(unittest.TestCase):
         self.model.enable_open_loop_max_limit(True)
 
         self.model.motor_power_on = True
-        self.assertTrue(self.model.switch_force_balance_system(True))
+        self.assertFalse(self.model.switch_force_balance_system(True))
 
-        self.assertFalse(self.model.control_open_loop.open_loop_max_limit_is_enabled)
+        self.model.enable_open_loop_max_limit(False)
+        self.assertTrue(self.model.switch_force_balance_system(True))
 
     def test_reset_breakers(self):
 
