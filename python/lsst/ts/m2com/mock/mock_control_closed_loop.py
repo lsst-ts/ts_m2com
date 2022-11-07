@@ -260,9 +260,10 @@ class MockControlClosedLoop:
                 if name == "F_E":
                     self._lut["lutInAngle"] = np.float64(data.keys())
 
-        self._lut["temp_inv"] = self._calc_temp_inv_matrix()
+        self._lut["temp_inv"] = MockControlClosedLoop.calc_temp_inv_matrix()
 
-    def _calc_temp_inv_matrix(self):
+    @staticmethod
+    def calc_temp_inv_matrix():
         """Calculate the temperature inversion matrix.
 
         Based on the "LSST_M2_temperature_sensors_20171102.pdf". The sensor map
@@ -282,12 +283,12 @@ class MockControlClosedLoop:
             Temperature inversion matrix.
         """
 
-        # Radius of mirror in inch
-        R = 68.3
+        # Radius of mirror in millimeter
+        R = 1734.82
 
         # Positions of 12 temperature sensors
-        # Radias is in inch, theta is in degree
-        r_normalized = np.array([36.91, 64.36, 68.3] * 4) / R
+        # Radial is in millimeter, theta is in degree
+        r_normalized = np.array([937.514, 1634.744, 1734.82] * 4) / R
         theta = np.kron(np.array([98.5, 278.5, 0, 180]), np.ones(3))
 
         matrix = np.zeros([len(r_normalized), 4])
