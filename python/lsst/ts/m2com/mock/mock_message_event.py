@@ -170,25 +170,25 @@ class MockMessageEvent:
             self.writer, {"id": "inclinationTelemetrySource", "source": int(source)}
         )
 
-    async def write_temperature_offset(self, ring, intake, exhaust):
+    async def write_temperature_offset(self, ring):
         """Write the message: temperature offset in degree C.
 
         Parameters
         ----------
         ring : `list`
             Offset of ring temperatures.
-        intake : `list`
-            Offset of intake temperatures.
-        exhaust : `list`
-            Offset of exhaust temperatures.
         """
+
+        # TODO: Remove the 'intake' and 'exhaust' after updating the ts_xml.
+        # This will happen after finishing the update of ts_mtm2_cell. No
+        # timeline yet.
         await write_json_packet(
             self.writer,
             {
                 "id": "temperatureOffset",
                 "ring": ring,
-                "intake": intake,
-                "exhaust": exhaust,
+                "intake": [0] * 2,
+                "exhaust": [0] * 2,
             },
         )
 

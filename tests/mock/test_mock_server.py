@@ -155,10 +155,9 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             msg_temp_offset = client_cmd.queue.get_nowait()
             self.assertEqual(msg_temp_offset["id"], "temperatureOffset")
 
-            temp_offset = 21.0
-            self.assertEqual(msg_temp_offset["ring"], [temp_offset] * 12)
-            self.assertEqual(msg_temp_offset["intake"], [temp_offset] * 2)
-            self.assertEqual(msg_temp_offset["exhaust"], [temp_offset] * 2)
+            self.assertEqual(msg_temp_offset["ring"], [21.0] * 12)
+            self.assertEqual(msg_temp_offset["intake"], [0] * 2)
+            self.assertEqual(msg_temp_offset["exhaust"], [0] * 2)
 
             # Check the detailed states
             msg_detailed_state_publish_only = client_cmd.queue.get_nowait()
@@ -653,10 +652,10 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
 
             self.assertEqual(msg_temp_offset["ring"], ring)
-            self.assertEqual(msg_temp_offset["intake"], intake)
-            self.assertEqual(msg_temp_offset["exhaust"], exhaust)
+            self.assertEqual(msg_temp_offset["intake"], [0] * 2)
+            self.assertEqual(msg_temp_offset["exhaust"], [0] * 2)
 
-            self.assertEqual(server.model.control_closed_loop.temperature["ref"], 11)
+            self.assertEqual(server.model.control_closed_loop.temperature["ref"], ring)
 
     async def test_telemetry_no_motor_power(self):
         async with self.make_server() as server, self.make_clients(server) as (

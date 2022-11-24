@@ -286,7 +286,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
             force_y,
             force_u,
         ) = self.control_closed_loop._calc_look_up_forces_temperature(
-            lut_temperature, 21
+            lut_temperature, 21 * np.ones(12)
         )
 
         num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
@@ -402,7 +402,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
             force_y,
             force_u,
         ) = self.control_closed_loop._calc_look_up_forces_temperature(
-            lut_temperature, 21
+            lut_temperature, 21 * np.ones(12)
         )
         force_r = np.append(force_r, np.zeros(NUM_TANGENT_LINK))
         force_x = np.append(force_x, np.zeros(NUM_TANGENT_LINK))

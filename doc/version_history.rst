@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v0.6.2
+------
+
+* Update the temperature offset.
+
 v0.6.1
 ------
 
