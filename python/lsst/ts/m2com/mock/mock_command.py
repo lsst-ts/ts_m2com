@@ -526,18 +526,11 @@ class MockCommand:
             Status of command execution.
         """
 
-        # The ref can only be a single value at this moment
-        # After the M2 server code is updated, we will change the behavior here
-        offset = message["ring"].copy()
-        offset.extend(message["intake"])
-        offset.extend(message["exhaust"])
+        if len(message["ring"]) == len(model.control_closed_loop.temperature["ref"]):
+            model.control_closed_loop.temperature["ref"] = message["ring"]
+            await message_event.write_temperature_offset(message["ring"])
 
-        command_status = CommandStatus.Success
-        if len(set(offset)) == 1:
-            model.control_closed_loop.temperature["ref"] = offset[0]
-            await message_event.write_temperature_offset(
-                message["ring"], message["intake"], message["exhaust"]
-            )
+            command_status = CommandStatus.Success
         else:
             command_status = CommandStatus.Fail
 

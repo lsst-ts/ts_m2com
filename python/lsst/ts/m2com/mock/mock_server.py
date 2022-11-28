@@ -266,11 +266,8 @@ class MockServer:
             self.model.inclination_source
         )
 
-        temp_offset = self.model.control_closed_loop.temperature["ref"]
         await self._message_event.write_temperature_offset(
-            [temp_offset] * 12,
-            [temp_offset] * 2,
-            [temp_offset] * 2,
+            self.model.control_closed_loop.temperature["ref"],
         )
 
         # This is only for the state machine of CSC
