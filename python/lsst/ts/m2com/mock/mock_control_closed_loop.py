@@ -614,7 +614,7 @@ class MockControlClosedLoop:
         self.axial_forces["hardpointCorrection"] = force_hardpoint[:num_axial_actuators]
         self.tangent_forces["hardpointCorrection"] = force_hardpoint[-NUM_TANGENT_LINK:]
 
-    def _calc_look_up_forces_temperature(self, lut_temperature, temperature_ref):
+    def _calc_look_up_forces_temperature(self, lut_temperature, ref_temperature):
         """Calculate the temperature-related forces based on the look-up table
         (LUT) in Newton.
 
@@ -626,7 +626,7 @@ class MockControlClosedLoop:
             Temperature used to calculate the LUT forces of temperature
             component in degree C. The order is: [LG2-2, LG2-3, LG2-4,
             LG3-1, LG4-2, LG4-1, LG3-2, LG3-3, LG3-4, LG4-4, LG4-3, LG2-1].
-        temperature_ref : `numpy.ndarray`
+        ref_temperature : `numpy.ndarray`
             Reference temperature in degree C. The order is [LG2-1, LG2-2,
             LG2-3, LG2-4, LG3-1, LG3-2, LG3-3, LG3-4, LG4-1, LG4-2, LG4-3,
             LG4-4].
@@ -644,7 +644,7 @@ class MockControlClosedLoop:
         """
 
         indexs = [11, 0, 1, 2, 3, 6, 7, 8, 5, 4, 10, 9]
-        temperature = lut_temperature - temperature_ref[indexs]
+        temperature = lut_temperature - ref_temperature[indexs]
         tcoef = self._lut["temp_inv"].dot(temperature.reshape(-1, 1))
 
         return (
