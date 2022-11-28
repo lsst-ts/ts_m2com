@@ -526,10 +526,11 @@ class MockCommand:
             Status of command execution.
         """
 
-        command_status = CommandStatus.Success
         if len(message["ring"]) == len(model.control_closed_loop.temperature["ref"]):
             model.control_closed_loop.temperature["ref"] = message["ring"]
             await message_event.write_temperature_offset(message["ring"])
+
+            command_status = CommandStatus.Success
         else:
             command_status = CommandStatus.Fail
 
