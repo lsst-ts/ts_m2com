@@ -16,5 +16,6 @@ MockModel *-- MockScriptEngine
 MockModel *-- MockControlOpenLoop
 MockModel *-- MockControlClosedLoop
 MockModel *-- MockErrorHandler
+MockModel "1" *-- "2" MockPowerSystem
 
 @enduml
