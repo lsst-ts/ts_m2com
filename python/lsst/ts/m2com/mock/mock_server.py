@@ -156,6 +156,7 @@ class MockServer:
             "cmd_saveMirrorPosition": self._command.save_mirror_position,
             "cmd_setMirrorHome": self._command.set_mirror_home,
             "cmd_switchDigitalOutput": self._command.switch_digital_output,
+            "cmd_power": self._command.power,
         }
 
     def _connect_state_changed_callback_command(self, server_command):
@@ -614,7 +615,7 @@ class MockServer:
             telemetry_data["displacementSensors"]
         )
 
-        if self.model.motor_power_on:
+        if self.model.power_motor.is_power_on():
             await self._message_telemetry.write_ilc_data(telemetry_data["ilcData"])
             await self._message_telemetry.write_net_forces_total(
                 telemetry_data["netForcesTotal"]
@@ -661,7 +662,7 @@ class MockServer:
                 telemetry_data["powerStatusRaw"]
             )
 
-            if self.model.motor_power_on:
+            if self.model.power_motor.is_power_on():
                 await self._message_telemetry.write_force_error_tangent(
                     telemetry_data["forceErrorTangent"]
                 )
@@ -736,9 +737,22 @@ class MockServer:
         self.model.control_open_loop.open_loop_max_limit_is_enabled = False
         self.model.control_closed_loop.is_running = False
 
-        self.model.communication_power_on = False
-        self.model.motor_power_on = False
+        await self._power_off_fully(self.model.power_motor)
+        await self._power_off_fully(self.model.power_communication)
+
         self.model.error_handler.clear()
 
         self.model.script_engine.pause()
         self.model.script_engine.clear()
+
+    async def _power_off_fully(self, power_system):
+        """Fully power off the system.
+
+        Parameters
+        ----------
+        power_system : `MockPowerSystem`
+            Power system.
+        """
+
+        await power_system.power_off()
+        await power_system.wait_power_fully_off()
