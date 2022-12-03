@@ -29,6 +29,7 @@ __all__ = [
     "CommandActuator",
     "ActuatorDisplacementUnit",
     "PowerType",
+    "PowerSystemState",
     "DigitalOutput",
     "DigitalInput",
     "LimitSwitchType",
@@ -105,6 +106,17 @@ class PowerType(IntEnum):
 
     Motor = 1
     Communication = auto()
+
+
+class PowerSystemState(IntEnum):
+    """State of the power system. This is copied from the ts_mtm2_cell."""
+
+    Init = 1
+    PoweredOff = auto()
+    PoweringOn = auto()
+    ResettingBreakers = auto()
+    PoweredOn = auto()
+    PoweringOff = auto()
 
 
 class DigitalOutput(BitEnum):
