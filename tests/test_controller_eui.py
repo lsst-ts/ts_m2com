@@ -361,8 +361,8 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             server
         ) as controller:
 
-            server.model.communication_power_on = True
-            server.model.motor_power_on = True
+            await server.model.power_communication.power_on()
+            await server.model.power_motor.power_on()
 
             await controller.write_command_to_server(
                 "moveActuators",
@@ -394,8 +394,8 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             steps[0] = -4500
             server.model.control_open_loop.update_actuator_steps(steps)
 
-            server.model.communication_power_on = True
-            server.model.motor_power_on = True
+            await server.model.power_communication.power_on()
+            await server.model.power_motor.power_on()
 
             await controller.write_command_to_server(
                 "moveActuators",
@@ -428,8 +428,8 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             server
         ) as controller:
 
-            server.model.communication_power_on = True
-            server.model.motor_power_on = True
+            await server.model.power_communication.power_on()
+            await server.model.power_motor.power_on()
 
             # Start
             await controller.write_command_to_server(
@@ -486,7 +486,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             server
         ) as controller:
 
-            server.model.communication_power_on = True
+            await server.model.power_communication.power_on()
             await controller.write_command_to_server(
                 "resetBreakers",
                 message_details={"powerType": PowerType.Communication},
@@ -506,8 +506,8 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             server
         ) as controller:
 
-            server.model.communication_power_on = True
-            server.model.motor_power_on = True
+            await server.model.power_communication.power_on()
+            await server.model.power_motor.power_on()
             await controller.write_command_to_server(
                 "resetBreakers",
                 message_details={"powerType": PowerType.Motor},
@@ -610,7 +610,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(
                 msg_latest["value"] & DigitalOutput.CommunicationPower.value
             )
-            self.assertTrue(server.model.communication_power_on)
+            self.assertTrue(server.model.power_communication.is_power_on())
 
             # Switch the motor power
             await controller.write_command_to_server(
@@ -624,7 +624,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                 controller.queue_event, "digitalOutput"
             )
             self.assertTrue(msg_latest["value"] & DigitalOutput.MotorPower.value)
-            self.assertTrue(server.model.motor_power_on)
+            self.assertTrue(server.model.power_motor.is_power_on())
 
 
 if __name__ == "__main__":

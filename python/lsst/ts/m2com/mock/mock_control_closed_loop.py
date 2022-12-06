@@ -25,7 +25,12 @@ import numpy as np
 import pandas as pd
 from scipy.linalg import block_diag
 
-from ..constant import NUM_ACTUATOR, NUM_TANGENT_LINK
+from ..constant import (
+    LIMIT_FORCE_AXIAL_CLOSED_LOOP,
+    LIMIT_FORCE_TANGENT_CLOSED_LOOP,
+    NUM_ACTUATOR,
+    NUM_TANGENT_LINK,
+)
 from ..utility import check_limit_switches, read_yaml_file
 
 
@@ -48,10 +53,6 @@ class MockControlClosedLoop:
     in_position_hardpoints : `bool`
         Hardpoints are in position or not.
     """
-
-    # Limits of force in Newton
-    LIMIT_FORCE_AXIAL = 444.82  # 100 lbf
-    LIMIT_FORCE_TANGENT = 4893.04  # 1100 lbf
 
     def __init__(self):
 
@@ -408,7 +409,9 @@ class MockControlClosedLoop:
         )
 
         return check_limit_switches(
-            demanded_force, self.LIMIT_FORCE_AXIAL, self.LIMIT_FORCE_TANGENT
+            demanded_force,
+            LIMIT_FORCE_AXIAL_CLOSED_LOOP,
+            LIMIT_FORCE_TANGENT_CLOSED_LOOP,
         )
 
     def get_demanded_force(self, applied_force_axial=None, applied_force_tangent=None):

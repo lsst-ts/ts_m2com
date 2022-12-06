@@ -31,6 +31,7 @@ from ..enum import (
     CommandStatus,
     DetailedState,
     DigitalOutput,
+    PowerSystemState,
     PowerType,
 )
 
@@ -78,10 +79,10 @@ class MockCommand:
         """
 
         # If there is no communication power, fail the command.
-        if not model.communication_power_on:
+        if not model.power_communication.is_power_on():
             return model, CommandStatus.Fail
 
-        model.motor_power_on = True
+        await self._power_on_fully(PowerType.Motor, model.power_motor, message_event)
 
         # Only turn on the force balance system when the CSC is the commander.
         # Need to unify the behaviors of CSC and EUI after the cell controller
@@ -91,7 +92,9 @@ class MockCommand:
             command_success = model.switch_force_balance_system(True)
 
             if not command_success:
-                model.motor_power_on = False
+                await self._power_off_fully(
+                    PowerType.Motor, model.power_motor, message_event
+                )
 
             await message_event.write_m2_assembly_in_position(False)
 
@@ -99,21 +102,63 @@ class MockCommand:
             model.control_closed_loop.is_running
         )
 
-        # Simulate the real hardware behavior
-        await asyncio.sleep(self.SLEEP_TIME_NORMAL)
-
-        await message_event.write_summary_state(salobj.State.ENABLED)
-
         await message_event.write_open_loop_max_limit(
             model.control_open_loop.open_loop_max_limit_is_enabled
         )
 
         if command_success:
+            await message_event.write_summary_state(salobj.State.ENABLED)
             await self._report_digital_input_and_ouput(model, message_event)
 
         return (
             model,
             CommandStatus.Success if command_success is True else CommandStatus.Fail,
+        )
+
+    async def _power_on_fully(self, power_type, power_system, message_event):
+        """Fully power on the system.
+
+        Parameters
+        ----------
+        power_type : enum `PowerType`
+            Power type.
+        power_system : `MockPowerSystem`
+            Power system.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+        """
+
+        await power_system.power_on()
+        await message_event.write_power_system_state(
+            power_type, power_system.is_power_on(), power_system.state
+        )
+
+        await power_system.wait_power_fully_on()
+        await message_event.write_power_system_state(
+            power_type, power_system.is_power_on(), power_system.state
+        )
+
+    async def _power_off_fully(self, power_type, power_system, message_event):
+        """Fully power off the system.
+
+        Parameters
+        ----------
+        power_type : enum `PowerType`
+            Power type.
+        power_system : `MockPowerSystem`
+            Power system.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+        """
+
+        await power_system.power_off()
+        await message_event.write_power_system_state(
+            power_type, power_system.is_power_on(), power_system.state
+        )
+
+        await power_system.wait_power_fully_off()
+        await message_event.write_power_system_state(
+            power_type, power_system.is_power_on(), power_system.state
         )
 
     async def _report_digital_input_and_ouput(self, model, message_event):
@@ -154,7 +199,7 @@ class MockCommand:
         """
 
         model.switch_force_balance_system(False)
-        model.motor_power_on = False
+        await self._power_off_fully(PowerType.Motor, model.power_motor, message_event)
 
         await message_event.write_force_balance_system_status(
             model.control_closed_loop.is_running
@@ -190,8 +235,10 @@ class MockCommand:
             Status of command execution.
         """
 
-        model.communication_power_on = False
-        model.motor_power_on = False
+        await self._power_off_fully(PowerType.Motor, model.power_motor, message_event)
+        await self._power_off_fully(
+            PowerType.Communication, model.power_communication, message_event
+        )
 
         await message_event.write_summary_state(salobj.State.STANDBY)
 
@@ -219,7 +266,9 @@ class MockCommand:
             Status of command execution.
         """
 
-        model.communication_power_on = True
+        await self._power_on_fully(
+            PowerType.Communication, model.power_communication, message_event
+        )
 
         await message_event.write_summary_state(salobj.State.DISABLED)
 
@@ -287,8 +336,12 @@ class MockCommand:
 
         if self._is_csc:
 
-            model.communication_power_on = False
-            model.motor_power_on = False
+            await self._power_off_fully(
+                PowerType.Motor, model.power_motor, message_event
+            )
+            await self._power_off_fully(
+                PowerType.Communication, model.power_communication, message_event
+            )
 
             # Sleep time is to simulate some internal inspection of
             # real system
@@ -668,12 +721,22 @@ class MockCommand:
             Status of command execution.
         """
 
-        power_type = PowerType(message["powerType"])
+        try:
+            power_type = PowerType(message["powerType"])
+        except ValueError:
+            return model, CommandStatus.Fail
+
         command_success = model.reset_breakers(power_type)
 
         digital_input_default = model.get_digital_input()
+        power_system = (
+            model.power_motor
+            if power_type == PowerType.Motor
+            else model.power_communication
+        )
 
-        # If success, simulate the update of digital output
+        # If success, simulate the update of digital output and events of power
+        # system state
         if command_success:
             digital_output_default = model.get_digital_output()
 
@@ -694,11 +757,19 @@ class MockCommand:
 
             await message_event.write_digital_output(digital_output_reset)
             await message_event.write_digital_input(digital_input_reset)
+            await message_event.write_power_system_state(
+                power_type,
+                power_system.is_power_on(),
+                PowerSystemState.ResettingBreakers,
+            )
 
             # Sleep a short time to simulate the reset process
             await asyncio.sleep(self.SLEEP_TIME_NORMAL)
 
             await message_event.write_digital_output(digital_output_default)
+            await message_event.write_power_system_state(
+                power_type, power_system.is_power_on(), power_system.state
+            )
 
         # Report the digital input
         await message_event.write_digital_input(digital_input_default)
@@ -837,13 +908,61 @@ class MockCommand:
         await message_event.write_digital_output(self._digital_output)
 
         # Turn on/off the power based on the bit value
-        model.communication_power_on = (
-            True
-            if self._digital_output & DigitalOutput.CommunicationPower.value
-            else False
+        if self._digital_output & DigitalOutput.CommunicationPower.value:
+            await self._power_on_fully(
+                PowerType.Communication, model.power_communication, message_event
+            )
+        else:
+            await self._power_off_fully(
+                PowerType.Communication, model.power_communication, message_event
+            )
+
+        if self._digital_output & DigitalOutput.MotorPower.value:
+            await self._power_on_fully(
+                PowerType.Motor, model.power_motor, message_event
+            )
+        else:
+            await self._power_off_fully(
+                PowerType.Motor, model.power_motor, message_event
+            )
+
+        return model, CommandStatus.Success
+
+    async def power(self, message, model, message_event):
+        """Power on/off the motor/communication system.
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        # Get the power type
+        try:
+            power_type = PowerType(message["powerType"])
+        except ValueError:
+            return model, CommandStatus.Fail
+
+        power_system = (
+            model.power_motor
+            if power_type == PowerType.Motor
+            else model.power_communication
         )
-        model.motor_power_on = (
-            True if self._digital_output & DigitalOutput.MotorPower.value else False
-        )
+
+        if message["status"] is True:
+            await self._power_on_fully(power_type, power_system, message_event)
+        else:
+            await self._power_off_fully(power_type, power_system, message_event)
 
         return model, CommandStatus.Success

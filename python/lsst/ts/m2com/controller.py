@@ -26,7 +26,14 @@ import time
 from lsst.ts import salobj
 from lsst.ts.utils import make_done_future
 
-from . import CommandStatus, MsgType, TcpClient, check_queue_size
+from . import (
+    CommandStatus,
+    MsgType,
+    PowerSystemState,
+    PowerType,
+    TcpClient,
+    check_queue_size,
+)
 
 __all__ = ["Controller"]
 
@@ -67,8 +74,10 @@ class Controller:
     is_csc : `bool`
         Is CSC or not. Remove this after the state machines in cell controller
         are unified.
-    controller_state: enum `lsst.ts.salobj.State`
+    controller_state : enum `salobj.State`
         Controller's state.
+    power_system_status : `dict`
+        Power system status.
     """
 
     def __init__(
@@ -96,6 +105,13 @@ class Controller:
         self.controller_state = (
             salobj.State.OFFLINE if self.is_csc else salobj.State.STANDBY
         )
+
+        self.power_system_status = {
+            "motor_power_is_on": False,
+            "motor_power_state": PowerSystemState.Init,
+            "communication_power_is_on": False,
+            "communication_power_state": PowerSystemState.Init,
+        }
 
         # Start the connection task or not
         self._start_connection = False
@@ -222,6 +238,9 @@ class Controller:
         if self._is_controller_state(message):
             self.controller_state = salobj.State(message["summaryState"])
 
+        # Check and update the power status
+        self._update_power_status(message)
+
         # Put the event message into the queue for CSC/GUI to publish
         self.queue_event.put_nowait(message)
         check_queue_size(self.queue_event, self.log)
@@ -314,6 +333,35 @@ class Controller:
 
         return message["id"] == "summaryState"
 
+    def _update_power_status(self, message):
+        """Check and update the power status.
+
+        Parameters
+        ----------
+        message : `dict`
+            Incoming message.
+        """
+
+        if message["id"] == "powerSystemState":
+
+            power_type = None
+            state = None
+            try:
+                power_type = PowerType(message["powerType"])
+                state = PowerSystemState(message["state"])
+            except ValueError:
+                pass
+
+            if (power_type == PowerType.Motor) and (state is not None):
+                self.power_system_status["motor_power_is_on"] = message["status"]
+                self.power_system_status["motor_power_state"] = state
+
+            elif (power_type == PowerType.Communication) and (state is not None):
+                self.power_system_status["communication_power_is_on"] = message[
+                    "status"
+                ]
+                self.power_system_status["communication_power_state"] = state
+
     def are_clients_connected(self):
         """The command and telemetry sockets are connected or not.
 
@@ -359,7 +407,7 @@ class Controller:
         ----------
         command_name : `str`
             Command name.
-        allowed_curr_states : `list [lsst.ts.salobj.State]`
+        allowed_curr_states : `list [salobj.State]`
             Allowed current states.
 
         Raises
@@ -406,8 +454,7 @@ class Controller:
             Message details. (the default is None)
         timeout : `float`, optional
             Timeout of command in second. (the default is 10.0)
-        controller_state_expected : enum `lsst.ts.salobj.State` or None,
-                                    optional
+        controller_state_expected : enum `salobj.State` or None, optional
             Expected controller's state. This is only used for the commands
             related to the state transition. (the default is None)
 
@@ -445,9 +492,8 @@ class Controller:
         command_name : `str`
             Command name.
         timeout : `float`
-           Timeout of command acknowledgement in second.
-        controller_state_expected : enum `lsst.ts.salobj.State` or None,
-                                    optional
+            Timeout of command acknowledgement in second.
+        controller_state_expected : enum `salobj.State` or None, optional
             Expected controller's state. This is only used for the commands
             related to the state transition. (the default is None)
 
@@ -460,7 +506,7 @@ class Controller:
         # Track the command status
         time_wait_command_status_update = 0.5
         time_start = time.monotonic()
-        while time.monotonic() - time_start < timeout:
+        while (time.monotonic() - time_start) < timeout:
 
             last_command_status = self.last_command_status
 
@@ -496,3 +542,97 @@ class Controller:
             self.log.debug(f"Only get the acknowledgement of {command_name}.")
 
         return False
+
+    async def power(self, power_type, status, expected_state=None):
+        """Power on/off the motor/communication system.
+
+        Parameters
+        ----------
+        power_type : enum `PowerType`
+            Power type.
+        status : `bool`
+            True if turn on the power; False if turn off the power.
+        expected_state : enum `PowerSystemState` or `None`, optional
+            Expected state of the power system. This is used in the unit test
+            only. Put None in general. (the default is None)
+        """
+
+        await self.write_command_to_server(
+            "power",
+            message_details={"powerType": int(power_type), "status": status},
+        )
+        await self._check_power_status_is_expected(
+            power_type, status, expected_state=expected_state
+        )
+
+    async def _check_power_status_is_expected(
+        self, power_type, status, expected_state=None, timeout=10.0
+    ):
+        """Check the power status is expected or not.
+
+        Notes
+        -----
+        This function is a work-around method to continuously checking the
+        expected power status in a specific frequency before the timeout. In
+        the cell controller, it will need some time to finish the action
+        (command) and publish the events of internal state. We would like to
+        judge a command is successful or not based on these events. And fail a
+        command if we could not get the expected events/states before timeout.
+
+        Parameters
+        ----------
+        power_type : enum `PowerType`
+            Power type.
+        status : `bool`
+            True if turn on the power; False if turn off the power.
+        expected_state : enum `PowerSystemState` or `None`, optional
+            Expected state of the power system. This is used in the unit test
+            only. Put None in general. (the default is None)
+        timeout : `float`, optional
+            Timeout in second. (the default is 10.0)
+
+        Raises
+        ------
+        `RuntimeError`
+            When the power status is not expected.
+        """
+
+        if expected_state is None:
+            expected_state = (
+                PowerSystemState.PoweredOn
+                if status is True
+                else PowerSystemState.PoweredOff
+            )
+
+        time_wait_power_status_update = 0.5
+        time_start = time.monotonic()
+        while (time.monotonic() - time_start) < timeout:
+
+            if power_type == PowerType.Motor:
+
+                if (self.power_system_status["motor_power_is_on"] == status) and (
+                    self.power_system_status["motor_power_state"] == expected_state
+                ):
+                    return
+
+            else:
+
+                if (
+                    self.power_system_status["communication_power_is_on"] == status
+                ) and (
+                    self.power_system_status["communication_power_state"]
+                    == expected_state
+                ):
+                    return
+
+            await asyncio.sleep(time_wait_power_status_update)
+
+        state = (
+            self.power_system_status["motor_power_state"]
+            if power_type == PowerType.Motor
+            else self.power_system_status["communication_power_state"]
+        )
+
+        raise RuntimeError(
+            f"{power_type!r} system is in {state!r} instead of {expected_state!r} in timeout."
+        )

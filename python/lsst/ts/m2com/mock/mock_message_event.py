@@ -288,3 +288,25 @@ class MockMessageEvent:
                 "extend": limit_switch_extend,
             },
         )
+
+    async def write_power_system_state(self, power_type, status, power_system_state):
+        """Write the message: power system state.
+
+        Parameters
+        ----------
+        power_type : enum `PowerType`
+            Power type.
+        status : `bool`
+            Power status is on or not.
+        power_system_state : enum `PowerSystemState`
+            Power system state.
+        """
+        await write_json_packet(
+            self.writer,
+            {
+                "id": "powerSystemState",
+                "powerType": int(power_type),
+                "status": status,
+                "state": int(power_system_state),
+            },
+        )

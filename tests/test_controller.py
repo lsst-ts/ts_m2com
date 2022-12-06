@@ -32,6 +32,8 @@ from lsst.ts.m2com import (
     MockErrorCode,
     MockServer,
     MsgType,
+    PowerSystemState,
+    PowerType,
     get_config_dir,
 )
 
@@ -188,7 +190,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             server
         ) as controller:
 
-            server.model.communication_power_on = True
+            await server.model.power_communication.power_on()
             await controller.client_command.write(MsgType.Command, "enable")
 
             # Wait a little time to collect the messages
@@ -311,6 +313,51 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             "enterControl",
             [salobj.State.ENABLED],
         )
+
+    async def test_power_communication(self):
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+
+            # Power on
+            await controller.power(PowerType.Communication, True)
+
+            self.assertEqual(
+                controller.power_system_status["communication_power_state"],
+                PowerSystemState.PoweredOn,
+            )
+
+            # Power off
+            await controller.power(PowerType.Communication, False)
+
+            self.assertEqual(
+                controller.power_system_status["communication_power_state"],
+                PowerSystemState.PoweredOff,
+            )
+
+    async def test_power_motor(self):
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+
+            await controller.power(PowerType.Motor, True)
+
+            self.assertEqual(
+                controller.power_system_status["motor_power_state"],
+                PowerSystemState.PoweredOn,
+            )
+
+    async def test_power_wrong_expected_state(self):
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+
+            with self.assertRaises(RuntimeError):
+                await controller.power(
+                    PowerType.Motor,
+                    True,
+                    expected_state=PowerSystemState.ResettingBreakers,
+                )
 
 
 if __name__ == "__main__":

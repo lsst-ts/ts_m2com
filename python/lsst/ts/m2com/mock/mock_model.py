@@ -33,6 +33,7 @@ from . import (
     MockControlClosedLoop,
     MockControlOpenLoop,
     MockErrorHandler,
+    MockPowerSystem,
     MockScriptEngine,
 )
 
@@ -52,6 +53,15 @@ class MockModel:
     telemetry_interval : `float`, optional
         Telemetry interval in second. (the default is 0.05, which means
         20 Hz)
+    communication_voltage : `float`, optional
+        Communication voltage in volt if the power is on. (the default is 23.0)
+    communication_current : `float`, optional
+        Communication current in ampere if the power is on. (the default is
+        6.5)
+    motor_voltage : `float`, optional
+        Motor voltage in volt if the power is on. (the default is 23.0)
+    motor_current : `float`, optional
+        Motor current in ampere if the power is on. (the default is 8.5)
 
     Attributes
     ----------
@@ -65,10 +75,10 @@ class MockModel:
         Telemetry interval in second.
     inclination_source : `MTM2.InclinationTelemetrySource`
         Source of the inclination.
-    communication_power_on : `bool`
-        Communication power is on or not.
-    motor_power_on : `bool`
-        Motor power is on or not.
+    power_communication : `MockPowerSystem`
+        Power system of communication.
+    power_motor : `MockPowerSystem`
+        Power system of motor.
     in_position : `bool`
         M2 assembly is in position or not.
     mtmount_in_position : `bool`
@@ -79,7 +89,16 @@ class MockModel:
         Error handler to manage the error codes.
     """
 
-    def __init__(self, log=None, inclinometer_angle=90, telemetry_interval=0.05):
+    def __init__(
+        self,
+        log=None,
+        inclinometer_angle=90,
+        telemetry_interval=0.05,
+        communication_voltage=23.0,
+        communication_current=6.5,
+        motor_voltage=23.0,
+        motor_current=8.5,
+    ):
 
         # Set the logger
         if log is None:
@@ -98,8 +117,11 @@ class MockModel:
 
         self.mirror_position = self.get_default_mirror_position()
 
-        self.communication_power_on = False
-        self.motor_power_on = False
+        self.power_communication = MockPowerSystem(
+            communication_voltage, communication_current
+        )
+        self.power_motor = MockPowerSystem(motor_voltage, motor_current)
+
         self.in_position = False
 
         # Generator to simulate the signal of ILC status
@@ -367,7 +389,7 @@ class MockModel:
         # Run the closed-loop control
         result = True
 
-        if (status is True) and (not self.motor_power_on):
+        if (status is True) and (not self.power_motor.is_power_on()):
             self.control_closed_loop.is_running = False
             result = False
         else:
@@ -407,7 +429,7 @@ class MockModel:
         telemetry_data = dict()
 
         position_ims = None
-        if self.motor_power_on:
+        if self.power_motor.is_power_on():
 
             telemetry_data["ilcData"] = self._get_ilc_data()
             telemetry_data[
@@ -471,28 +493,13 @@ class MockModel:
 
         return telemetry_data
 
-    def _get_power_status(
-        self,
-        motor_voltage=23.0,
-        motor_current=8.5,
-        comm_voltage=23.0,
-        comm_current=6.5,
-        rms=0.05,
-    ):
+    def _get_power_status(self, rms=0.05):
         """Get the power status.
 
         Parameters
         ----------
-        motor_voltage : `float`, optional
-            Total motor voltage. (the default is 23.0)
-        motor_current : `float`, optional
-            Total motor current in Ampere. (the default is 8.5)
-        comm_voltage : `float`, optional
-            Total communication voltage. (the default is 23.0)
-        comm_current : `float`, optional
-            Total communication current in Ampere. (the default is 6.5)
         rms : `float`, optional
-            RMS variation. (the default is 0.5)
+            RMS variation. (the default is 0.05)
 
         Returns
         -------
@@ -500,21 +507,10 @@ class MockModel:
             Power status.
         """
 
-        rms_power = np.random.normal(scale=rms, size=4)
-
-        if self.motor_power_on:
-            motor_voltage_update = motor_voltage + rms_power[0]
-            motor_current_update = motor_current + rms_power[1]
-        else:
-            motor_voltage_update = rms_power[0]
-            motor_current_update = rms_power[1]
-
-        if self.communication_power_on:
-            comm_voltage_update = comm_voltage + rms_power[2]
-            comm_current_update = comm_current + rms_power[3]
-        else:
-            comm_voltage_update = rms_power[2]
-            comm_current_update = rms_power[3]
+        comm_voltage_update, comm_current_update = self.power_communication.get_power(
+            rms=rms
+        )
+        motor_voltage_update, motor_current_update = self.power_motor.get_power(rms=rms)
 
         return {
             "motorVoltage": motor_voltage_update,
@@ -780,7 +776,9 @@ class MockModel:
             True if succeeds. Otherwise, False.
         """
 
-        if (not self.motor_power_on) or (self.control_closed_loop.is_running is False):
+        if (not self.power_motor.is_power_on()) or (
+            self.control_closed_loop.is_running is False
+        ):
             return False
 
         # Check limits
@@ -912,9 +910,11 @@ class MockModel:
 
         result = False
 
-        if (power_type == PowerType.Motor) and self.motor_power_on:
+        if (power_type == PowerType.Motor) and self.power_motor.is_power_on():
             result = True
-        elif (power_type == PowerType.Communication) and self.communication_power_on:
+        elif (
+            power_type == PowerType.Communication
+        ) and self.power_communication.is_power_on():
             result = True
 
         return result
@@ -930,10 +930,10 @@ class MockModel:
 
         digital_output = sum([item.value for item in self.digital_output_default])
 
-        if self.communication_power_on:
+        if self.power_communication.is_power_on():
             digital_output += DigitalOutput.CommunicationPower.value
 
-        if self.motor_power_on:
+        if self.power_motor.is_power_on():
             digital_output += DigitalOutput.MotorPower.value
 
         return digital_output
@@ -950,12 +950,12 @@ class MockModel:
 
         digital_input = sum([item.value for item in self.digital_input_default])
 
-        if self.communication_power_on:
+        if self.power_communication.is_power_on():
             digital_input -= sum(
                 [item.value for item in self.digital_input_communication]
             )
 
-        if self.motor_power_on:
+        if self.power_motor.is_power_on():
             digital_input -= sum([item.value for item in self.digital_input_motor])
 
         return digital_input

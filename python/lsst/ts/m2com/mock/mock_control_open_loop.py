@@ -24,7 +24,15 @@ __all__ = ["MockControlOpenLoop"]
 import numpy as np
 import pandas as pd
 
-from ..constant import MIRROR_WEIGHT_KG, NUM_ACTUATOR, NUM_TANGENT_LINK
+from ..constant import (
+    LIMIT_FORCE_AXIAL_OPEN_LOOP,
+    LIMIT_FORCE_TANGENT_OPEN_LOOP,
+    MAX_LIMIT_FORCE_AXIAL_OPEN_LOOP,
+    MAX_LIMIT_FORCE_TANGENT_OPEN_LOOP,
+    MIRROR_WEIGHT_KG,
+    NUM_ACTUATOR,
+    NUM_TANGENT_LINK,
+)
 from ..enum import ActuatorDisplacementUnit
 from ..utility import check_limit_switches
 
@@ -49,14 +57,6 @@ class MockControlOpenLoop:
     # In the simulation, we just use a single value. In the real system, each
     # actuator has its own calibrated value.
     STEP_TO_MM = 1.9967536601e-5
-
-    # Limits of force in Newton
-    LIMIT_FORCE_AXIAL = 489.3  # 110 lbf
-    LIMIT_FORCE_TANGENT = 6005.1  # 1350 lbf
-
-    # Maximum limits of force in Newton
-    MAX_LIMIT_FORCE_AXIAL = 622.75  # 140 lbf
-    MAX_LIMIT_FORCE_TANGENT = 6227.51  # 1400 lbf
 
     def __init__(self):
 
@@ -216,14 +216,14 @@ class MockControlOpenLoop:
         forces = self.calculate_steps_to_forces(self.actuator_steps)
 
         limit_force_axial = (
-            self.MAX_LIMIT_FORCE_AXIAL
+            MAX_LIMIT_FORCE_AXIAL_OPEN_LOOP
             if self.open_loop_max_limit_is_enabled
-            else self.LIMIT_FORCE_AXIAL
+            else LIMIT_FORCE_AXIAL_OPEN_LOOP
         )
         limit_force_tangent = (
-            self.MAX_LIMIT_FORCE_TANGENT
+            MAX_LIMIT_FORCE_TANGENT_OPEN_LOOP
             if self.open_loop_max_limit_is_enabled
-            else self.LIMIT_FORCE_TANGENT
+            else LIMIT_FORCE_TANGENT_OPEN_LOOP
         )
 
         return check_limit_switches(forces, limit_force_axial, limit_force_tangent)

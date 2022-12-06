@@ -26,5 +26,6 @@ from .mock_script_engine import *
 from .mock_control_open_loop import *
 from .mock_control_closed_loop import *
 from .mock_error_handler import *
+from .mock_power_system import *
 from .mock_model import *
 from .mock_server import *

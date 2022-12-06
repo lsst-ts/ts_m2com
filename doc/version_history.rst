@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v0.7.0
+------
+
+* Move the constants of force limit to submodule.
+* Add the **MockPowerSystem** class.
+
 v0.6.2
 ------
 
