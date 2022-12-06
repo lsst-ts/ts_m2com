@@ -2,7 +2,7 @@
 Version History
 ===============
 
-v0.6.3
+v0.7.0
 ------
 
 * Move the constants of force limit to submodule.

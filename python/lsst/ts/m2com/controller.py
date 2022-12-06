@@ -74,7 +74,7 @@ class Controller:
     is_csc : `bool`
         Is CSC or not. Remove this after the state machines in cell controller
         are unified.
-    controller_state : enum `lsst.ts.salobj.State`
+    controller_state : enum `salobj.State`
         Controller's state.
     power_system_status : `dict`
         Power system status.
@@ -407,7 +407,7 @@ class Controller:
         ----------
         command_name : `str`
             Command name.
-        allowed_curr_states : `list [lsst.ts.salobj.State]`
+        allowed_curr_states : `list [salobj.State]`
             Allowed current states.
 
         Raises
@@ -454,8 +454,7 @@ class Controller:
             Message details. (the default is None)
         timeout : `float`, optional
             Timeout of command in second. (the default is 10.0)
-        controller_state_expected : enum `lsst.ts.salobj.State` or None,
-                                    optional
+        controller_state_expected : enum `salobj.State` or None, optional
             Expected controller's state. This is only used for the commands
             related to the state transition. (the default is None)
 
@@ -494,8 +493,7 @@ class Controller:
             Command name.
         timeout : `float`
             Timeout of command acknowledgement in second.
-        controller_state_expected : enum `lsst.ts.salobj.State` or None,
-                                    optional
+        controller_state_expected : enum `salobj.State` or None, optional
             Expected controller's state. This is only used for the commands
             related to the state transition. (the default is None)
 
@@ -571,6 +569,15 @@ class Controller:
         self, power_type, status, expected_state=None, timeout=10.0
     ):
         """Check the power status is expected or not.
+
+        Notes
+        -----
+        This function is a work-around method to continuously checking the
+        expected power status in a specific frequency before the timeout. In
+        the cell controller, it will need some time to finish the action
+        (command) and publish the events of internal state. We would like to
+        judge a command is successful or not based on these events. And fail a
+        command if we could not get the expected events/states before timeout.
 
         Parameters
         ----------
