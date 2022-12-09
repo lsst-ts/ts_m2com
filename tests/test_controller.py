@@ -27,8 +27,10 @@ import unittest
 
 from lsst.ts import salobj, tcpip
 from lsst.ts.m2com import (
+    ClosedLoopControlMode,
     CommandStatus,
     Controller,
+    InnerLoopControlMode,
     MockErrorCode,
     MockServer,
     MsgType,
@@ -358,6 +360,125 @@ class TestController(unittest.IsolatedAsyncioTestCase):
                     True,
                     expected_state=PowerSystemState.ResettingBreakers,
                 )
+
+    async def test_reset_force_offsets(self):
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+
+            await controller.reset_force_offsets()
+
+            self.assertEqual(controller.last_command_status, CommandStatus.Success)
+
+    async def test_reset_actuator_steps(self):
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+
+            await controller.reset_actuator_steps()
+
+            self.assertEqual(controller.last_command_status, CommandStatus.Success)
+
+    async def test_set_closed_loop_control_mode(self):
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+
+            await controller.set_closed_loop_control_mode(
+                ClosedLoopControlMode.TelemetryOnly
+            )
+
+            self.assertEqual(
+                controller.closed_loop_control_mode, ClosedLoopControlMode.TelemetryOnly
+            )
+
+    async def test_set_ilc_to_enabled_fail_no_power(self):
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+
+            with self.assertRaises(RuntimeError):
+                await controller.set_ilc_to_enabled()
+
+    async def test_set_ilc_to_enabled(self):
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+
+            # Turn on the motor power
+            await server.model.power_motor.power_on()
+
+            # Default is Standby state
+            await controller.set_ilc_to_enabled()
+
+            self._assert_ilc_enabled(server.model)
+
+            # This should work directily
+            await controller.set_ilc_to_enabled()
+
+            self._assert_ilc_enabled(server.model)
+
+            # Put some ILCs to Disabled state
+            for idx in range(3):
+                server.model.list_ilc[idx].set_mode(InnerLoopControlMode.Disabled)
+
+            await controller.set_ilc_to_enabled()
+
+            self._assert_ilc_enabled(server.model)
+
+    def _assert_ilc_enabled(self, model):
+
+        for ilc in model.list_ilc:
+            self.assertEqual(ilc.mode, InnerLoopControlMode.Enabled)
+
+    async def test_set_ilc_to_enabled_from_fault(self):
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+
+            # Turn on the motor power
+            await server.model.power_motor.power_on()
+
+            # Put all ILCs to Fault state first
+            self._change_ilc_mode(server.model, InnerLoopControlMode.Fault)
+
+            await controller.set_ilc_to_enabled()
+
+            self._assert_ilc_enabled(server.model)
+
+    def _change_ilc_mode(self, model, mode):
+
+        for ilc in model.list_ilc:
+            ilc.mode = mode
+
+    async def test_set_ilc_to_enabled_from_firmware_update(self):
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+
+            # Turn on the motor power
+            await server.model.power_motor.power_on()
+
+            # Put all ILCs to FirmwareUpdate state first
+            self._change_ilc_mode(server.model, InnerLoopControlMode.FirmwareUpdate)
+
+            await controller.set_ilc_to_enabled()
+
+            self._assert_ilc_enabled(server.model)
+
+    async def test_set_ilc_to_enabled_from_unknown(self):
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+
+            # Turn on the motor power
+            await server.model.power_motor.power_on()
+
+            # Put all ILCs to Unknown state first
+            self._change_ilc_mode(server.model, InnerLoopControlMode.Unknown)
+
+            with self.assertRaises(RuntimeError):
+                await controller.set_ilc_to_enabled()
 
 
 if __name__ == "__main__":

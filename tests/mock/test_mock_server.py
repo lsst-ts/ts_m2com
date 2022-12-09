@@ -36,6 +36,7 @@ from lsst.ts.m2com import (
     TEST_DIGITAL_OUTPUT_NO_POWER,
     TEST_DIGITAL_OUTPUT_POWER_COMM,
     TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
+    ClosedLoopControlMode,
     DetailedState,
     MockErrorCode,
     MockServer,
@@ -124,7 +125,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             # Check the one-time message
             await asyncio.sleep(0.5)
-            self.assertGreaterEqual(client_cmd.queue.qsize(), 12)
+            self.assertGreaterEqual(client_cmd.queue.qsize(), 13)
 
             # Check the TCP/IP connection
             msg_tcpip = client_cmd.queue.get_nowait()
@@ -191,6 +192,10 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(len(msg_config), 20)
             self.assertEqual(msg_config["id"], "config")
             self.assertTrue(msg_config["inclinometerDiffEnabled"])
+
+            msg_clc_mode = client_cmd.queue.get_nowait()
+            self.assertEqual(msg_clc_mode["id"], "closedLoopControlMode")
+            self.assertEqual(msg_clc_mode["mode"], ClosedLoopControlMode.Idle)
 
     async def test_monitor_msg_cmd_ack(self):
         async with self.make_server() as server, self.make_clients(server) as (
