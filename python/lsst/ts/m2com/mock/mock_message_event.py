@@ -310,3 +310,38 @@ class MockMessageEvent:
                 "state": int(power_system_state),
             },
         )
+
+    async def write_closed_loop_control_mode(self, mode):
+        """Write the message: closed-loop control mode.
+
+        Parameters
+        ----------
+        mode : enum `ClosedLoopControlMode`
+            Closed-loop control mode.
+        """
+        await write_json_packet(
+            self.writer,
+            {
+                "id": "closedLoopControlMode",
+                "mode": int(mode),
+            },
+        )
+
+    async def write_inner_loop_control_mode(self, address, mode):
+        """Write the message: inner-loop control mode.
+
+        Parameters
+        ----------
+        address : `int`
+            0-based address.
+        mode : enum `InnerLoopControlMode`
+            Inner-loop control mode.
+        """
+        await write_json_packet(
+            self.writer,
+            {
+                "id": "innerLoopControlMode",
+                "address": address,
+                "mode": int(mode),
+            },
+        )

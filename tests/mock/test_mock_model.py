@@ -33,6 +33,7 @@ from lsst.ts.m2com import (
     TEST_DIGITAL_OUTPUT_POWER_COMM,
     TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
     DigitalOutput,
+    InnerLoopControlMode,
     MockErrorCode,
     MockModel,
     PowerType,
@@ -501,6 +502,24 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(
             digital_output_interlock_disabled & DigitalOutput.InterlockEnable.value
         )
+
+    def test_get_mode_ilc(self):
+
+        # No data
+        list_mode = self.model.get_mode_ilc([])
+        self.assertEqual(len(list_mode), 0)
+
+        # There is the data
+        list_mode = self.model.get_mode_ilc([2])
+        self.assertEqual(list_mode[0], InnerLoopControlMode.Standby)
+
+    def test_set_mode_ilc(self):
+
+        addresses = [1, 2]
+        self.model.set_mode_ilc(addresses, InnerLoopControlMode.Enabled)
+
+        list_mode = self.model.get_mode_ilc(addresses)
+        self.assertEqual(list_mode, [InnerLoopControlMode.Enabled] * len(addresses))
 
 
 if __name__ == "__main__":

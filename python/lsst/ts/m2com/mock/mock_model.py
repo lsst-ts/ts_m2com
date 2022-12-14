@@ -26,13 +26,19 @@ from time import sleep
 import numpy as np
 from lsst.ts.idl.enums import MTM2
 
-from ..constant import MIRROR_WEIGHT_KG, NUM_ACTUATOR, NUM_TANGENT_LINK
+from ..constant import (
+    MIRROR_WEIGHT_KG,
+    NUM_ACTUATOR,
+    NUM_INNER_LOOP_CONTROLLER,
+    NUM_TANGENT_LINK,
+)
 from ..enum import DigitalInput, DigitalOutput, MockErrorCode, PowerType
 from ..utility import read_yaml_file
 from . import (
     MockControlClosedLoop,
     MockControlOpenLoop,
     MockErrorHandler,
+    MockInnerLoopController,
     MockPowerSystem,
     MockScriptEngine,
 )
@@ -81,6 +87,8 @@ class MockModel:
         Power system of motor.
     in_position : `bool`
         M2 assembly is in position or not.
+    list_ilc : `list [MockInnerLoopController]`
+        List of the inner-loop controllers (ILC).
     mtmount_in_position : `bool`
         MTMount in position or not.
     script_engine : `MockScriptEngine`
@@ -126,6 +134,10 @@ class MockModel:
 
         # Generator to simulate the signal of ILC status
         self._ilc_status = self._uniq_ilc_status_generator()
+
+        self.list_ilc = list()
+        for idx in range(NUM_INNER_LOOP_CONTROLLER):
+            self.list_ilc.append(MockInnerLoopController())
 
         # Parameters of independent displacement sensors (IMS)
         self._disp_ims = dict()
@@ -980,3 +992,37 @@ class MockModel:
             if (digital_output & bit.value)
             else (digital_output + bit.value)
         )
+
+    def set_mode_ilc(self, addresses, mode):
+        """Set the mode of inner-loop controller (ILC).
+
+        Parameters
+        ----------
+        addresses : `list [int]`
+            0-based addresses.
+        mode : enum `InnerLoopControlMode`
+            ILC mode.
+        """
+
+        for address in addresses:
+            self.list_ilc[address].set_mode(mode)
+
+    def get_mode_ilc(self, addresses):
+        """Get the mode of inner-loop controller (ILC).
+
+        Parameters
+        ----------
+        addresses : `list [int]`
+            0-based addresses.
+
+        Returns
+        -------
+        list_mode : `list [InnerLoopControlMode]`
+            List of the ILC mode.
+        """
+
+        list_mode = list()
+        for address in addresses:
+            list_mode.append(self.list_ilc[address].mode)
+
+        return list_mode

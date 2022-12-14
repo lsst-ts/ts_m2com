@@ -2,6 +2,14 @@
 Version History
 ===============
 
+v0.8.0
+------
+
+* Support to reset the actuator forces and steps.
+* Simulate the inner-loop controller.
+* Set the closed-loop control mode.
+* Set the inner-loop control mode.
+
 v0.7.0
 ------
 

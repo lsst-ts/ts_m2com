@@ -17,5 +17,6 @@ MockModel *-- MockControlOpenLoop
 MockModel *-- MockControlClosedLoop
 MockModel *-- MockErrorHandler
 MockModel "1" *-- "2" MockPowerSystem
+MockModel "1" *-- "84" MockInnerLoopController
 
 @enduml

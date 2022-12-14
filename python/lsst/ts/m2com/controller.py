@@ -23,11 +23,16 @@ import asyncio
 import logging
 import time
 
+import numpy as np
 from lsst.ts import salobj
 from lsst.ts.utils import make_done_future
 
 from . import (
+    NUM_ACTUATOR,
+    NUM_INNER_LOOP_CONTROLLER,
+    ClosedLoopControlMode,
     CommandStatus,
+    InnerLoopControlMode,
     MsgType,
     PowerSystemState,
     PowerType,
@@ -77,7 +82,11 @@ class Controller:
     controller_state : enum `salobj.State`
         Controller's state.
     power_system_status : `dict`
-        Power system status.
+        Power system status in the cell controller.
+    closed_loop_control_mode : enum `ClosedLoopControlMode`
+        Closed loop control mode in the cell controller.
+    ilc_modes : `numpy.ndarray [InnerLoopControlMode]`
+        Modes of the inner-loop controller (ILC).
     """
 
     def __init__(
@@ -112,6 +121,11 @@ class Controller:
             "communication_power_is_on": False,
             "communication_power_state": PowerSystemState.Init,
         }
+
+        self.closed_loop_control_mode = ClosedLoopControlMode.Idle
+        self.ilc_modes = np.array(
+            [InnerLoopControlMode.Unknown] * NUM_INNER_LOOP_CONTROLLER
+        )
 
         # Start the connection task or not
         self._start_connection = False
@@ -241,6 +255,12 @@ class Controller:
         # Check and update the power status
         self._update_power_status(message)
 
+        # Check and update the closed-loop control mode
+        self._update_closed_loop_control_mode(message)
+
+        # Check and update the inner-loop control mode
+        self._update_inner_loop_control_mode(message)
+
         # Put the event message into the queue for CSC/GUI to publish
         self.queue_event.put_nowait(message)
         check_queue_size(self.queue_event, self.log)
@@ -347,10 +367,16 @@ class Controller:
             power_type = None
             state = None
             try:
-                power_type = PowerType(message["powerType"])
-                state = PowerSystemState(message["state"])
+                power_type_value = message["powerType"]
+                state_value = message["state"]
+
+                power_type = PowerType(power_type_value)
+                state = PowerSystemState(state_value)
             except ValueError:
-                pass
+                self.log.debug(
+                    f"Get the unknown power type ({power_type_value}) or "
+                    f"state ({state_value})."
+                )
 
             if (power_type == PowerType.Motor) and (state is not None):
                 self.power_system_status["motor_power_is_on"] = message["status"]
@@ -361,6 +387,42 @@ class Controller:
                     "status"
                 ]
                 self.power_system_status["communication_power_state"] = state
+
+    def _update_closed_loop_control_mode(self, message):
+        """Check and update the closed-loop control mode.
+
+        Parameters
+        ----------
+        message : `dict`
+            Incoming message.
+        """
+
+        if message["id"] == "closedLoopControlMode":
+            try:
+                mode = message["mode"]
+                self.closed_loop_control_mode = ClosedLoopControlMode(mode)
+            except ValueError:
+                self.log.debug(f"Get the unknown closed-loop control mode ({mode}).")
+
+    def _update_inner_loop_control_mode(self, message):
+        """Check and update the inner-loop control mode.
+
+        Parameters
+        ----------
+        message : `dict`
+            Incoming message.
+        """
+
+        if message["id"] == "innerLoopControlMode":
+            try:
+                address = message["address"]
+                mode = message["mode"]
+                self.ilc_modes[address] = InnerLoopControlMode(mode)
+            except (IndexError, ValueError):
+                self.log.debug(
+                    f"Get the unknown address ({address}) or inner "
+                    f"loop control mode ({mode})."
+                )
 
     def are_clients_connected(self):
         """The command and telemetry sockets are connected or not.
@@ -398,6 +460,23 @@ class Controller:
         self.client_telemetry = None
 
         self.last_command_status = CommandStatus.Unknown
+
+        # In EUI, there is no OFFLINE state.
+        self.controller_state = (
+            salobj.State.OFFLINE if self.is_csc else salobj.State.STANDBY
+        )
+
+        self.power_system_status = {
+            "motor_power_is_on": False,
+            "motor_power_state": PowerSystemState.Init,
+            "communication_power_is_on": False,
+            "communication_power_state": PowerSystemState.Init,
+        }
+
+        self.closed_loop_control_mode = ClosedLoopControlMode.Idle
+        self.ilc_modes = np.array(
+            [InnerLoopControlMode.Unknown] * NUM_INNER_LOOP_CONTROLLER
+        )
 
     def assert_controller_state(self, command_name, allowed_curr_states):
         """Assert the current controller's state is allowed to do the command
@@ -543,41 +622,8 @@ class Controller:
 
         return False
 
-    async def power(self, power_type, status, expected_state=None):
+    async def power(self, power_type, status, expected_state=None, timeout=10.0):
         """Power on/off the motor/communication system.
-
-        Parameters
-        ----------
-        power_type : enum `PowerType`
-            Power type.
-        status : `bool`
-            True if turn on the power; False if turn off the power.
-        expected_state : enum `PowerSystemState` or `None`, optional
-            Expected state of the power system. This is used in the unit test
-            only. Put None in general. (the default is None)
-        """
-
-        await self.write_command_to_server(
-            "power",
-            message_details={"powerType": int(power_type), "status": status},
-        )
-        await self._check_power_status_is_expected(
-            power_type, status, expected_state=expected_state
-        )
-
-    async def _check_power_status_is_expected(
-        self, power_type, status, expected_state=None, timeout=10.0
-    ):
-        """Check the power status is expected or not.
-
-        Notes
-        -----
-        This function is a work-around method to continuously checking the
-        expected power status in a specific frequency before the timeout. In
-        the cell controller, it will need some time to finish the action
-        (command) and publish the events of internal state. We would like to
-        judge a command is successful or not based on these events. And fail a
-        command if we could not get the expected events/states before timeout.
 
         Parameters
         ----------
@@ -594,8 +640,13 @@ class Controller:
         Raises
         ------
         `RuntimeError`
-            When the power status is not expected.
+            When the power system status is not expected.
         """
+
+        await self.write_command_to_server(
+            "power",
+            message_details={"powerType": int(power_type), "status": status},
+        )
 
         if expected_state is None:
             expected_state = (
@@ -604,35 +655,429 @@ class Controller:
                 else PowerSystemState.PoweredOff
             )
 
-        time_wait_power_status_update = 0.5
+        is_expected = await self._check_expected_value(
+            self._callback_check_power_status,
+            power_type,
+            status,
+            expected_state,
+            timeout=timeout,
+        )
+        if not is_expected:
+            state = (
+                self.power_system_status["motor_power_state"]
+                if power_type == PowerType.Motor
+                else self.power_system_status["communication_power_state"]
+            )
+            raise RuntimeError(
+                f"{power_type!r} system is in {state!r} instead of {expected_state!r} in timeout."
+            )
+
+    async def _check_expected_value(
+        self,
+        callback_check,
+        *args,
+        time_wait_update=0.5,
+        timeout=10.0,
+        **kwargs,
+    ):
+        """Check the expected value.
+
+        Notes
+        -----
+        This function is a work-around method to continuously checking the
+        expected values in a specific frequency before the timeout. In the cell
+        controller, it will need some time to finish the action (command) and
+        publish the events of internal state. We would like to judge a command
+        is successful or not based on these events. And fail a command if we
+        could not get the expected events/states before timeout.
+
+        Parameters
+        ----------
+        callback_check : `func`
+            Callback function to check the expected value. It should return
+            True if get the expected value. Otherwise, return False.
+        *args : `args`
+            Arguments needed in "callback_check" function call.
+        time_wait_update : `float`, optional
+            Time to wait for the udpate. (the default is 0.5)
+        timeout : `float`, optional
+            Timeout in second. (the default is 10.0)
+        **kwargs : `dict`, optional
+            Additional keyword arguments needed in "callback_check" function
+            call.
+
+        Return
+        ------
+        `bool`
+            True if get the expected value. Otherwise, False.
+        """
+
         time_start = time.monotonic()
         while (time.monotonic() - time_start) < timeout:
 
-            if power_type == PowerType.Motor:
+            if callback_check(*args, **kwargs):
+                return True
 
-                if (self.power_system_status["motor_power_is_on"] == status) and (
-                    self.power_system_status["motor_power_state"] == expected_state
-                ):
-                    return
+            await asyncio.sleep(time_wait_update)
 
-            else:
+        return callback_check(*args, **kwargs)
 
-                if (
-                    self.power_system_status["communication_power_is_on"] == status
-                ) and (
-                    self.power_system_status["communication_power_state"]
-                    == expected_state
-                ):
-                    return
+    def _callback_check_power_status(self, power_type, status, expected_state):
+        """Callback function to check the power status is expected or not.
 
-            await asyncio.sleep(time_wait_power_status_update)
+        Parameters
+        ----------
+        power_type : enum `PowerType`
+            Power type.
+        status : `bool`
+            True if turn on the power; False if turn off the power.
+        expected_state : enum `PowerSystemState`
+            Expected state of the power system.
 
-        state = (
-            self.power_system_status["motor_power_state"]
-            if power_type == PowerType.Motor
-            else self.power_system_status["communication_power_state"]
+        Return
+        ------
+        `bool`
+            True if the power status is expected. Otherwise, False.
+        """
+
+        if power_type == PowerType.Motor:
+
+            if (self.power_system_status["motor_power_is_on"] == status) and (
+                self.power_system_status["motor_power_state"] == expected_state
+            ):
+                return True
+
+        else:
+
+            if (self.power_system_status["communication_power_is_on"] == status) and (
+                self.power_system_status["communication_power_state"] == expected_state
+            ):
+                return True
+
+        return False
+
+    async def set_closed_loop_control_mode(self, mode, timeout=10.0):
+        """Set the closed-loop control mode.
+
+        Parameters
+        ----------
+        mode : enum `ClosedLoopControlMode`
+            Closed-loop control mode.
+        timeout : `float`, optional
+            Timeout in second. (the default is 10.0)
+
+        Raises
+        ------
+        `RuntimeError`
+            When the closed-loop control mode is not expected.
+        """
+
+        await self.write_command_to_server(
+            "setClosedLoopControlMode",
+            message_details={"mode": int(mode)},
         )
 
-        raise RuntimeError(
-            f"{power_type!r} system is in {state!r} instead of {expected_state!r} in timeout."
+        is_expected = await self._check_expected_value(
+            self._callback_check_clc_mode, mode, timeout=timeout
         )
+        if not is_expected:
+            raise RuntimeError(
+                f"Closed-loop control mode is {self.closed_loop_control_mode!r} "
+                f"instead of {mode!r} in timeout."
+            )
+
+    def _callback_check_clc_mode(self, expected_mode):
+        """Callback function to check the closed-loop control (CLC) mode is
+        expected or not.
+
+        Parameters
+        ----------
+        expected_mode : enum `ClosedLoopControlMode`
+            Expected CLC mode.
+
+        Return
+        ------
+        `bool`
+            True if the CLC mode is expected. Otherwise, False.
+        """
+        return self.closed_loop_control_mode == expected_mode
+
+    async def set_ilc_to_enabled(self, retry_times=3, timeout=10.0):
+        """Set the inner-loop control (ILC) mode to Enabled.
+
+        Notes
+        -----
+        1. This is translated from the SequenceEngine.set_ILC_mode.vi in
+        ts_mtm2. The "retry_times" is the work-around method to deal with ILC,
+        which is not very reliable to set the new mode.
+
+        2. There are two state machines based on the ILC's type:
+        (i) Actuator ILC: Standby --> Disabled --> Enabled
+        (ii) Sensor ILC: Standby --> Enabled
+
+        3. The ModBUS ID begins from 1 based on: "CellConfiguration.xlsx" in
+        ts_mtm2.
+
+        Parameters
+        ----------
+        retry_times : `int`, optional
+            Retry times. (the default is 3)
+        timeout : `float`, optional
+            Timeout in second. (the default is 10.0)
+
+        Raises
+        ------
+        `RuntimeError`
+            When no response from ILC.
+        `RuntimeError`
+            When the ILC has the unknown state.
+        `RuntimeError`
+            When not all ILCs are Enabled.
+        """
+
+        # Set all the ILC modes to NaN first
+        self.ilc_modes = np.array([np.nan] * NUM_INNER_LOOP_CONTROLLER)
+
+        # Transition the ILCs to Enabled state
+        addresses_nan = list()
+        all_modes_are_received = False
+        all_modes_are_clear = False
+        all_modes_are_enabled = False
+        for idx in range(1 + retry_times):
+
+            # Try to get all the ILC modes first. If not, continue to the next
+            # try.
+            addresses_nan = np.where(np.isnan(self.ilc_modes))[0].tolist()
+            if len(addresses_nan) != 0:
+                await self.write_command_to_server(
+                    "getInnerLoopControlMode",
+                    message_details={"addresses": addresses_nan},
+                )
+                all_modes_are_received = await self._check_expected_value(
+                    self._callback_check_ilc_mode_nan, timeout=timeout
+                )
+
+                if not all_modes_are_received:
+                    continue
+
+            # Break the for-loop if any ILC has the unknown state
+            addresses_unknown = np.where(
+                self.ilc_modes == InnerLoopControlMode.Unknown
+            )[0].tolist()
+
+            all_modes_are_clear = len(addresses_unknown) == 0
+            if not all_modes_are_clear:
+                break
+
+            # Do the state transition step by step. Note the state transitions
+            # between the actuator ILC and sensor ILC are different.
+
+            # Fault state
+            mode_expected = InnerLoopControlMode.Standby
+            mode_are_set_clear_faults = await self._set_ilc_mode(
+                InnerLoopControlMode.Fault,
+                mode_expected,
+                InnerLoopControlMode.ClearFaults,
+                timeout=timeout,
+            )
+            if not mode_are_set_clear_faults:
+                continue
+
+            # Firmware update
+            mode_expected = InnerLoopControlMode.Standby
+            mode_are_set_standby = await self._set_ilc_mode(
+                InnerLoopControlMode.FirmwareUpdate,
+                mode_expected,
+                InnerLoopControlMode.Standby,
+                timeout=timeout,
+            )
+            if not mode_are_set_standby:
+                continue
+
+            # Standby state (actuator ILC)
+            mode_expected = InnerLoopControlMode.Disabled
+            mode_are_set_disabled = await self._set_ilc_mode(
+                InnerLoopControlMode.Standby,
+                mode_expected,
+                InnerLoopControlMode.Disabled,
+                is_actuator_ilc=True,
+                timeout=timeout,
+            )
+            if not mode_are_set_disabled:
+                continue
+
+            # Standby state (sensor ILC)
+            mode_expected = InnerLoopControlMode.Enabled
+            mode_are_set_enabled_sensor = await self._set_ilc_mode(
+                InnerLoopControlMode.Standby,
+                mode_expected,
+                InnerLoopControlMode.Enabled,
+                is_sensor_ilc=True,
+                timeout=timeout,
+            )
+            if not mode_are_set_enabled_sensor:
+                continue
+
+            # Disabled state (actuator ILC)
+            mode_expected = InnerLoopControlMode.Enabled
+            mode_are_set_enabled_actuator = await self._set_ilc_mode(
+                InnerLoopControlMode.Disabled,
+                mode_expected,
+                InnerLoopControlMode.Enabled,
+                is_actuator_ilc=True,
+                timeout=timeout,
+            )
+            if not mode_are_set_enabled_actuator:
+                continue
+
+            # Break the loop if all ILCs are in Enabled state.
+            addresses_not_enabled = np.where(
+                self.ilc_modes != InnerLoopControlMode.Enabled
+            )[0].tolist()
+            all_modes_are_enabled = len(addresses_not_enabled) == 0
+            if all_modes_are_enabled:
+                break
+
+        # Raise the error if needed
+        if not all_modes_are_received:
+
+            addresses_nan = np.where(np.isnan(self.ilc_modes))[0].tolist()
+            raise RuntimeError(
+                f"No response for the following ILCs: {addresses_nan} after "
+                f"{retry_times} times of retrying."
+            )
+
+        if not all_modes_are_clear:
+
+            modbus_ids_unknown = [address + 1 for address in addresses_unknown]
+            raise RuntimeError(
+                f"Following ILCs have the unknown states: {addresses_unknown}. "
+                f"The ModBUS IDs are: {modbus_ids_unknown}."
+            )
+
+        if not all_modes_are_enabled:
+
+            for address in addresses_not_enabled:
+                self.log.debug(
+                    f"ILC {address} is {InnerLoopControlMode(self.ilc_modes[address])!r} "
+                    f"with the ModBUS ID: {address+1}."
+                )
+
+            raise RuntimeError(
+                f"Following ILCs are not Enabled: {addresses_not_enabled}."
+            )
+
+    def _callback_check_ilc_mode_nan(self):
+        """Callback function to check the inner-loop control (ILC) mode is NaN
+        or not. The "NaN" value means the controller does not receive the
+        related event of ILC mode.
+
+        Return
+        ------
+        `bool`
+            True if all ILC modes are received. Otherwise, False.
+        """
+
+        indexes = np.where(np.isnan(self.ilc_modes))[0]
+        return len(indexes) == 0
+
+    async def _set_ilc_mode(
+        self,
+        mode_current,
+        mode_expected,
+        mode_command,
+        is_actuator_ilc=False,
+        is_sensor_ilc=False,
+        timeout=10.0,
+    ):
+        """Set the inner-loop control (ILC) mode.
+
+        Parameters
+        ----------
+        mode_current : enum `InnerLoopControlMode`
+            Current mode.
+        mode_expected : enum `InnerLoopControlMode`
+            Expected mode.
+        mode_command : enum `InnerLoopControlMode`
+            Mode command to issue.
+        is_actuator_ilc : bool, optional
+            Is the actuator ILC or not. (the default is False)
+        is_sensor_ilc : bool, optional
+            Is the sensor ILC or not. (the default is False)
+        timeout : `float`, optional
+            Timeout in second. (the default is 10.0)
+
+        Returns
+        -------
+        `bool`
+            True if the ILC mode is set or can not find any ILC has the
+            expected current mode. Otherwise, False.
+        """
+
+        # Get the addresses to set the mode
+        addresses = np.where(self.ilc_modes == mode_current)[0].tolist()
+
+        if is_actuator_ilc:
+            addresses = [address for address in addresses if address < NUM_ACTUATOR]
+        elif is_sensor_ilc:
+            addresses = [address for address in addresses if address >= NUM_ACTUATOR]
+
+        if len(addresses) == 0:
+            return True
+        else:
+            await self.write_command_to_server(
+                "setInnerLoopControlMode",
+                message_details={
+                    "addresses": addresses,
+                    "mode": int(mode_command),
+                },
+            )
+            return await self._check_expected_value(
+                self._callback_check_ilc_mode,
+                mode_expected,
+                timeout=timeout,
+                is_actuator_ilc=is_actuator_ilc,
+                is_sensor_ilc=is_sensor_ilc,
+            )
+
+    def _callback_check_ilc_mode(
+        self, expected_mode, is_actuator_ilc=False, is_sensor_ilc=False
+    ):
+        """Callback function to check the inner-loop control (ILC) mode is
+        expected or not.
+
+        Parameters
+        ----------
+        expected_mode : enum `InnerLoopControlMode`
+            Expected ILC mode.
+        is_actuator_ilc : `bool`, optional
+            Is actuator ILC or not. Put True only when you want to check the
+            specific set of ILCs. (the default is False).
+        is_sensor_ilc : `bool`, optional
+            Is sensor ILC or not. Put True only when you want to check the
+            specific set of ILCs. (the default is False).
+
+        Return
+        ------
+        `bool`
+            True if the ILC mode is expected. Otherwise, False.
+        """
+
+        if is_actuator_ilc:
+            indexes = np.where(self.ilc_modes[:NUM_ACTUATOR] != expected_mode)[0]
+
+        elif is_sensor_ilc:
+            indexes = np.where(self.ilc_modes[NUM_ACTUATOR:] != expected_mode)[0]
+
+        else:
+            indexes = np.where(self.ilc_modes != expected_mode)[0]
+
+        return len(indexes) == 0
+
+    async def reset_force_offsets(self):
+        """Reset the user defined forces to zero."""
+        await self.write_command_to_server("resetForceOffsets")
+
+    async def reset_actuator_steps(self):
+        """Resets the user defined actuator steps to zero."""
+        await self.write_command_to_server("resetActuatorSteps")

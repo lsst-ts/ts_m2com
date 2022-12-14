@@ -26,11 +26,13 @@ from lsst.ts.idl.enums import MTM2
 
 from ..enum import (
     ActuatorDisplacementUnit,
+    ClosedLoopControlMode,
     CommandActuator,
     CommandScript,
     CommandStatus,
     DetailedState,
     DigitalOutput,
+    InnerLoopControlMode,
     PowerSystemState,
     PowerType,
 )
@@ -523,6 +525,20 @@ class MockCommand:
             model.control_open_loop.open_loop_max_limit_is_enabled
         )
 
+        # Publish the closed-loop control mode
+        if model.control_closed_loop.is_running:
+            await message_event.write_closed_loop_control_mode(
+                ClosedLoopControlMode.ClosedLoop
+            )
+        elif model.control_open_loop.is_running:
+            await message_event.write_closed_loop_control_mode(
+                ClosedLoopControlMode.OpenLoop
+            )
+        else:
+            await message_event.write_closed_loop_control_mode(
+                ClosedLoopControlMode.TelemetryOnly
+            )
+
         return (
             model,
             CommandStatus.Success if command_success is True else CommandStatus.Fail,
@@ -964,5 +980,138 @@ class MockCommand:
             await self._power_on_fully(power_type, power_system, message_event)
         else:
             await self._power_off_fully(power_type, power_system, message_event)
+
+        return model, CommandStatus.Success
+
+    async def reset_actuator_steps(self, message, model, message_event):
+        """Reset the actuator steps.
+
+        Notes
+        -----
+        This will reset the internal state of actuator steps in the cell
+        controller. No intention to simulate this in MockControlOpenLoop class,
+        which will make it too complex.
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+        return model, CommandStatus.Success
+
+    async def set_closed_loop_control_mode(self, message, model, message_event):
+        """Set the closed-loop control mode.
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        # Get the mode
+        try:
+            mode = ClosedLoopControlMode(message["mode"])
+        except ValueError:
+            return model, CommandStatus.Fail
+
+        await message_event.write_closed_loop_control_mode(mode)
+
+        return model, CommandStatus.Success
+
+    async def set_inner_loop_control_mode(self, message, model, message_event):
+        """Set the inner-loop control mode.
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        # Fail the command if the motor power is not on
+        if not model.power_motor.is_power_on():
+            return model, CommandStatus.Fail
+
+        # Note the addresses are 0-based
+        try:
+            addresses = message["addresses"]
+            mode = InnerLoopControlMode(message["mode"])
+
+            model.set_mode_ilc(addresses, mode)
+        except (IndexError, ValueError):
+            return model, CommandStatus.Fail
+
+        for address in addresses:
+            await message_event.write_inner_loop_control_mode(
+                address, model.list_ilc[address].mode
+            )
+
+        return model, CommandStatus.Success
+
+    async def get_inner_loop_control_mode(self, message, model, message_event):
+        """get the inner-loop control mode.
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        # Fail the command if the motor power is not on
+        if not model.power_motor.is_power_on():
+            return model, CommandStatus.Fail
+
+        # Note the addresses are 0-based
+        try:
+            addresses = message["addresses"]
+            list_mode = model.get_mode_ilc(addresses)
+        except IndexError:
+            return model, CommandStatus.Fail
+
+        for address, mode in zip(addresses, list_mode):
+            await message_event.write_inner_loop_control_mode(address, mode)
 
         return model, CommandStatus.Success

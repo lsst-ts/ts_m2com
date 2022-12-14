@@ -28,7 +28,7 @@ from lsst.ts import salobj, tcpip
 from lsst.ts.idl.enums import MTM2
 from lsst.ts.utils import make_done_future
 
-from ..enum import CommandStatus, DetailedState, LimitSwitchType
+from ..enum import ClosedLoopControlMode, CommandStatus, DetailedState, LimitSwitchType
 from ..utility import write_json_packet
 from . import MockCommand, MockMessageEvent, MockMessageTelemetry, MockModel
 
@@ -157,6 +157,10 @@ class MockServer:
             "cmd_setMirrorHome": self._command.set_mirror_home,
             "cmd_switchDigitalOutput": self._command.switch_digital_output,
             "cmd_power": self._command.power,
+            "cmd_resetActuatorSteps": self._command.reset_actuator_steps,
+            "cmd_setClosedLoopControlMode": self._command.set_closed_loop_control_mode,
+            "cmd_setInnerLoopControlMode": self._command.set_inner_loop_control_mode,
+            "cmd_getInnerLoopControlMode": self._command.get_inner_loop_control_mode,
         }
 
     def _connect_state_changed_callback_command(self, server_command):
@@ -290,6 +294,10 @@ class MockServer:
         await self._message_event.write_digital_output(digital_output)
 
         await self._message_event.write_config()
+
+        await self._message_event.write_closed_loop_control_mode(
+            ClosedLoopControlMode.Idle
+        )
 
     async def _monitor_and_report_system_status(self):
         """Monitor the system status and report the specific events."""

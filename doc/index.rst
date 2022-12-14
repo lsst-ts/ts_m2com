@@ -84,6 +84,7 @@ m2com.mock
 * **MockMessageTelemetry** simulates the message of telemetry from real hardware.
 * **MockErrorHandler** manages the error codes to report.
 * **MockPowerSystem** simulates the behavior of power system.
+* **MockInnerLoopController** simulates the behavior of inner-loop controller.
 
 .. _API:
 
