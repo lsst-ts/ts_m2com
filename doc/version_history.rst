@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v0.8.1
+------
+
+* Update the ``MockCommand.switch_force_balance_system()`` that the event of closed-loop control mode can be only open-loop or closed-loop mode.
+* Update the ``MockCommand.power()`` that the events of digital input, digital output, force balance system status, and open-loop maximum limit should be reported. 
+
 v0.8.0
 ------
 
