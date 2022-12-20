@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v0.8.1
+------
+
+* Update the ``MockCommand.switch_force_balance_system()`` to drop the **TelemetryOnly** from **ClosedLoopControlMode** event.
+* Reports digital input & output, force balance system status, and open-loop maximum limit when ``MockCommand.power()`` is called.
+
 v0.8.0
 ------
 

@@ -530,13 +530,9 @@ class MockCommand:
             await message_event.write_closed_loop_control_mode(
                 ClosedLoopControlMode.ClosedLoop
             )
-        elif model.control_open_loop.is_running:
-            await message_event.write_closed_loop_control_mode(
-                ClosedLoopControlMode.OpenLoop
-            )
         else:
             await message_event.write_closed_loop_control_mode(
-                ClosedLoopControlMode.TelemetryOnly
+                ClosedLoopControlMode.OpenLoop
             )
 
         return (
@@ -980,6 +976,20 @@ class MockCommand:
             await self._power_on_fully(power_type, power_system, message_event)
         else:
             await self._power_off_fully(power_type, power_system, message_event)
+
+        await self._report_digital_input_and_ouput(model, message_event)
+
+        if (
+            not model.power_motor.is_power_on()
+        ) and model.control_closed_loop.is_running:
+            model.switch_force_balance_system(False)
+            await message_event.write_force_balance_system_status(
+                model.control_closed_loop.is_running
+            )
+
+        await message_event.write_open_loop_max_limit(
+            model.control_open_loop.open_loop_max_limit_is_enabled
+        )
 
         return model, CommandStatus.Success
 
