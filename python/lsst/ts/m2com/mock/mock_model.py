@@ -302,11 +302,6 @@ class MockModel:
         path_cell_geom = config_dir / lut_path / "cell_geom.yaml"
         self.control_closed_loop.load_file_cell_geometry(path_cell_geom)
 
-        path_hardpoint_compensation = config_dir / lut_path / "Hd_ax_Matrix_Params.csv"
-        self.control_closed_loop.load_file_hardpoint_compensation(
-            path_hardpoint_compensation
-        )
-
         path_disp_ims = config_dir / lut_path / "disp_ims.yaml"
         self._disp_ims = read_yaml_file(path_disp_ims)
 
@@ -315,6 +310,8 @@ class MockModel:
         self.control_open_loop.read_file_static_transfer_matrix(
             path_static_transfer_matrix
         )
+
+        self.control_closed_loop.set_hardpoint_compensation()
 
         # By doing this, we can calculate the forces of look-up table.
         self.set_inclinometer_angle(self.control_open_loop.inclinometer_angle)

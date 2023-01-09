@@ -24,6 +24,7 @@ __all__ = ["MockControlClosedLoop"]
 import numpy as np
 import pandas as pd
 from scipy.linalg import block_diag
+from scipy.spatial import KDTree
 
 from ..constant import (
     LIMIT_FORCE_AXIAL_CLOSED_LOOP,
@@ -312,29 +313,167 @@ class MockControlClosedLoop:
 
         self._cell_geom = read_yaml_file(filepath)
 
-    def load_file_hardpoint_compensation(self, filepath, skiprows=7):
-        """Load the file of hardpoint compensation.
+    def set_hardpoint_compensation(self):
+        """Set the hardpoint compensation matrix."""
+
+        # There are 3 axial actuators to be hardpoints
+        (hd_comp_axial, hd_comp_tangent,) = MockControlClosedLoop.calc_hp_comp_matrix(
+            self._cell_geom["locAct_axial"], self.hardpoints[:3], self.hardpoints[3:]
+        )
+        self._hd_comp = block_diag(hd_comp_axial, hd_comp_tangent)
+
+    @staticmethod
+    def calc_hp_comp_matrix(
+        location_axial_actuator, harpoints_axial, harpoints_tangent
+    ):
+        """Calculate the hardpoint compensation matrix.
+
+        Notes
+        -----
+        Translate the calculation from the CalcHPFCInfMat.m in
+        ts_mtm2_matlab_tools.
+
+        The axial hardpoint compensation matrix (M) fulfills:
+
+        M * (x_hp, y_hp, 1) = (x_nhp, y_nhp, 1)
+
+        x_hp: x-position of hardpoint
+        y_hp: y-position of hardpoint
+        x_nhp: x-position of non-hardpoint
+        y_nhp: y-position of non-hardpoint
+
+        The idea is to make the x-moment amd y-moment keep the same when
+        distributes the force of axial hardpoints to other axial actuators.
+        It is the same idea for tangential actuators with z-moment.
 
         Parameters
         ----------
-        filepath : `pathlib.PosixPath`
-            File path of hardpoint compensation.
-        skiprows : `int`, optional
-            Number of lines to skip (int) at the start of the file. (the
-            default is 7)
+        location_axial_actuator : `list [list]`
+            Location of the axial actuators: (x, y). This should be a 72 x 2
+            matrix.
+        harpoints_axial : `list`
+            Three axial hardpoints. The order is from low to high,
+            e.g. [5, 15, 25].
+        harpoints_tangent : `list`
+            Three tangential hardpoints. This can only be [72, 74, 76] or
+            [73, 75, 77]. The order is from low to high.
+
+        Returns
+        -------
+        hd_comp_axial : `numpy.ndarray`
+            Axial hardpoint compensation matrix.
+        hd_comp_tangent : `numpy.ndarray`
+            Tangential hardpoint compensation matrix.
+
+        Raises
+        ------
+        `ValueError`
+            If the axial hardpoints are bad.
+        `ValueError`
+            If the tangential hardpoints are wrong.
         """
 
-        dataframe = pd.read_csv(filepath, skiprows=skiprows)
-        data = np.array(dataframe.iloc[:, 0])
+        # Axial hardpoints
 
-        # There are 3 axial actuators to be hardpoints
-        hd_comp_axial = data.reshape(NUM_ACTUATOR - NUM_TANGENT_LINK - 3, 3)
+        # Check the hardpoints by comparing with the expectation
+        if (
+            MockControlClosedLoop.select_axial_hardpoints(
+                location_axial_actuator, harpoints_axial[0]
+            )
+            != harpoints_axial
+        ):
+            raise ValueError("Bad selection of axial hardpoints.")
 
-        hd_comp_tangent = np.array(
-            [[2 / 3, -1 / 3, 2 / 3], [2 / 3, 2 / 3, -1 / 3], [-1 / 3, 2 / 3, 2 / 3]]
+        num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
+        active_actuators_axial = [
+            idx for idx in range(num_axial_actuators) if idx not in harpoints_axial
+        ]
+
+        num_hardpoints_axial = len(harpoints_axial)
+
+        location_axial_actuator = np.array(location_axial_actuator)
+        matrix_hp = np.append(
+            location_axial_actuator[harpoints_axial, :],
+            np.ones((num_hardpoints_axial, 1)),
+            axis=1,
+        )
+        matrix_nhp = np.append(
+            location_axial_actuator[active_actuators_axial, :],
+            np.ones((num_axial_actuators - num_hardpoints_axial, 1)),
+            axis=1,
+        )
+        hd_comp_axial = matrix_nhp.dot(np.linalg.pinv(matrix_hp))
+
+        # Tangential hardpoints
+        option_one = [72, 74, 76]
+        option_two = [73, 75, 77]
+
+        if harpoints_tangent == option_one:
+            hd_comp_tangent = np.array(
+                [[2 / 3, 2 / 3, -1 / 3], [-1 / 3, 2 / 3, 2 / 3], [2 / 3, -1 / 3, 2 / 3]]
+            )
+        elif harpoints_tangent == option_two:
+            hd_comp_tangent = np.array(
+                [[2 / 3, -1 / 3, 2 / 3], [2 / 3, 2 / 3, -1 / 3], [-1 / 3, 2 / 3, 2 / 3]]
+            )
+        else:
+            raise ValueError(
+                f"Tangential hardpoints can only be {option_one} or {option_two}."
+            )
+
+        return hd_comp_axial, hd_comp_tangent
+
+    @staticmethod
+    def select_axial_hardpoints(location_axial_actuator, specific_axial_hardpoint):
+        """Select the axial hardpoints based on the specific axial hardpoint.
+
+        Notes
+        -----
+        Translate the calculation from the OptAxHardpointSelect.m in
+        ts_mtm2_matlab_tools.
+
+        The idea is to maximize the triangle constructed by 3 axial actuators,
+        which means it should be closed to the equilateral triangle.
+
+        Parameters
+        ----------
+        location_axial_actuator : `list [list]`
+            Location of the axial actuators: (x, y). This should be a 72 x 2
+            matrix.
+        specific_axial_hardpoint : `int`
+            Specific axial hardpoint.
+
+        Returns
+        -------
+        hardpoints : `list [int]`
+            Selected 3 axial hardpoints that contains the specific axial
+            hardpoint. The order is from low to high.
+        """
+
+        # Get the polar coordinate of specific
+        x, y = location_axial_actuator[specific_axial_hardpoint]
+        radius = np.sqrt(x**2 + y**2)
+        theta = np.arctan2(y, x)
+
+        # Get the angles of the other two hardpoints
+        theta_one = theta + np.deg2rad(120)
+        theta_two = theta + np.deg2rad(240)
+
+        # Get the closest actuator index
+        hardpoints = list(
+            KDTree(location_axial_actuator).query(
+                [
+                    [radius * np.cos(theta_one), radius * np.sin(theta_one)],
+                    [radius * np.cos(theta_two), radius * np.sin(theta_two)],
+                ]
+            )[1]
         )
 
-        self._hd_comp = block_diag(hd_comp_axial, hd_comp_tangent)
+        # Return the sorted hardpoints
+        hardpoints.append(specific_axial_hardpoint)
+        hardpoints.sort()
+
+        return hardpoints
 
     def is_cell_temperature_high(self):
         """Cell temperature is high or not.
