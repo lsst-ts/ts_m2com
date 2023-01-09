@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v0.8.2
+------
+
+* Calculate the hardpoint compensation matrix instead of reading the related file.
+
 v0.8.1
 ------
 
