@@ -324,7 +324,7 @@ class MockControlClosedLoop:
 
     @staticmethod
     def calc_hp_comp_matrix(
-        location_axial_actuator, harpoints_axial, harpoints_tangent
+        location_axial_actuator, hardpoints_axial, hardpoints_tangent
     ):
         """Calculate the hardpoint compensation matrix.
 
@@ -351,10 +351,10 @@ class MockControlClosedLoop:
         location_axial_actuator : `list [list]`
             Location of the axial actuators: (x, y). This should be a 72 x 2
             matrix.
-        harpoints_axial : `list`
+        hardpoints_axial : `list`
             Three axial hardpoints. The order is from low to high,
             e.g. [5, 15, 25].
-        harpoints_tangent : `list`
+        hardpoints_tangent : `list`
             Three tangential hardpoints. This can only be [72, 74, 76] or
             [73, 75, 77]. The order is from low to high.
 
@@ -378,22 +378,22 @@ class MockControlClosedLoop:
         # Check the hardpoints by comparing with the expectation
         if (
             MockControlClosedLoop.select_axial_hardpoints(
-                location_axial_actuator, harpoints_axial[0]
+                location_axial_actuator, hardpoints_axial[0]
             )
-            != harpoints_axial
+            != hardpoints_axial
         ):
             raise ValueError("Bad selection of axial hardpoints.")
 
         num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
         active_actuators_axial = [
-            idx for idx in range(num_axial_actuators) if idx not in harpoints_axial
+            idx for idx in range(num_axial_actuators) if idx not in hardpoints_axial
         ]
 
-        num_hardpoints_axial = len(harpoints_axial)
+        num_hardpoints_axial = len(hardpoints_axial)
 
         location_axial_actuator = np.array(location_axial_actuator)
         matrix_hp = np.append(
-            location_axial_actuator[harpoints_axial, :],
+            location_axial_actuator[hardpoints_axial, :],
             np.ones((num_hardpoints_axial, 1)),
             axis=1,
         )
@@ -408,11 +408,11 @@ class MockControlClosedLoop:
         option_one = [72, 74, 76]
         option_two = [73, 75, 77]
 
-        if harpoints_tangent == option_one:
+        if hardpoints_tangent == option_one:
             hd_comp_tangent = np.array(
                 [[2 / 3, 2 / 3, -1 / 3], [-1 / 3, 2 / 3, 2 / 3], [2 / 3, -1 / 3, 2 / 3]]
             )
-        elif harpoints_tangent == option_two:
+        elif hardpoints_tangent == option_two:
             hd_comp_tangent = np.array(
                 [[2 / 3, -1 / 3, 2 / 3], [2 / 3, 2 / 3, -1 / 3], [-1 / 3, 2 / 3, 2 / 3]]
             )
