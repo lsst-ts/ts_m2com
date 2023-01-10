@@ -44,8 +44,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
         filepath_cell_geometry = filepath_lut / "cell_geom.yaml"
         self.control_closed_loop.load_file_cell_geometry(filepath_cell_geometry)
 
-        filepath_hardpoint = filepath_lut / "Hd_ax_Matrix_Params.csv"
-        self.control_closed_loop.load_file_hardpoint_compensation(filepath_hardpoint)
+        self.control_closed_loop.set_hardpoint_compensation()
 
     def test_init(self):
 
@@ -53,6 +52,74 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertEqual(len(self.control_closed_loop._lut), 10)
         self.assertEqual(len(self.control_closed_loop._cell_geom), 3)
         self.assertEqual(self.control_closed_loop._hd_comp.shape, (72, 6))
+
+    def test_calc_hp_comp_matrix_exception(self):
+
+        self.assertRaises(
+            ValueError,
+            MockControlClosedLoop.calc_hp_comp_matrix,
+            self.control_closed_loop._cell_geom["locAct_axial"],
+            [5, 15, 24],
+            [72, 74, 76],
+        )
+
+        self.assertRaises(
+            ValueError,
+            MockControlClosedLoop.calc_hp_comp_matrix,
+            self.control_closed_loop._cell_geom["locAct_axial"],
+            [5, 15, 25],
+            [72, 73, 74],
+        )
+
+    def test_calc_hp_comp_matrix(self):
+
+        (hd_comp_axial, hd_comp_tangent,) = MockControlClosedLoop.calc_hp_comp_matrix(
+            self.control_closed_loop._cell_geom["locAct_axial"],
+            [5, 15, 25],
+            [73, 75, 77],
+        )
+
+        self.assertAlmostEqual(hd_comp_axial[0, 0], 0.6666667)
+        self.assertAlmostEqual(hd_comp_axial[0, 1], -0.3333333)
+        self.assertAlmostEqual(hd_comp_axial[0, 2], 0.66666667)
+        self.assertAlmostEqual(hd_comp_axial[68, 0], 0.4057876)
+        self.assertAlmostEqual(hd_comp_axial[68, 1], -0.0587425)
+        self.assertAlmostEqual(hd_comp_axial[68, 2], 0.6529549)
+
+        self.assertAlmostEqual(hd_comp_tangent[0, 0], 2 / 3)
+        self.assertAlmostEqual(hd_comp_tangent[0, 1], -1 / 3)
+        self.assertAlmostEqual(hd_comp_tangent[0, 2], 2 / 3)
+        self.assertAlmostEqual(hd_comp_tangent[2, 0], -1 / 3)
+        self.assertAlmostEqual(hd_comp_tangent[2, 1], 2 / 3)
+        self.assertAlmostEqual(hd_comp_tangent[2, 2], 2 / 3)
+
+    def test_select_axial_hardpoints(self):
+
+        self.assertEqual(
+            MockControlClosedLoop.select_axial_hardpoints(
+                self.control_closed_loop._cell_geom["locAct_axial"], 4
+            ),
+            [4, 14, 24],
+        )
+        self.assertEqual(
+            MockControlClosedLoop.select_axial_hardpoints(
+                self.control_closed_loop._cell_geom["locAct_axial"], 15
+            ),
+            [5, 15, 25],
+        )
+        self.assertEqual(
+            MockControlClosedLoop.select_axial_hardpoints(
+                self.control_closed_loop._cell_geom["locAct_axial"], 26
+            ),
+            [6, 16, 26],
+        )
+
+        self.assertEqual(
+            MockControlClosedLoop.select_axial_hardpoints(
+                self.control_closed_loop._cell_geom["locAct_axial"], 0
+            ),
+            [0, 10, 20],
+        )
 
     def test_simulate_temperature_and_update(self):
 
@@ -368,9 +435,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
             force_demanded, force_measured
         )
 
-        self.assertAlmostEqual(force_hardpoint[0], -58.5897104)
-        self.assertAlmostEqual(force_hardpoint[1], -58.0630293)
-        self.assertAlmostEqual(force_hardpoint[2], -56.7941411)
+        self.assertAlmostEqual(force_hardpoint[0], -58.5897286)
+        self.assertAlmostEqual(force_hardpoint[1], -58.0630028)
+        self.assertAlmostEqual(force_hardpoint[2], -56.7942092)
         self.assertAlmostEqual(force_hardpoint[5], 0)
         self.assertAlmostEqual(force_hardpoint[15], 0)
         self.assertAlmostEqual(force_hardpoint[-6], -96.9923333)
