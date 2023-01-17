@@ -58,7 +58,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls):
         cls.config_dir = get_config_dir()
-        cls.host = tcpip.LOCAL_HOST
+        cls.host = tcpip.LOCALHOST_IPV4
         cls.timeout_in_second = 0.05
 
         logging.basicConfig(

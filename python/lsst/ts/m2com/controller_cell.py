@@ -22,7 +22,7 @@
 import asyncio
 import time
 
-from lsst.ts.tcpip import LOCAL_HOST
+from lsst.ts.tcpip import LOCALHOST_IPV4
 from lsst.ts.utils import index_generator, make_done_future
 
 from . import Controller, MockServer, is_coroutine
@@ -141,7 +141,7 @@ class ControllerCell(Controller):
 
         # Run a new mock server
         self.mock_server = MockServer(
-            LOCAL_HOST,
+            LOCALHOST_IPV4,
             port_command=0,
             port_telemetry=0,
             log=self.log,
