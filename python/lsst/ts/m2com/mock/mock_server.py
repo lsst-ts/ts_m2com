@@ -22,7 +22,6 @@
 import asyncio
 import json
 import logging
-import socket
 
 from lsst.ts import salobj, tcpip
 from lsst.ts.idl.enums import MTM2
@@ -41,8 +40,8 @@ class MockServer:
     Parameters
     ----------
     host : `str`
-        IP address for this server; typically `LOCALHOST` for IP4
-        or "::" for IP6.
+        IP address for this server; typically "LOCALHOST_IPV4" for IP4
+        or "LOCALHOST_IPV6" for IP6.
     port_command : `int`, optional
         IP port for the command server. (the default is 50000)
     port_telemetry : `int`, optional
@@ -52,11 +51,6 @@ class MockServer:
     log : `logging.Logger` or None, optional
         A logger. If None, a logger will be instantiated. (the default is
         None)
-    socket_family : `socket.AddressFamily`, optional
-        Can be set to `socket.AF_INET` or `socket.AF_INET6` to limit the server
-        to IPv4 or IPv6, respectively. If `socket.AF_UNSPEC` (the default)
-        the family will be determined from host, and if host is None,
-        the server may listen on both IPv4 and IPv6 sockets.
     is_csc : `bool`, optional
         Is called by the commandable SAL component (CSC) or not. (the default
         is True)
@@ -85,7 +79,6 @@ class MockServer:
         port_telemetry=50001,
         timeout_in_second=0.05,
         log=None,
-        socket_family=socket.AF_UNSPEC,
         is_csc=True,
     ):
 
@@ -100,20 +93,18 @@ class MockServer:
         )
 
         self.server_command = tcpip.OneClientServer(
-            "Commands",
             host,
             port_command,
             self.log,
             self._connect_state_changed_callback_command,
-            family=socket_family,
+            name="Commands",
         )
         self.server_telemetry = tcpip.OneClientServer(
-            "Telemetry",
             host,
             port_telemetry,
             self.log,
             self._connect_state_changed_callback_telemetry,
-            family=socket_family,
+            name="Telemetry",
         )
 
         self.timeout_in_second = timeout_in_second
@@ -163,8 +154,13 @@ class MockServer:
             "cmd_getInnerLoopControlMode": self._command.get_inner_loop_control_mode,
         }
 
-    def _connect_state_changed_callback_command(self, server_command):
+    async def _connect_state_changed_callback_command(self, server_command):
         """Called when the command server connection state changes.
+
+        Notes
+        -----
+        This function needs to be asynchronous because of the upstream
+        OneClientServer in ts_tcpip.
 
         Parameters
         ----------
@@ -572,8 +568,13 @@ class MockServer:
                 switch, LimitSwitchType.Extend
             )
 
-    def _connect_state_changed_callback_telemetry(self, server_telemetry):
+    async def _connect_state_changed_callback_telemetry(self, server_telemetry):
         """Called when the telemetry server connection state changes.
+
+        Notes
+        -----
+        This function needs to be asynchronous because of the upstream
+        OneClientServer in ts_tcpip.
 
         Parameters
         ----------

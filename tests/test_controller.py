@@ -48,7 +48,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls):
         cls.config_dir = get_config_dir()
-        cls.host = tcpip.LOCAL_HOST
+        cls.host = tcpip.LOCALHOST_IPV4
         cls.timeout_in_second = 0.05
 
         logging.basicConfig(
@@ -107,7 +107,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         controller = Controller()
         await controller.close()
 
-        controller.start(tcpip.LOCAL_HOST, 0, 0)
+        controller.start(tcpip.LOCALHOST_IPV4, 0, 0)
         await controller.close()
 
     async def test_are_clients_connected(self):

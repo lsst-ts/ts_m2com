@@ -2,6 +2,14 @@
 Version History
 ===============
 
+v0.9.0
+------
+
+* Adapt the **ts_tcpip** v1.0.0:
+
+  * Use the **LOCALHOST_IPV4** instead of **LOCAL_HOST**.
+  * Put the ``MockServer._connect_state_changed_callback_command()`` and ``MockServer._connect_state_changed_callback_telemetry()`` to be asynchronous.
+
 v0.8.2
 ------
 

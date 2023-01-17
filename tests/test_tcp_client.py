@@ -24,7 +24,6 @@ import asyncio
 import contextlib
 import json
 import logging
-import socket
 import unittest
 
 from lsst.ts import tcpip
@@ -40,7 +39,7 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.host = tcpip.LOCAL_HOST
+        cls.host = tcpip.LOCALHOST_IPV4
         cls.log = logging.getLogger()
         cls.times_previous_command = 3
 
@@ -53,7 +52,6 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
             port=0,
             name="test",
             log=self.log,
-            family=socket.AF_UNSPEC,
             connect_callback=None,
         )
         await server.start_task
@@ -104,7 +102,7 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
             await client.connect(timeout=3.0)
 
     async def test_close(self):
-        client = TcpClient(tcpip.LOCAL_HOST, 0)
+        client = TcpClient(tcpip.LOCALHOST_IPV4, 0)
         await client.close()
 
     async def test_is_connected(self):

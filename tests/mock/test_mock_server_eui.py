@@ -43,7 +43,7 @@ class TestMockServerEui(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls):
         cls.config_dir = get_config_dir()
-        cls.host = tcpip.LOCAL_HOST
+        cls.host = tcpip.LOCALHOST_IPV4
         cls.log = logging.getLogger()
         cls.maxsize_queue = 1000
 

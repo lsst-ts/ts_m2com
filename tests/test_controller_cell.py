@@ -35,7 +35,7 @@ class TestControllerCell(unittest.IsolatedAsyncioTestCase):
     def setUpClass(cls):
 
         cls.log = logging.getLogger()
-        cls.host = tcpip.LOCAL_HOST
+        cls.host = tcpip.LOCALHOST_IPV4
 
         cls.config_dir = get_config_dir()
 
