@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v0.9.1
+------
+
+* Calculate the actuator displacements based on the rigid body movement.
+
 v0.9.0
 ------
 

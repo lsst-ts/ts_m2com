@@ -121,6 +121,77 @@ class TestMockControlClosedLoop(unittest.TestCase):
             [0, 10, 20],
         )
 
+    def test_rigid_body_to_actuator_displacement(self):
+
+        # Test (x, y, z)
+        displacments_xyz = MockControlClosedLoop.rigid_body_to_actuator_displacement(
+            self.control_closed_loop._cell_geom["locAct_axial"],
+            self.control_closed_loop._cell_geom["locAct_tangent"],
+            self.control_closed_loop._cell_geom["radiusActTangent"],
+            1,
+            2,
+            3,
+            0,
+            0,
+            0,
+        )
+
+        self.assertAlmostEqual(displacments_xyz[0], -3)
+        self.assertAlmostEqual(displacments_xyz[71], -3)
+
+        self.assertAlmostEqual(displacments_xyz[72], 1)
+        self.assertAlmostEqual(displacments_xyz[73], -1.23205081)
+        self.assertAlmostEqual(displacments_xyz[74], -2.23205081)
+        self.assertAlmostEqual(displacments_xyz[75], -1)
+        self.assertAlmostEqual(displacments_xyz[76], 1.23205081)
+        self.assertAlmostEqual(displacments_xyz[77], 2.23205081)
+
+        # Test (rx, ry, rz)
+        displacments_rxryrz = MockControlClosedLoop.rigid_body_to_actuator_displacement(
+            self.control_closed_loop._cell_geom["locAct_axial"],
+            self.control_closed_loop._cell_geom["locAct_tangent"],
+            self.control_closed_loop._cell_geom["radiusActTangent"],
+            0,
+            0,
+            0,
+            0.1,
+            0.2,
+            0.3,
+        )
+
+        self.assertAlmostEqual(displacments_rxryrz[0], -0.05916818)
+        self.assertAlmostEqual(displacments_rxryrz[1], 0.01480733)
+        self.assertAlmostEqual(displacments_rxryrz[2], 0.08813481)
+        self.assertAlmostEqual(displacments_rxryrz[69], -0.20799144)
+        self.assertAlmostEqual(displacments_rxryrz[70], -0.16900058)
+        self.assertAlmostEqual(displacments_rxryrz[71], -0.10962639)
+
+        self.assertAlmostEqual(displacments_rxryrz[72], -0.52608204)
+        self.assertAlmostEqual(displacments_rxryrz[73], -0.52608204)
+
+        # Test (x, y, z, rx, ry, rz)
+        displacments_xyzrxryrz = (
+            MockControlClosedLoop.rigid_body_to_actuator_displacement(
+                self.control_closed_loop._cell_geom["locAct_axial"],
+                self.control_closed_loop._cell_geom["locAct_tangent"],
+                self.control_closed_loop._cell_geom["radiusActTangent"],
+                2,
+                -1,
+                0.5,
+                -0.3,
+                0.2,
+                -0.1,
+            )
+        )
+
+        self.assertAlmostEqual(displacments_xyzrxryrz[0], -0.05957155)
+        self.assertAlmostEqual(displacments_xyzrxryrz[1], 0.00348523)
+        self.assertAlmostEqual(displacments_xyzrxryrz[2], 0.0445402)
+
+        self.assertAlmostEqual(displacments_xyzrxryrz[72], 2.17772242)
+        self.assertAlmostEqual(displacments_xyzrxryrz[73], 2.04374783)
+        self.assertAlmostEqual(displacments_xyzrxryrz[74], 0.04374783)
+
     def test_simulate_temperature_and_update(self):
 
         temperature_original = self.control_closed_loop.temperature.copy()

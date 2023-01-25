@@ -475,6 +475,101 @@ class MockControlClosedLoop:
 
         return hardpoints
 
+    @staticmethod
+    def rigid_body_to_actuator_displacement(
+        location_axial_actuator, location_tangent_link, radius, x, y, z, rx, ry, rz
+    ):
+        """Calculate the actuator displacements based on the rigid body
+        position.
+
+        Notes
+        -----
+        Translate the calculation from the RigidBodyToActuatorDisplacement.vi
+        in ts_mtm2. For the "radius", the original developer had the
+        following comment:
+
+        An average of 5 of the 6 tangent location radius from the center of
+        the M2 cell which is to be used by the rigid body to displacement
+        calculation. Technically, it is not the B-ring radius and this should
+        be changed in the future.
+
+        Parameters
+        ----------
+        location_axial_actuator : `list [list]`
+            Location of the axial actuators: (x, y) in meter. This should be a
+            72 x 2 matrix.
+        location_tangent_link : `list`
+            Location of the tangent links in degree. This should be a 1 x 6
+            array.
+        radius : `float`
+            Radius of the cell in meter.
+        x : `float`
+            Delta x position in meter.
+        y : `float`
+            Delta y position in meter.
+        z : `float`
+            Delta z position in meter.
+        rx : `float`
+            Delta x rotator in radian.
+        ry : `float`
+            Delta y rotator in radian.
+        rz : `float`
+            Delta z rotator in radian.
+
+        Returns
+        -------
+        `numpy.ndarray`
+            All actuator displacements in meter.
+        """
+
+        # Consider the displacement from (x, y, z)
+
+        # Transformation matrix. The raw is each actuator's displacement. The
+        # column is the (x, y, z) movement.
+        matrix_trans = np.zeros((NUM_ACTUATOR, 3))
+
+        # A positive axial displacement results in a negative change in piston.
+        num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
+        matrix_trans[:num_axial_actuators, 2] = -1
+
+        for idx, angle in enumerate(location_tangent_link):
+            matrix_trans[num_axial_actuators + idx, 0] = np.cos(np.deg2rad(angle))
+            matrix_trans[num_axial_actuators + idx, 1] = -np.sin(np.deg2rad(angle))
+
+        # Translate the (x, y, z) motion to 78 actuator displacement.
+        disp_xyz = matrix_trans.dot(np.array([x, y, z]))
+
+        # Consider the displacement from (rx, ry, rz)
+
+        location_axial = np.append(
+            np.array(location_axial_actuator),
+            np.zeros((num_axial_actuators, 1)),
+            axis=1,
+        )
+
+        # Rotation matrix for the axial actuators
+        rot_x = np.array(
+            [[1, 0, 0], [0, np.cos(rx), np.sin(rx)], [0, -np.sin(rx), np.cos(rx)]]
+        )
+        rot_y = np.array(
+            [[np.cos(ry), 0, -np.sin(ry)], [0, 1, 0], [np.sin(ry), 0, np.cos(ry)]]
+        )
+        rot_z = np.array(
+            [[np.cos(rz), np.sin(rz), 0], [-np.sin(rz), np.cos(rz), 0], [0, 0, 1]]
+        )
+        rot_xyz = rot_x.dot(rot_y).dot(rot_z)
+
+        disp_rxryrz_axial = rot_xyz.dot(location_axial.T)
+        disp_rz_axial = disp_rxryrz_axial[2, :]
+
+        # Displacement rz, note there is a "-1" here for the direction of
+        # coordination system.
+        disp_rz_tangent = -radius * np.sin(rz) * np.ones(len(location_tangent_link))
+
+        disp_rz = np.append(disp_rz_axial, disp_rz_tangent)
+
+        return disp_xyz + disp_rz
+
     def is_cell_temperature_high(self):
         """Cell temperature is high or not.
 
