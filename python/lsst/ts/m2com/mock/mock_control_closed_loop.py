@@ -570,6 +570,189 @@ class MockControlClosedLoop:
 
         return disp_xyz + disp_rz
 
+    @staticmethod
+    def hardpoint_to_rigid_body(
+        location_axial_actuator,
+        location_tangent_link,
+        radius,
+        hardpoints,
+        disp_hardpoint_current,
+        disp_hardpoint_home,
+    ):
+        """Calculate the rigid body position based on the hardpoint
+        displacements.
+
+        Notes
+        -----
+        Translate the calculation from the HardPointToRigidBody.vi in ts_mtm2.
+
+        Parameters
+        ----------
+        location_axial_actuator : `list [list]`
+            Location of the axial actuators: (x, y) in meter. This should be a
+            72 x 2 matrix.
+        location_tangent_link : `list`
+            Location of the tangent links in degree. This should be a 1 x 6
+            array.
+        radius : `float`
+            Radius of the cell in meter.
+        hardpoints : `list`
+            Six hardpoints. The order is from low to high.
+        disp_hardpoint_current : `list`
+            Six current hardpoint displacements. The units are meter and
+            radian.
+        disp_hardpoint_home : `list`
+            Six hardpoint displacements at the home position. The units are
+            meter and radian.
+
+        Returns
+        -------
+        x : `float`
+            X position in meter.
+        y : `float`
+            Y position in meter.
+        z : `float`
+            Z position in meter.
+        rx : `float`
+            X rotator in radian.
+        ry : `float`
+            Y rotator in radian.
+        rz : `float`
+            Z rotator in radian.
+        """
+
+        # Delta of the axial hardpoint displacements
+        num_hardpoints_axial = 3
+        disp_hardpoint_axial = (
+            np.array(disp_hardpoint_current)[:num_hardpoints_axial]
+            - np.array(disp_hardpoint_home)[:num_hardpoints_axial]
+        )
+
+        # Location of the axial hardpoints: (x_hp, y_hp, 1)
+        location_axial_actuator = np.array(location_axial_actuator)
+        location_axial_hardpoint = np.append(
+            location_axial_actuator[hardpoints[:num_hardpoints_axial], :],
+            np.ones((num_hardpoints_axial, 1)),
+            axis=1,
+        )
+
+        # The displacement of axial actuators decides the (z, rx, ry) of rigid
+        # body.
+        dof_axial = np.linalg.inv(location_axial_hardpoint).dot(disp_hardpoint_axial)
+
+        z = dof_axial[2]
+
+        # Calculate the (rx, ry) in radian
+        mat_axial_3_points = np.array([[0, 0, 1], [1, 0, 1], [0, 1, 1]])
+        z_axial_3_points = mat_axial_3_points.dot(dof_axial)
+
+        mat_axial_3_points_updated = mat_axial_3_points.copy().astype(float)
+        mat_axial_3_points_updated[:, 2] = z_axial_3_points
+
+        r1c = mat_axial_3_points_updated[1, :] - mat_axial_3_points_updated[0, :]
+        r2 = mat_axial_3_points_updated[2, :] - mat_axial_3_points_updated[0, :]
+        cross_r1c_r2 = np.cross(r1c, r2)
+        cross_r1c_r2_normalized = cross_r1c_r2 / np.linalg.norm(cross_r1c_r2)
+
+        vector_rxryrz = np.cross(np.array([0, 0, 1]), cross_r1c_r2_normalized)
+        norm_vector_rxryrz = np.linalg.norm(vector_rxryrz)
+        if norm_vector_rxryrz == 0:
+            rx = 0
+            ry = 0
+        else:
+            rx, ry = (
+                vector_rxryrz[0:2] / norm_vector_rxryrz * np.arcsin(norm_vector_rxryrz)
+            )
+
+        # The displacement of tangent links decides the (x, y, rz) of rigid
+        # body.
+        num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
+        idx_tangent_hardpoint = (
+            np.array(hardpoints)[num_hardpoints_axial:] - num_axial_actuators
+        )
+        location_tangent_hardpoint = np.array(np.deg2rad(location_tangent_link))[
+            idx_tangent_hardpoint.astype(int)
+        ]
+
+        # Calculate the (x, y) in meter
+        (
+            x_current,
+            y_current,
+            delta_xy_current,
+        ) = MockControlClosedLoop.calculate_rigid_body_xy(
+            radius,
+            disp_hardpoint_current[num_hardpoints_axial:],
+            location_tangent_hardpoint,
+        )
+
+        x_home, y_home, delta_xy_home = MockControlClosedLoop.calculate_rigid_body_xy(
+            radius,
+            disp_hardpoint_home[num_hardpoints_axial:],
+            location_tangent_hardpoint,
+        )
+
+        # Need to compensate the X-Y displacements by scaling by 2 in order to
+        # calculate the correct displacements as measured optically.
+        x = 2 * (x_current - x_home)
+        y = 2 * (y_current - y_home)
+
+        # Calculate the rz in radian
+        mat_u, _, mat_v = np.linalg.svd(
+            delta_xy_home.T.dot(delta_xy_current), full_matrices=True
+        )
+        mat_r = mat_v.T.dot(mat_u.T)
+        rz = np.arctan2(mat_r[1, 0], mat_r[1, 1])
+
+        return x, y, z, rx, ry, rz
+
+    @staticmethod
+    def calculate_rigid_body_xy(
+        radius, tangent_hardpoint_displacement, tangent_hardpoint_location
+    ):
+        """Calculate the rigid body (x, y) position.
+
+        Notes
+        -----
+        This is part of the calculation in HardPointToRigidBody.vi in ts_mtm2.
+
+        Parameters
+        ----------
+        radius : `float`
+            Radius of the cell in meter.
+        tangent_hardpoint_displacement : `list`
+            Displacement of the 3 tangent hardpoints in meter.
+        tangent_hardpoint_location : `list`
+            Location of the 3 tangent hardpoints in radian.
+
+        Returns
+        -------
+        mean_x : `float`
+            X position in meter.
+        mean_y : `float`
+            Y position in meter.
+        delta_xy_tangent_hardpoint : `numpy.ndarray`
+            Delta (x, y) position compared with the mean (x, y) in meter.
+        """
+
+        theta = (
+            np.arctan2(tangent_hardpoint_displacement, radius)
+            + tangent_hardpoint_location
+        )
+        x_tangent_hardpoint = radius * np.sin(theta)
+        y_tangent_hardpoint = radius * np.cos(theta)
+
+        mean_x = np.mean(x_tangent_hardpoint)
+        mean_y = np.mean(y_tangent_hardpoint)
+
+        num = len(tangent_hardpoint_displacement)
+        delta_xy_tangent_hardpoint = np.append(
+            np.reshape(x_tangent_hardpoint - mean_x, (num, 1)),
+            np.reshape(y_tangent_hardpoint - mean_y, (num, 1)),
+            axis=1,
+        )
+
+        return mean_x, mean_y, delta_xy_tangent_hardpoint
+
     def is_cell_temperature_high(self):
         """Cell temperature is high or not.
 

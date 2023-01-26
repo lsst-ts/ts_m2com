@@ -6,6 +6,7 @@ v0.9.1
 ------
 
 * Calculate the actuator displacements based on the rigid body movement.
+* Calculate the rigid body position based on the hardpoint displacements.
 
 v0.9.0
 ------
