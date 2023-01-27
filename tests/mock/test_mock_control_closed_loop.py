@@ -208,9 +208,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertEqual(y, 0)
         self.assertAlmostEqual(rz, 0)
 
-        self.assertAlmostEqual(z, 0.0023333)
-        self.assertAlmostEqual(rx, 0.0002082)
-        self.assertAlmostEqual(ry, 0.0010819)
+        self.assertAlmostEqual(z, -0.0023333)
+        self.assertAlmostEqual(rx, -0.0002082)
+        self.assertAlmostEqual(ry, -0.0010819)
 
         # Test the tangent hardpoint displacements
         x, y, z, rx, ry, rz = MockControlClosedLoop.hardpoint_to_rigid_body(
@@ -229,6 +229,24 @@ class TestMockControlClosedLoop(unittest.TestCase):
         # Use the mm and urad here for the comparison with LabVIEW calculation
         self.assertAlmostEqual(x * 1e3, 0.9939971)
         self.assertAlmostEqual(y * 1e3, -2.8881361)
+        self.assertAlmostEqual(rz * 1e6, 0.2126332)
+
+        # Test all
+        x, y, z, rx, ry, rz = MockControlClosedLoop.hardpoint_to_rigid_body(
+            self.control_closed_loop._cell_geom["locAct_axial"],
+            self.control_closed_loop._cell_geom["locAct_tangent"],
+            self.control_closed_loop._cell_geom["radiusActTangent"],
+            self.control_closed_loop.hardpoints,
+            [0.001, 0.002, 0.003, 0.005, 0.002, 0.003],
+            [0.003, 0.001, 0.005, 0.002, 0.003, 0.005],
+        )
+
+        # Use the mm and urad here for the comparison with LabVIEW calculation
+        self.assertAlmostEqual(x * 1e3, 0.9939971)
+        self.assertAlmostEqual(y * 1e3, -2.8881361)
+        self.assertAlmostEqual(z * 1e3, 1)
+        self.assertAlmostEqual(rx * 1e6, 1249.2185882)
+        self.assertAlmostEqual(ry * 1e6, 0)
         self.assertAlmostEqual(rz * 1e6, 0.2126332)
 
     def test_simulate_temperature_and_update(self):

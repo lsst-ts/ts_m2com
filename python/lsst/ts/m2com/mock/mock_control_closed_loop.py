@@ -624,8 +624,8 @@ class MockControlClosedLoop:
         # Delta of the axial hardpoint displacements
         num_hardpoints_axial = 3
         disp_hardpoint_axial = (
-            np.array(disp_hardpoint_current)[:num_hardpoints_axial]
-            - np.array(disp_hardpoint_home)[:num_hardpoints_axial]
+            np.array(disp_hardpoint_home)[:num_hardpoints_axial]
+            - np.array(disp_hardpoint_current)[:num_hardpoints_axial]
         )
 
         # Location of the axial hardpoints: (x_hp, y_hp, 1)
