@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v0.9.1
+------
+
+* Remove the **root** workaround from **Jenkinsfile**.
+
 v0.9.0
 ------
 
