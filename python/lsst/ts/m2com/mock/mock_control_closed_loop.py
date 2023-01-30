@@ -30,6 +30,7 @@ from ..constant import (
     LIMIT_FORCE_AXIAL_CLOSED_LOOP,
     LIMIT_FORCE_TANGENT_CLOSED_LOOP,
     NUM_ACTUATOR,
+    NUM_HARDPOINTS_AXIAL,
     NUM_TANGENT_LINK,
 )
 from ..utility import check_limit_switches, read_yaml_file
@@ -389,17 +390,15 @@ class MockControlClosedLoop:
             idx for idx in range(num_axial_actuators) if idx not in hardpoints_axial
         ]
 
-        num_hardpoints_axial = len(hardpoints_axial)
-
         location_axial_actuator = np.array(location_axial_actuator)
         matrix_hp = np.append(
             location_axial_actuator[hardpoints_axial, :],
-            np.ones((num_hardpoints_axial, 1)),
+            np.ones((NUM_HARDPOINTS_AXIAL, 1)),
             axis=1,
         )
         matrix_nhp = np.append(
             location_axial_actuator[active_actuators_axial, :],
-            np.ones((num_axial_actuators - num_hardpoints_axial, 1)),
+            np.ones((num_axial_actuators - NUM_HARDPOINTS_AXIAL, 1)),
             axis=1,
         )
         hd_comp_axial = matrix_nhp.dot(np.linalg.pinv(matrix_hp))
@@ -477,7 +476,15 @@ class MockControlClosedLoop:
 
     @staticmethod
     def rigid_body_to_actuator_displacement(
-        location_axial_actuator, location_tangent_link, radius, x, y, z, rx, ry, rz
+        location_axial_actuator,
+        location_tangent_link,
+        radius,
+        dx,
+        dy,
+        dz,
+        drx,
+        dry,
+        drz,
     ):
         """Calculate the actuator displacements based on the rigid body
         position.
@@ -497,23 +504,23 @@ class MockControlClosedLoop:
         ----------
         location_axial_actuator : `list [list]`
             Location of the axial actuators: (x, y) in meter. This should be a
-            72 x 2 matrix.
+            (NUM_ACTUATOR - NUM_TANGENT_LINK) x 2 matrix.
         location_tangent_link : `list`
-            Location of the tangent links in degree. This should be a 1 x 6
-            array.
+            Location of the tangent links in degree. This should be a
+            1 x NUM_TANGENT_LINK array.
         radius : `float`
             Radius of the cell in meter.
-        x : `float`
+        dx : `float`
             Delta x position in meter.
-        y : `float`
+        dy : `float`
             Delta y position in meter.
-        z : `float`
+        dz : `float`
             Delta z position in meter.
-        rx : `float`
+        drx : `float`
             Delta x rotator in radian.
-        ry : `float`
+        dry : `float`
             Delta y rotator in radian.
-        rz : `float`
+        drz : `float`
             Delta z rotator in radian.
 
         Returns
@@ -522,7 +529,7 @@ class MockControlClosedLoop:
             All actuator displacements in meter.
         """
 
-        # Consider the displacement from (x, y, z)
+        # Consider the displacement from (dx, dy, dz)
 
         # Transformation matrix. The raw is each actuator's displacement. The
         # column is the (x, y, z) movement.
@@ -536,10 +543,10 @@ class MockControlClosedLoop:
             matrix_trans[num_axial_actuators + idx, 0] = np.cos(np.deg2rad(angle))
             matrix_trans[num_axial_actuators + idx, 1] = -np.sin(np.deg2rad(angle))
 
-        # Translate the (x, y, z) motion to 78 actuator displacement.
-        disp_xyz = matrix_trans.dot(np.array([x, y, z]))
+        # Translate the (dx, dy, dz) motion to 78 actuator displacement.
+        disp_dxdydz = matrix_trans.dot(np.array([dx, dy, dz]))
 
-        # Consider the displacement from (rx, ry, rz)
+        # Consider the displacement from (drx, dry, drz)
 
         location_axial = np.append(
             np.array(location_axial_actuator),
@@ -549,26 +556,26 @@ class MockControlClosedLoop:
 
         # Rotation matrix for the axial actuators
         rot_x = np.array(
-            [[1, 0, 0], [0, np.cos(rx), np.sin(rx)], [0, -np.sin(rx), np.cos(rx)]]
+            [[1, 0, 0], [0, np.cos(drx), np.sin(drx)], [0, -np.sin(drx), np.cos(drx)]]
         )
         rot_y = np.array(
-            [[np.cos(ry), 0, -np.sin(ry)], [0, 1, 0], [np.sin(ry), 0, np.cos(ry)]]
+            [[np.cos(dry), 0, -np.sin(dry)], [0, 1, 0], [np.sin(dry), 0, np.cos(dry)]]
         )
         rot_z = np.array(
-            [[np.cos(rz), np.sin(rz), 0], [-np.sin(rz), np.cos(rz), 0], [0, 0, 1]]
+            [[np.cos(drz), np.sin(drz), 0], [-np.sin(drz), np.cos(drz), 0], [0, 0, 1]]
         )
         rot_xyz = rot_x.dot(rot_y).dot(rot_z)
 
-        disp_rxryrz_axial = rot_xyz.dot(location_axial.T)
-        disp_rz_axial = disp_rxryrz_axial[2, :]
+        disp_drxdrydrz_axial = rot_xyz.dot(location_axial.T)
+        disp_drz_axial = disp_drxdrydrz_axial[2, :]
 
-        # Displacement rz, note there is a "-1" here for the direction of
+        # Displacement drz, note there is a "-1" here for the direction of
         # coordination system.
-        disp_rz_tangent = -radius * np.sin(rz) * np.ones(len(location_tangent_link))
+        disp_drz_tangent = -radius * np.sin(drz) * np.ones(len(location_tangent_link))
 
-        disp_rz = np.append(disp_rz_axial, disp_rz_tangent)
+        disp_drz = np.append(disp_drz_axial, disp_drz_tangent)
 
-        return disp_xyz + disp_rz
+        return disp_dxdydz + disp_drz
 
     @staticmethod
     def hardpoint_to_rigid_body(
@@ -590,10 +597,10 @@ class MockControlClosedLoop:
         ----------
         location_axial_actuator : `list [list]`
             Location of the axial actuators: (x, y) in meter. This should be a
-            72 x 2 matrix.
+            (NUM_ACTUATOR - NUM_TANGENT_LINK) x 2 matrix.
         location_tangent_link : `list`
-            Location of the tangent links in degree. This should be a 1 x 6
-            array.
+            Location of the tangent links in degree. This should be a
+            1 x NUM_TANGENT_LINK array.
         radius : `float`
             Radius of the cell in meter.
         hardpoints : `list`
@@ -622,17 +629,16 @@ class MockControlClosedLoop:
         """
 
         # Delta of the axial hardpoint displacements
-        num_hardpoints_axial = 3
         disp_hardpoint_axial = (
-            np.array(disp_hardpoint_current)[:num_hardpoints_axial]
-            - np.array(disp_hardpoint_home)[:num_hardpoints_axial]
+            np.array(disp_hardpoint_current)[:NUM_HARDPOINTS_AXIAL]
+            - np.array(disp_hardpoint_home)[:NUM_HARDPOINTS_AXIAL]
         )
 
         # Location of the axial hardpoints: (x_hp, y_hp, 1)
         location_axial_actuator = np.array(location_axial_actuator)
         location_axial_hardpoint = np.append(
-            location_axial_actuator[hardpoints[:num_hardpoints_axial], :],
-            np.ones((num_hardpoints_axial, 1)),
+            location_axial_actuator[hardpoints[:NUM_HARDPOINTS_AXIAL], :],
+            np.ones((NUM_HARDPOINTS_AXIAL, 1)),
             axis=1,
         )
 
@@ -669,7 +675,7 @@ class MockControlClosedLoop:
         # body.
         num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
         idx_tangent_hardpoint = (
-            np.array(hardpoints)[num_hardpoints_axial:] - num_axial_actuators
+            np.array(hardpoints)[NUM_HARDPOINTS_AXIAL:] - num_axial_actuators
         )
         location_tangent_hardpoint = np.array(np.deg2rad(location_tangent_link))[
             idx_tangent_hardpoint.astype(int)
@@ -682,13 +688,13 @@ class MockControlClosedLoop:
             delta_xy_current,
         ) = MockControlClosedLoop.calculate_rigid_body_xy(
             radius,
-            disp_hardpoint_current[num_hardpoints_axial:],
+            disp_hardpoint_current[NUM_HARDPOINTS_AXIAL:],
             location_tangent_hardpoint,
         )
 
         x_home, y_home, delta_xy_home = MockControlClosedLoop.calculate_rigid_body_xy(
             radius,
-            disp_hardpoint_home[num_hardpoints_axial:],
+            disp_hardpoint_home[NUM_HARDPOINTS_AXIAL:],
             location_tangent_hardpoint,
         )
 
