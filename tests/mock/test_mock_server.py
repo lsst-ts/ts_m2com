@@ -828,6 +828,21 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 msg_power_system_state[1]["state"], PowerSystemState.PoweredOff
             )
 
+    async def test_cmd_load_configuration(self):
+        async with self.make_server() as server, self.make_clients(server) as (
+            client_cmd,
+            client_tel,
+        ):
+            await client_cmd.write(MsgType.Command, "loadConfiguration")
+
+            await asyncio.sleep(0.5)
+
+            msg_config = collect_queue_messages(client_cmd.queue, "config")
+
+            # 1 from the welcome message and 1 from the load configuration
+            # command
+            self.assertEqual(len(msg_config), 2)
+
 
 if __name__ == "__main__":
 
