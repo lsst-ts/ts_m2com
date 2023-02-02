@@ -1125,3 +1125,27 @@ class MockCommand:
             await message_event.write_inner_loop_control_mode(address, mode)
 
         return model, CommandStatus.Success
+
+    async def load_configuration(self, message, model, message_event):
+        """Load the configuration.
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        await message_event.write_config()
+
+        return model, CommandStatus.Success
