@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v0.9.3
+------
+
+* Increase the default timeout from 10 sec to 20 sec in ``Controller.power()``.
+* Add the ``MockCommand.load_configuration()`` and ``Controller.load_configuration()``.
+
 v0.9.2
 ------
 

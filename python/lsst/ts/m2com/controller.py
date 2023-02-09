@@ -622,7 +622,7 @@ class Controller:
 
         return False
 
-    async def power(self, power_type, status, expected_state=None, timeout=10.0):
+    async def power(self, power_type, status, expected_state=None, timeout=20.0):
         """Power on/off the motor/communication system.
 
         Parameters
@@ -635,7 +635,7 @@ class Controller:
             Expected state of the power system. This is used in the unit test
             only. Put None in general. (the default is None)
         timeout : `float`, optional
-            Timeout in second. (the default is 10.0)
+            Timeout in second. (the default is 20.0)
 
         Raises
         ------
@@ -1081,3 +1081,7 @@ class Controller:
     async def reset_actuator_steps(self):
         """Resets the user defined actuator steps to zero."""
         await self.write_command_to_server("resetActuatorSteps")
+
+    async def load_configuration(self):
+        """Load the configuration."""
+        await self.write_command_to_server("loadConfiguration")
