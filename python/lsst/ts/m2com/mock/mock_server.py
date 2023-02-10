@@ -219,7 +219,7 @@ class MockServer:
                 # steps takes some CPU resource, we will do it in a slow pace
                 # to decrease the CPU usage.
                 is_updated = self.model.balance_forces_and_steps(
-                    update_steps=update_steps
+                    force_rms=0.1, update_steps=update_steps
                 )
 
                 # Decide the value of update_steps

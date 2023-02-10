@@ -423,8 +423,12 @@ class MockCommand:
         }
 
         try:
-            command_success = model.handle_position_mirror(mirror_position_set_point)
+            command_success = model.check_set_point_position_mirror(
+                mirror_position_set_point
+            )
             await message_event.write_m2_assembly_in_position(False)
+
+            model.handle_position_mirror(mirror_position_set_point)
 
         except RuntimeError:
             command_success = False
@@ -886,7 +890,12 @@ class MockCommand:
             Status of command execution.
         """
 
+        model.control_closed_loop.disp_hardpoint_home = (
+            model.get_current_hardpoint_displacement().tolist()
+        )
+
         model.mirror_position = model.get_default_mirror_position()
+        model.mirror_position_offset = model.get_default_mirror_position()
 
         return model, CommandStatus.Success
 
