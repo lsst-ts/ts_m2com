@@ -379,18 +379,20 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         self.model.control_closed_loop.is_running = True
 
         # In the initial beginning, the actuators are not in position
-        is_updated = self.model.balance_forces_and_steps()
+        is_updated = self.model.balance_forces_and_steps(force_rms=0)
         self.assertFalse(self.model.in_position)
         self.assertTrue(is_updated)
 
         # Do not update the steps
-        self.assertFalse(self.model.balance_forces_and_steps(update_steps=False))
+        self.assertFalse(
+            self.model.balance_forces_and_steps(force_rms=0, update_steps=False)
+        )
 
         # After some running of closed-loop control, the actuators are in
         # position
         in_position_happened = False
         for idx in range(100):
-            self.model.balance_forces_and_steps()
+            self.model.balance_forces_and_steps(force_rms=0)
 
             if (not in_position_happened) and self.model.in_position:
                 in_position_happened = True
@@ -399,6 +401,13 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(self.model.control_closed_loop.in_position_hardpoints)
 
+        self.assertAlmostEqual(self.model.mirror_position["x"], 0.0002766)
+        self.assertAlmostEqual(self.model.mirror_position["y"], -0.0009434)
+        self.assertAlmostEqual(self.model.mirror_position["z"], 0.00068495)
+        self.assertAlmostEqual(self.model.mirror_position["xRot"], 0.00064746)
+        self.assertAlmostEqual(self.model.mirror_position["yRot"], -0.00006415)
+        self.assertAlmostEqual(self.model.mirror_position["zRot"], -0.00031944)
+
     def test_simulate_zenith_angle(self):
 
         zenith_angle = self.model._simulate_zenith_angle()
@@ -406,25 +415,37 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         self.assertLess(np.abs(zenith_angle["inclinometerRaw"] - 90), 2)
         self.assertLess(np.abs(zenith_angle["inclinometerProcessed"] - 90), 2)
 
-    async def test_handle_position_mirror(self):
+    async def test_check_set_point_position_mirror(self):
 
         mirror_position_set_point = dict(
             [(axis, 1.0) for axis in ("x", "y", "z", "xRot", "yRot", "zRot")]
         )
 
         # This should fail
-        self.assertFalse(self.model.handle_position_mirror(mirror_position_set_point))
+        self.assertFalse(
+            self.model.check_set_point_position_mirror(mirror_position_set_point)
+        )
 
         # This should fail again
         await self.model.power_motor.power_on()
-        self.assertFalse(self.model.handle_position_mirror(mirror_position_set_point))
+        self.assertFalse(
+            self.model.check_set_point_position_mirror(mirror_position_set_point)
+        )
 
         # This should succeed in the final
         self.model.switch_force_balance_system(True)
-        result = self.model.handle_position_mirror(mirror_position_set_point)
+        result = self.model.check_set_point_position_mirror(mirror_position_set_point)
 
         self.assertTrue(result)
-        self.assertEqual(self.model.mirror_position, mirror_position_set_point)
+
+    def test_handle_position_mirror(self):
+
+        mirror_position_set_point = dict(
+            [(axis, 1.0) for axis in ("x", "y", "z", "xRot", "yRot", "zRot")]
+        )
+        self.model.handle_position_mirror(mirror_position_set_point)
+
+        self.assertEqual(self.model.mirror_position_offset, mirror_position_set_point)
 
     async def test_enable_open_loop_max_limit(self):
 
