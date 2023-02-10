@@ -58,7 +58,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertRaises(
             ValueError,
             MockControlClosedLoop.calc_hp_comp_matrix,
-            self.control_closed_loop._cell_geom["locAct_axial"],
+            self.control_closed_loop.get_actuator_location_axial(),
             [5, 15, 24],
             [72, 74, 76],
         )
@@ -66,7 +66,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertRaises(
             ValueError,
             MockControlClosedLoop.calc_hp_comp_matrix,
-            self.control_closed_loop._cell_geom["locAct_axial"],
+            self.control_closed_loop.get_actuator_location_axial(),
             [5, 15, 25],
             [72, 73, 74],
         )
@@ -74,7 +74,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
     def test_calc_hp_comp_matrix(self):
 
         (hd_comp_axial, hd_comp_tangent,) = MockControlClosedLoop.calc_hp_comp_matrix(
-            self.control_closed_loop._cell_geom["locAct_axial"],
+            self.control_closed_loop.get_actuator_location_axial(),
             [5, 15, 25],
             [73, 75, 77],
         )
@@ -97,26 +97,26 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
         self.assertEqual(
             MockControlClosedLoop.select_axial_hardpoints(
-                self.control_closed_loop._cell_geom["locAct_axial"], 4
+                self.control_closed_loop.get_actuator_location_axial(), 4
             ),
             [4, 14, 24],
         )
         self.assertEqual(
             MockControlClosedLoop.select_axial_hardpoints(
-                self.control_closed_loop._cell_geom["locAct_axial"], 15
+                self.control_closed_loop.get_actuator_location_axial(), 15
             ),
             [5, 15, 25],
         )
         self.assertEqual(
             MockControlClosedLoop.select_axial_hardpoints(
-                self.control_closed_loop._cell_geom["locAct_axial"], 26
+                self.control_closed_loop.get_actuator_location_axial(), 26
             ),
             [6, 16, 26],
         )
 
         self.assertEqual(
             MockControlClosedLoop.select_axial_hardpoints(
-                self.control_closed_loop._cell_geom["locAct_axial"], 0
+                self.control_closed_loop.get_actuator_location_axial(), 0
             ),
             [0, 10, 20],
         )
@@ -125,9 +125,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
         # Test (x, y, z)
         displacments_xyz = MockControlClosedLoop.rigid_body_to_actuator_displacement(
-            self.control_closed_loop._cell_geom["locAct_axial"],
-            self.control_closed_loop._cell_geom["locAct_tangent"],
-            self.control_closed_loop._cell_geom["radiusActTangent"],
+            self.control_closed_loop.get_actuator_location_axial(),
+            self.control_closed_loop.get_actuator_location_tangent(),
+            self.control_closed_loop.get_radius(),
             1,
             2,
             3,
@@ -148,9 +148,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
         # Test (rx, ry, rz)
         displacments_rxryrz = MockControlClosedLoop.rigid_body_to_actuator_displacement(
-            self.control_closed_loop._cell_geom["locAct_axial"],
-            self.control_closed_loop._cell_geom["locAct_tangent"],
-            self.control_closed_loop._cell_geom["radiusActTangent"],
+            self.control_closed_loop.get_actuator_location_axial(),
+            self.control_closed_loop.get_actuator_location_tangent(),
+            self.control_closed_loop.get_radius(),
             0,
             0,
             0,
@@ -172,9 +172,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
         # Test (x, y, z, rx, ry, rz)
         displacments_xyzrxryrz = (
             MockControlClosedLoop.rigid_body_to_actuator_displacement(
-                self.control_closed_loop._cell_geom["locAct_axial"],
-                self.control_closed_loop._cell_geom["locAct_tangent"],
-                self.control_closed_loop._cell_geom["radiusActTangent"],
+                self.control_closed_loop.get_actuator_location_axial(),
+                self.control_closed_loop.get_actuator_location_tangent(),
+                self.control_closed_loop.get_radius(),
                 2,
                 -1,
                 0.5,
@@ -196,9 +196,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
         # Test the axial hardpoint displacements
         x, y, z, rx, ry, rz = MockControlClosedLoop.hardpoint_to_rigid_body(
-            self.control_closed_loop._cell_geom["locAct_axial"],
-            self.control_closed_loop._cell_geom["locAct_tangent"],
-            self.control_closed_loop._cell_geom["radiusActTangent"],
+            self.control_closed_loop.get_actuator_location_axial(),
+            self.control_closed_loop.get_actuator_location_tangent(),
+            self.control_closed_loop.get_radius(),
             self.control_closed_loop.hardpoints,
             [0.001, 0.002, 0.004, 0, 0, 0],
             [0] * 6,
@@ -214,9 +214,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
         # Test the tangent hardpoint displacements
         x, y, z, rx, ry, rz = MockControlClosedLoop.hardpoint_to_rigid_body(
-            self.control_closed_loop._cell_geom["locAct_axial"],
-            self.control_closed_loop._cell_geom["locAct_tangent"],
-            self.control_closed_loop._cell_geom["radiusActTangent"],
+            self.control_closed_loop.get_actuator_location_axial(),
+            self.control_closed_loop.get_actuator_location_tangent(),
+            self.control_closed_loop.get_radius(),
             self.control_closed_loop.hardpoints,
             [0, 0, 0, 0.005, 0.002, 0.003],
             [0, 0, 0, 0.002, 0.003, 0.005],
@@ -233,9 +233,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
         # Test all
         x, y, z, rx, ry, rz = MockControlClosedLoop.hardpoint_to_rigid_body(
-            self.control_closed_loop._cell_geom["locAct_axial"],
-            self.control_closed_loop._cell_geom["locAct_tangent"],
-            self.control_closed_loop._cell_geom["radiusActTangent"],
+            self.control_closed_loop.get_actuator_location_axial(),
+            self.control_closed_loop.get_actuator_location_tangent(),
+            self.control_closed_loop.get_radius(),
             self.control_closed_loop.hardpoints,
             [0.001, 0.002, 0.003, 0.005, 0.002, 0.003],
             [0.003, 0.001, 0.005, 0.002, 0.003, 0.005],

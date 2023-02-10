@@ -2,6 +2,13 @@
 Version History
 ===============
 
+v0.9.4
+------
+
+* Calculate the rigid body position based on the hardpoint displacements in ``MockModel``.
+* Put the ``MockModel.handle_position_mirror()`` as a placeholder at this moment.
+Need to translate the forward modeling of hardpoint correction first before the realization of this function.
+
 v0.9.3
 ------
 

@@ -19,9 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import copy
 import logging
-from time import sleep
 
 import numpy as np
 from lsst.ts.idl.enums import MTM2
@@ -81,6 +79,15 @@ class MockModel:
         Telemetry interval in second.
     inclination_source : `MTM2.InclinationTelemetrySource`
         Source of the inclination.
+    mirror_position : `dict`
+        Mirror's position. The key is the axis (x, y, z, xRot, yRot, zRot) of
+        mirror. The units are the micron and arcsec.
+    mirror_position_offset : `dict`
+        Offset value of the mirror position. The key is the axis (x, y, z,
+        xRot, yRot, zRot) of mirror. The units are the micron and arcsec. This
+        is a workaround to deal with the rigid body movement at this moment.
+        Need to remove this after the translation of forward modeling of
+        hardpoint correction.
     power_communication : `MockPowerSystem`
         Power system of communication.
     power_motor : `MockPowerSystem`
@@ -124,6 +131,7 @@ class MockModel:
         self.inclination_source = MTM2.InclinationTelemetrySource.ONBOARD
 
         self.mirror_position = self.get_default_mirror_position()
+        self.mirror_position_offset = self.get_default_mirror_position()
 
         self.power_communication = MockPowerSystem(
             communication_voltage, communication_current
@@ -459,7 +467,7 @@ class MockModel:
             ] = self.control_closed_loop.get_force_balance()
 
             # Get the position data
-            telemetry_data["position"] = self._simulate_position_mirror()
+            telemetry_data["position"] = self._get_mirror_position_with_offset()
 
             position_ims = self._simulate_position_mirror()
             telemetry_data["positionIMS"] = position_ims
@@ -689,10 +697,11 @@ class MockModel:
                 forces[: (NUM_ACTUATOR - NUM_TANGENT_LINK)], forces[-NUM_TANGENT_LINK:]
             )
 
-        # In the closed-loop control, update the steps because of the udpated
-        # measured forces.
+        # In the closed-loop control, update the steps and rigid body position
+        # because of the udpated measured forces.
         if self.control_closed_loop.is_running and update_steps:
 
+            # Calculate the steps
             forces = np.append(
                 self.control_closed_loop.axial_forces["measured"],
                 self.control_closed_loop.tangent_forces["measured"],
@@ -700,9 +709,69 @@ class MockModel:
             steps = self.control_open_loop.calculate_forces_to_steps(forces)
             self.control_open_loop.update_actuator_steps(steps)
 
+            # Calculate the rigid body position
+            x, y, z, rx, ry, rz = MockControlClosedLoop.hardpoint_to_rigid_body(
+                self.control_closed_loop.get_actuator_location_axial(),
+                self.control_closed_loop.get_actuator_location_tangent(),
+                self.control_closed_loop.get_radius(),
+                self.control_closed_loop.hardpoints,
+                self.get_current_hardpoint_displacement().tolist(),
+                self.control_closed_loop.disp_hardpoint_home,
+            )
+
+            # Need to update the unit from "m to um" and "rad to arcsec".
+            M_TO_UM = 1e6
+
+            # 1 rad × (180/pi) x 3600 arcsec ~ 206265
+            RADIAN_TO_ARCSEC = 206265
+
+            self.mirror_position["x"] = x * M_TO_UM
+            self.mirror_position["y"] = y * M_TO_UM
+            self.mirror_position["z"] = z * M_TO_UM
+            self.mirror_position["xRot"] = rx * RADIAN_TO_ARCSEC
+            self.mirror_position["yRot"] = ry * RADIAN_TO_ARCSEC
+            self.mirror_position["zRot"] = rz * RADIAN_TO_ARCSEC
+
             return True
 
         return False
+
+    def get_current_hardpoint_displacement(self):
+        """Get the current hardpoint displacements in meter.
+
+        Returns
+        -------
+        `numpy.ndarray`
+            Current hardpoint displacements in meter.
+        """
+        # Change the unit from millimeter to meter.
+        return (
+            self.control_open_loop.get_actuator_positions()[
+                self.control_closed_loop.hardpoints
+            ]
+            * 1e-3
+        )
+
+    def _get_mirror_position_with_offset(self):
+        """Get the mirror position with the offset.
+
+        Notes
+        -----
+        Remove this function after the translation of forward modeling of
+        hardpoint correction.
+
+        Returns
+        -------
+        position : `dict`
+            Mirror's position with the offset. The key is the axis (x, y, z,
+            xRot, yRot, zRot) of mirror. The units are the micron and arcsec.
+        """
+
+        position = dict()
+        for axis, value in self.mirror_position.items():
+            position[axis] = value + self.mirror_position_offset[axis]
+
+        return position
 
     def _simulate_position_mirror(self, position_rms=0.005, angle_rms=0.005):
         """Simulate the position of mirror.
@@ -721,7 +790,7 @@ class MockModel:
             of mirror. The units are the micron and arcsec.
         """
 
-        position = copy.copy(self.mirror_position)
+        position = self._get_mirror_position_with_offset()
 
         for axis, value in position.items():
 
@@ -763,118 +832,92 @@ class MockModel:
         return zenith_angle
 
     def handle_position_mirror(self, mirror_position_set_point):
-        """Handle positining the mirror.
+        """Handle positioning the mirror.
+
+        Notes
+        -----
+        This is just a placeholder at this moment. To do this correctly, need:
+
+        1. Translate the calculation of forward modeling of hardpoint
+        correction.
+
+        2. Apply MockControlClosedLoop.rigid_body_to_actuator_displacement()
+        and get the expected displacement of actuator.
+
+        3. Put the displacement to the forward-modeling and get correct
+        hardpoint correction in force.
+
+        4. Put the hardpoint correction to
+        MockControlClosedLoop.axial_forces["hardpointCorrection"] and
+        MockControlClosedLoop.tangent_forces["hardpointCorrection"].
+
+        Parameters
+        ----------
+        mirror_position_set_point : `dict`
+            Dictionary with the same format as `self.mirror_position`.
+        """
+
+        for axis in self.mirror_position_offset:
+            self.mirror_position_offset[axis] = mirror_position_set_point[axis]
+
+    def check_set_point_position_mirror(self, mirror_position_set_point):
+        """Check the set point of mirror's position.
 
         Parameters
         ----------
         mirror_position_set_point : `dict`
             Dictionary with the same format as `self.mirror_position`.
 
-        Raises
-        ------
-        RuntimeError
-            Requested position outside of radial limits.
-        RuntimeError
-            Requested position out of limits.
-        RuntimeError
-            Failed to position the mirror.
-
         Returns
         -------
         `bool`
-            True if succeeds. Otherwise, False.
+            True if all check pass. Otherwise, False.
         """
 
         if (not self.power_motor.is_power_on()) or (
             self.control_closed_loop.is_running is False
         ):
+            self.log.debug(
+                "Motor power needs to be on and system is in closed-loop control."
+            )
             return False
 
         # Check limits
         # This is a simplication of the radial position, considering that
         # zRot = 0
+
+        # Note the "xRot" and "yRot" are in arcsec
+        UM_TO_MM = 1e-3
         radial_position = np.sqrt(
             (
                 mirror_position_set_point["x"]
-                * np.cos(np.radians(mirror_position_set_point["yRot"] * 60.0 * 60.0))
+                * UM_TO_MM
+                * np.cos(np.radians(mirror_position_set_point["yRot"] / 3600.0))
             )
             ** 2.0
             + (
                 mirror_position_set_point["y"]
-                * np.cos(np.radians(mirror_position_set_point["xRot"] * 60.0 * 60.0))
+                * UM_TO_MM
+                * np.cos(np.radians(mirror_position_set_point["xRot"] / 3600.0))
             )
             ** 2.0
         )
+
         if radial_position > self.position_limit_radial:
-            raise RuntimeError(
+            self.log.debug(
                 f"Requested position outside of radial limits: {radial_position} "
                 f"(limit: {self.position_limit_radial})"
             )
+            return False
 
         # Another simplication of the limit in the optical direction.
-        if mirror_position_set_point["z"] > self.position_limit_z:
-            raise RuntimeError(
-                f"Requested position out of limits: {mirror_position_set_point['z']} "
+        set_point_z = mirror_position_set_point["z"] * UM_TO_MM
+        if set_point_z > self.position_limit_z:
+            self.log.debug(
+                f"Requested position out of limits: {set_point_z} "
                 f"(limit: {self.position_limit_z})"
             )
-
-        mirror_distance = dict(
-            [
-                (axis, mirror_position_set_point[axis] - self.mirror_position[axis])
-                for axis in ("x", "y", "z", "xRot", "yRot", "zRot")
-            ]
-        )
-
-        mirror_position_speed = dict(
-            [(axis, 0.5) for axis in ("x", "y", "z", "xRot", "yRot", "zRot")]
-        )
-
-        time_to_position = dict(
-            [
-                (axis, abs(mirror_distance[axis]) / mirror_position_speed[axis])
-                for axis in ("x", "y", "z", "xRot", "yRot", "zRot")
-            ]
-        )
-
-        time = max([time_to_position[axis] for axis in time_to_position])
-
-        if time <= self.telemetry_interval:
-            sleep(time)
-            for axis in self.mirror_position:
-                self.mirror_position[axis] = mirror_position_set_point[axis]
-        else:
-            n_beats = int(np.ceil(time / self.telemetry_interval))
-            beats = 0
-            self.log.debug(f"It will take {n_beats} cycles to reposition the mirror.")
-            while np.any(
-                np.array([abs(mirror_distance[axis]) for axis in mirror_distance]) > 0.0
-            ):
-                self.log.debug(f"{mirror_distance}")
-                if beats > n_beats + 1:
-                    raise RuntimeError("Failed to position the mirror.")
-                beats += 1
-
-                for axis in self.mirror_position:
-                    if (
-                        abs(mirror_distance[axis]) > 0.0
-                        and abs(mirror_distance[axis])
-                        < mirror_position_speed[axis] * self.telemetry_interval
-                    ):
-                        self.mirror_position[axis] = mirror_position_set_point[axis]
-                        mirror_distance[axis] = 0.0
-                        self.log.debug(f"{axis} in position.")
-                    elif (
-                        abs(mirror_distance[axis])
-                        > mirror_position_speed[axis] * self.telemetry_interval
-                    ):
-                        delta_pos = (
-                            mirror_position_speed[axis]
-                            * self.telemetry_interval
-                            * (1.0 if mirror_distance[axis] > 0.0 else -1.0)
-                        )
-                        self.mirror_position[axis] += delta_pos
-                        mirror_distance[axis] -= delta_pos
-                sleep(self.telemetry_interval)
+            return False
 
         return True
 

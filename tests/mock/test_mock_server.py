@@ -514,7 +514,9 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             self.assertTrue(msg_in_position["inPosition"])
 
-            self.assertEqual(server.model.mirror_position, mirror_position_set_point)
+            self.assertEqual(
+                server.model.mirror_position_offset, mirror_position_set_point
+            )
 
     async def test_cmd_reset_force_offsets(self):
         async with self.make_server() as server, self.make_clients(server) as (

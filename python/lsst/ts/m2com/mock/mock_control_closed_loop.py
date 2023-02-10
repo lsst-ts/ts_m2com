@@ -52,6 +52,8 @@ class MockControlClosedLoop:
     hardpoints : `list`
         List of the hardpoints. There are 6 actuators. The first three are the
         axial actuators and the latter three are the tangent links.
+    disp_hardpoint_home : `list`
+        Displacement of the hardpoints at the home position. The unit is meter.
     in_position_hardpoints : `bool`
         Hardpoints are in position or not.
     """
@@ -91,6 +93,17 @@ class MockControlClosedLoop:
 
         # These are hard-coded in the M2 cell LabVIEW project by vendor
         self.hardpoints = [5, 15, 25, 73, 75, 77]
+
+        # The values here are designed intentionally to let the mirror has the
+        # nearly-zero home position at the closed-loop control.
+        self.disp_hardpoint_home = [
+            -0.00168923,
+            -0.00647945,
+            -0.01085443,
+            -0.0016753,
+            -0.00323069,
+            -0.00281834,
+        ]
 
         self.in_position_hardpoints = False
 
@@ -314,12 +327,42 @@ class MockControlClosedLoop:
 
         self._cell_geom = read_yaml_file(filepath)
 
+    def get_actuator_location_axial(self):
+        """Get the location of axial actuators.
+
+        Returns
+        -------
+        `list`
+            Location (x, y) of the axial actuators in meter.
+        """
+        return self._cell_geom["locAct_axial"]
+
+    def get_actuator_location_tangent(self):
+        """Get the location of tangent actuators.
+
+        Returns
+        -------
+        `list`
+            Location of the tangential actuators in degree.
+        """
+        return self._cell_geom["locAct_tangent"]
+
+    def get_radius(self):
+        """Get the radius of the tangential actuators.
+
+        Returns
+        -------
+        `float`
+            Radius of the tangential actuators in meter.
+        """
+        return self._cell_geom["radiusActTangent"]
+
     def set_hardpoint_compensation(self):
         """Set the hardpoint compensation matrix."""
 
         # There are 3 axial actuators to be hardpoints
         (hd_comp_axial, hd_comp_tangent,) = MockControlClosedLoop.calc_hp_comp_matrix(
-            self._cell_geom["locAct_axial"], self.hardpoints[:3], self.hardpoints[3:]
+            self.get_actuator_location_axial(), self.hardpoints[:3], self.hardpoints[3:]
         )
         self._hd_comp = block_diag(hd_comp_axial, hd_comp_tangent)
 
@@ -606,11 +649,10 @@ class MockControlClosedLoop:
         hardpoints : `list`
             Six hardpoints. The order is from low to high.
         disp_hardpoint_current : `list`
-            Six current hardpoint displacements. The units are meter and
-            radian.
+            Six current hardpoint displacements. The unit is meter.
         disp_hardpoint_home : `list`
-            Six hardpoint displacements at the home position. The units are
-            meter and radian.
+            Six hardpoint displacements at the home position. The unit is
+            meter.
 
         Returns
         -------
@@ -914,7 +956,7 @@ class MockControlClosedLoop:
             Total net forces in Newton.
         """
 
-        angle = np.deg2rad(self._cell_geom["locAct_tangent"])
+        angle = np.deg2rad(self.get_actuator_location_tangent())
 
         fx = np.sum(np.cos(angle) * tangent_forces)
         fy = np.sum(np.sin(angle) * tangent_forces)
@@ -951,10 +993,10 @@ class MockControlClosedLoop:
             Total net moments in Newton * meter.
         """
 
-        location_axial_actuator = np.array(self._cell_geom["locAct_axial"])
+        location_axial_actuator = np.array(self.get_actuator_location_axial())
         mx = np.sum(axial_forces * location_axial_actuator[:, 1])
         my = np.sum(axial_forces * location_axial_actuator[:, 0])
-        mz = np.sum(tangent_forces) * self._cell_geom["radiusActTangent"]
+        mz = np.sum(tangent_forces) * self.get_radius()
 
         return {"mx": mx, "my": my, "mz": mz}
 
