@@ -30,7 +30,6 @@ class MockErrorHandler:
     """Mock Error Handler class to manage the errors."""
 
     def __init__(self):
-
         # New errors in the system
         self._errors_new = set()
 

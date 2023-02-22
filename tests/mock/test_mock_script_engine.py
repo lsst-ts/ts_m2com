@@ -28,11 +28,9 @@ class TestMockScriptEngine(unittest.TestCase):
     """Test the Mock Script Engine class."""
 
     def setUp(self):
-
         self.script_engine = MockScriptEngine()
 
     def test_set_name_exception(self):
-
         # Empty name
         self.assertRaises(ValueError, self.script_engine.set_name, "")
 
@@ -42,12 +40,10 @@ class TestMockScriptEngine(unittest.TestCase):
         self.assertRaises(RuntimeError, self.script_engine.set_name, "test2")
 
     def _set_script_and_run(self, name):
-
         self.script_engine.set_name(name)
         self.script_engine.run()
 
     def test_set_name(self):
-
         name = "test"
         self.script_engine.percentage = 10
 
@@ -57,13 +53,11 @@ class TestMockScriptEngine(unittest.TestCase):
         self.assertEqual(self.script_engine.percentage, 0)
 
     def test_clear_exception(self):
-
         self._set_script_and_run("test")
 
         self.assertRaises(RuntimeError, self.script_engine.clear)
 
     def test_clear(self):
-
         self._run_script_to_done()
 
         self.script_engine.clear()
@@ -73,12 +67,10 @@ class TestMockScriptEngine(unittest.TestCase):
         self.assertFalse(self.script_engine.is_running)
 
     def _run_script_to_done(self):
-
         self._set_script_and_run("test")
         self.script_engine.run_steps(100)
 
     def test_run_exception(self):
-
         # No script is assigned
         self.assertRaises(RuntimeError, self.script_engine.run)
 
@@ -93,13 +85,11 @@ class TestMockScriptEngine(unittest.TestCase):
         self.assertRaises(RuntimeError, self.script_engine.run)
 
     def test_run(self):
-
         self._set_script_and_run("test")
 
         self.assertTrue(self.script_engine.is_running)
 
     def test_stop(self):
-
         self._set_script_and_run("test")
         self.script_engine.stop()
 
@@ -107,14 +97,12 @@ class TestMockScriptEngine(unittest.TestCase):
         self.assertEqual(self.script_engine.percentage, 100)
 
     def test_pause(self):
-
         self._set_script_and_run("test")
         self.script_engine.pause()
 
         self.assertFalse(self.script_engine.is_running)
 
     def test_run_steps_exception(self):
-
         # Not running yet
         self.assertRaises(RuntimeError, self.script_engine.run_steps, 10)
 
@@ -123,7 +111,6 @@ class TestMockScriptEngine(unittest.TestCase):
         self.assertRaises(ValueError, self.script_engine.run_steps, 101)
 
     def test_run_steps(self):
-
         self._set_script_and_run("test")
 
         # Normal step
@@ -139,6 +126,5 @@ class TestMockScriptEngine(unittest.TestCase):
 
 
 if __name__ == "__main__":
-
     # Do the unit test
     unittest.main()

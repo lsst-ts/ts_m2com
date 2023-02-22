@@ -106,9 +106,7 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
         await client.close()
 
     async def test_is_connected(self):
-
         async with self.make_server() as server, self.make_client(server) as client:
-
             self.assertTrue(client.is_connected())
 
             await server.close_client()
@@ -119,9 +117,7 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(client.is_connected())
 
     async def test_connect_multiple_times(self):
-
         async with self.make_server() as server, self.make_client(server) as client:
-
             self.assertTrue(client.is_connected())
             self.assertTrue(server.connected)
 
@@ -139,7 +135,6 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(server.connected)
 
     async def test_write_no_connection(self):
-
         tcp_client = TcpClient(self.host, 0, log=self.log)
 
         with self.assertRaises(RuntimeError):
@@ -147,7 +142,6 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
 
     async def test_write_cmd(self):
         async with self.make_server() as server, self.make_client(server) as client:
-
             self.assertEqual(client.last_sequence_id, -1)
 
             msg_name = "move"
@@ -182,7 +176,6 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
 
     async def test_write_cmd_multiple(self):
         async with self.make_server() as server, self.make_client(server) as client:
-
             msg_name = "move"
             msg_details = {"x": 1, "y": 2, "z": 3}
             for count in range(3):
@@ -196,7 +189,6 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
 
     async def test_write_cmd_no_details(self):
         async with self.make_server() as server, self.make_client(server) as client:
-
             msg_name = "enable"
             await client.write(MsgType.Command, msg_name)
 
@@ -207,7 +199,6 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
 
     async def test_write_id_error(self):
         async with self.make_server() as server, self.make_client(server) as client:
-
             msg_name = "move"
             msg_details = {"id": "cmd_name"}
             with self.assertRaises(ValueError):
@@ -215,7 +206,6 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
 
     async def test_write_evt(self):
         async with self.make_server() as server, self.make_client(server) as client:
-
             msg_name = "inPosition"
             msg_details = {"status": True}
             comp_name = "MTMount"
@@ -231,7 +221,6 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
 
     async def test_write_evt_no_details(self):
         async with self.make_server() as server, self.make_client(server) as client:
-
             msg_name = "inPosition"
             comp_name = "MTMount"
             await client.write(MsgType.Event, msg_name, comp_name=comp_name)
@@ -243,7 +232,6 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
 
     async def test_write_tel(self):
         async with self.make_server() as server, self.make_client(server) as client:
-
             msg_name = "elevation"
             msg_details = {"measured": 1.1}
             comp_name = "MTMount"
@@ -262,7 +250,6 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
 
     async def test_write_tel_no_details(self):
         async with self.make_server() as server, self.make_client(server) as client:
-
             msg_name = "inPosition"
             comp_name = "MTMount"
             await client.write(MsgType.Telemetry, msg_name, comp_name=comp_name)
@@ -274,7 +261,6 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
 
     async def test_put_read_msg_to_queue(self):
         async with self.make_server() as server, self.make_client(server) as client:
-
             input_msg = {"val": 1}
             await write_json_packet(server.writer, input_msg)
 
@@ -288,7 +274,6 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
 
     async def test_run_monitor_loop(self):
         async with self.make_server() as server, self.make_client(server) as client:
-
             input_msg = {"val": 1}
             await self._write_msg_continuously_at_specific_time(
                 2, server, input_msg, 5, 1
@@ -327,6 +312,5 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == "__main__":
-
     # Do the unit test
     unittest.main()

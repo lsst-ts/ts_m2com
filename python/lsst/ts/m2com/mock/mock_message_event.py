@@ -39,7 +39,6 @@ class MockMessageEvent:
     """
 
     def __init__(self, writer):
-
         self.writer = writer
 
     async def write_m2_assembly_in_position(self, in_position):

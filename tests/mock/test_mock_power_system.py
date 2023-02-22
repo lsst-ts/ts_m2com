@@ -28,22 +28,18 @@ class TestMockPowerSystem(unittest.IsolatedAsyncioTestCase):
     """Test the Mock Power System class."""
 
     def setUp(self):
-
         self.power_system = MockPowerSystem(1, 2)
 
     def test_init(self):
-
         self.assertEqual(self.power_system.state, PowerSystemState.Init)
 
     async def test_power_on(self):
-
         await self.power_system.power_on()
 
         self.assertTrue(self.power_system._is_power_on)
         self.assertEqual(self.power_system.state, PowerSystemState.PoweringOn)
 
     async def test_wait_power_fully_on(self):
-
         # No update
         await self.power_system.wait_power_fully_on()
         self.assertEqual(self.power_system.state, PowerSystemState.Init)
@@ -55,7 +51,6 @@ class TestMockPowerSystem(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.power_system.state, PowerSystemState.PoweredOn)
 
     async def test_power_off(self):
-
         await self.power_system.power_on()
         await self.power_system.power_off()
 
@@ -63,7 +58,6 @@ class TestMockPowerSystem(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.power_system.state, PowerSystemState.PoweringOff)
 
     async def test_wait_power_fully_off(self):
-
         # No update
         await self.power_system.wait_power_fully_off()
         self.assertEqual(self.power_system.state, PowerSystemState.Init)
@@ -76,14 +70,12 @@ class TestMockPowerSystem(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.power_system.state, PowerSystemState.PoweredOff)
 
     async def test_is_power_on(self):
-
         self.assertFalse(self.power_system.is_power_on())
 
         await self.power_system.power_on()
         self.assertTrue(self.power_system.is_power_on())
 
     async def test_get_power(self):
-
         self.assertEqual(self.power_system.get_power(rms=0), (0, 0))
 
         await self.power_system.power_on()

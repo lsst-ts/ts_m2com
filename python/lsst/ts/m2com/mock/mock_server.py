@@ -81,7 +81,6 @@ class MockServer:
         log=None,
         is_csc=True,
     ):
-
         if log is None:
             self.log = logging.getLogger(type(self).__name__)
         else:
@@ -197,7 +196,6 @@ class MockServer:
             count = 0
             update_steps = False
             while self.server_command.connected:
-
                 if not self._welcome_message_sent:
                     await self._send_welcome_message()
                     self._welcome_message_sent = True
@@ -349,7 +347,6 @@ class MockServer:
             # Process the command
             name = msg["id"]
             if self._is_command(name):
-
                 # Acknowledge the command
                 sequence_id = msg["sequence_id"]
                 command_name = msg["id"]
@@ -517,7 +514,6 @@ class MockServer:
 
         script_engine = self.model.script_engine
         if script_engine.is_running:
-
             try:
                 script_engine.run_steps(steps)
 
@@ -539,7 +535,6 @@ class MockServer:
 
         control_open_loop = self.model.control_open_loop
         if control_open_loop.is_running:
-
             try:
                 control_open_loop.run_steps(steps)
 
@@ -596,7 +591,6 @@ class MockServer:
 
         try:
             while self.server_telemetry.connected:
-
                 await self._write_message_telemetry()
                 await asyncio.sleep(self.PERIOD_TELEMETRY_IN_SECOND)
 

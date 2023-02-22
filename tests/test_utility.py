@@ -38,7 +38,6 @@ class TestUtility(unittest.IsolatedAsyncioTestCase):
     """Test the functions in utility."""
 
     def test_check_queue_size(self):
-
         # No information is logged
         queue = asyncio.Queue(maxsize=3)
         log = logging.getLogger()
@@ -52,25 +51,21 @@ class TestUtility(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(check_queue_size(queue, log))
 
     def test_read_yaml_file_exception(self):
-
         self.assertRaises(IOError, read_yaml_file, "no_this_yaml_file.yaml")
 
     def test_read_yaml_file(self):
-
         yaml_file = get_config_dir() / "harrisLUT" / "cell_geom.yaml"
         content = read_yaml_file(yaml_file)
 
         self.assertEqual(content["radiusActTangent"], 1.780189734)
 
     def test_get_config_dir(self):
-
         path = get_config_dir()
 
         self.assertTrue(path.exists())
         self.assertEqual(path.name, "v2")
 
     def test_is_coroutine(self):
-
         self.assertTrue(is_coroutine(asyncio.sleep))
         self.assertFalse(is_coroutine(self._function))
 
@@ -78,7 +73,6 @@ class TestUtility(unittest.IsolatedAsyncioTestCase):
         pass
 
     def test_check_limit_switches(self):
-
         # Nothing is triggered
         actuator_forces = np.zeros(NUM_ACTUATOR)
         limit_force_axial = 3
@@ -114,6 +108,5 @@ class TestUtility(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == "__main__":
-
     # Do the unit test
     unittest.main()

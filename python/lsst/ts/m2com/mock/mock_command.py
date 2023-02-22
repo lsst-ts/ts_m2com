@@ -54,7 +54,6 @@ class MockCommand:
     SLEEP_TIME_NORMAL = 5
 
     def __init__(self, is_csc=True):
-
         # Is CSC or not.
         self._is_csc = is_csc
 
@@ -337,7 +336,6 @@ class MockCommand:
         """
 
         if self._is_csc:
-
             await self._power_off_fully(
                 PowerType.Motor, model.power_motor, message_event
             )

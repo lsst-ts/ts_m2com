@@ -49,7 +49,6 @@ class MockPowerSystem:
     SLEEP_TIME_LONG = 3
 
     def __init__(self, default_voltage, default_current):
-
         # Power is on or not
         self._is_power_on = False
 

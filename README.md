@@ -9,7 +9,7 @@
 
 ## Needed Package
 
-- [black](https://github.com/psf/black) (22.6.0, optional)
+- [black](https://github.com/psf/black) (23.1.0, optional)
 - [flake8](https://github.com/PyCQA/flake8) (4.0.1, optional)
 - [isort](https://github.com/PyCQA/isort) (5.10.1, optional)
 - [documenteer](https://github.com/lsst-sqre/documenteer) (optional)

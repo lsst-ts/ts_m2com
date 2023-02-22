@@ -100,7 +100,6 @@ class TestMockServerEui(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-
             # Check the one-time messages
             await asyncio.sleep(1)
             self.assertGreaterEqual(client_cmd.queue.qsize(), 9)
@@ -110,6 +109,5 @@ class TestMockServerEui(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == "__main__":
-
     # Do the unit test
     unittest.main()

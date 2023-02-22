@@ -59,7 +59,6 @@ class MockControlOpenLoop:
     STEP_TO_MM = 1.9967536601e-5
 
     def __init__(self):
-
         self.inclinometer_angle = 0
         self.open_loop_max_limit_is_enabled = False
         self.is_running = False

@@ -90,7 +90,6 @@ class TcpClient:
         maxsize_queue=1000,
         name="tcp-client",
     ):
-
         # Connection information
         self.host = host
         self.port = int(port)
@@ -148,7 +147,6 @@ class TcpClient:
         retry_times_max = timeout // connect_retry_interval
         retry_times = 0
         while not self.is_connected():
-
             try:
                 self.reader, self.writer = await asyncio.open_connection(
                     host=self.host, port=self.port
