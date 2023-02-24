@@ -114,7 +114,6 @@ class MockModel:
         motor_voltage=23.0,
         motor_current=8.5,
     ):
-
         # Set the logger
         if log is None:
             self.log = logging.getLogger(type(self).__name__)
@@ -344,7 +343,6 @@ class MockModel:
 
         error_code = MockErrorCode.NoError
         if self.control_closed_loop.is_running:
-
             (
                 is_out_limit,
                 limit_switches_retract,
@@ -355,7 +353,6 @@ class MockModel:
                 error_code = MockErrorCode.LimitSwitchTriggeredClosedloop
 
         else:
-
             (
                 is_out_limit,
                 limit_switches_retract,
@@ -447,7 +444,6 @@ class MockModel:
 
         position_ims = None
         if self.power_motor.is_power_on():
-
             telemetry_data["ilcData"] = self._get_ilc_data()
             telemetry_data[
                 "netForcesTotal"
@@ -700,7 +696,6 @@ class MockModel:
         # In the closed-loop control, update the steps and rigid body position
         # because of the udpated measured forces.
         if self.control_closed_loop.is_running and update_steps:
-
             # Calculate the steps
             forces = np.append(
                 self.control_closed_loop.axial_forces["measured"],
@@ -793,7 +788,6 @@ class MockModel:
         position = self._get_mirror_position_with_offset()
 
         for axis, value in position.items():
-
             if axis in ("x, y, z"):
                 scale = position_rms
             else:

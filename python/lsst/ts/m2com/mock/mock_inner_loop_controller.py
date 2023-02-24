@@ -34,7 +34,6 @@ class MockInnerLoopController:
     """
 
     def __init__(self):
-
         self.mode = InnerLoopControlMode.Standby
 
     def set_mode(self, mode):

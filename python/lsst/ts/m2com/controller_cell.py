@@ -233,7 +233,6 @@ class ControllerCell(Controller):
         is_coroutine_function = is_coroutine(process_event)
 
         while self.run_loops:
-
             try:
                 message = (
                     self.queue_event.get_nowait()
@@ -305,14 +304,11 @@ class ControllerCell(Controller):
         messages_consumed = 0
         messages_consumed_log_timer = asyncio.create_task(asyncio.sleep(period))
         while self.run_loops:
-
             if self.are_clients_connected():
-
                 if (
                     time_wait_telemetry >= self.TELEMETRY_WAIT_TIMEOUT
                     and not is_telemetry_timed_out
                 ):
-
                     self.log.warning(
                         (
                             "No telemetry update for more than "
@@ -411,7 +407,6 @@ class ControllerCell(Controller):
 
         were_clients_connected = False
         while self.run_loops:
-
             if self.are_clients_connected():
                 were_clients_connected = True
             else:

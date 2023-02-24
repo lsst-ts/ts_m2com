@@ -113,7 +113,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             self.assertFalse(controller.is_csc)
 
             await asyncio.sleep(SLEEP_TIME_SHORT)
@@ -123,7 +122,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             # Fake the error
             server.model.fault(MockErrorCode.LimitSwitchTriggeredClosedloop)
             await asyncio.sleep(SLEEP_TIME_SHORT)
@@ -140,7 +138,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             with self.assertRaises(RuntimeError):
                 await controller.write_command_to_server("enterControl")
 
@@ -148,7 +145,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             with self.assertRaises(RuntimeError):
                 await controller.write_command_to_server("exitControl")
 
@@ -156,7 +152,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             # Default condition
             is_commandable_by_dds = await self._get_latest_state_commandable_by_dds(
                 controller.queue_event
@@ -206,7 +201,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             with self.assertRaises(RuntimeError):
                 await controller.write_command_to_server(
                     "runScript",
@@ -220,7 +214,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             # Load the script and check
             script_name = "test"
             await controller.write_command_to_server(
@@ -275,7 +268,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             # Load the script
             await controller.write_command_to_server(
                 "runScript",
@@ -349,7 +341,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             with self.assertRaises(RuntimeError):
                 await controller.write_command_to_server(
                     "moveActuators",
@@ -360,7 +351,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             await server.model.power_communication.power_on()
             await server.model.power_motor.power_on()
 
@@ -388,7 +378,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             # Change the default steps to trigger the fault easier
             steps = np.zeros(NUM_ACTUATOR, dtype=int)
             steps[0] = -4500
@@ -427,7 +416,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             await server.model.power_communication.power_on()
             await server.model.power_motor.power_on()
 
@@ -485,7 +473,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             await server.model.power_communication.power_on()
             await controller.write_command_to_server(
                 "resetBreakers",
@@ -505,7 +492,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             await server.model.power_communication.power_on()
             await server.model.power_motor.power_on()
             await controller.write_command_to_server(
@@ -528,7 +514,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             # Connection is on in the initial beginning
             self.assertTrue(controller.are_clients_connected())
 
@@ -542,7 +527,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             await controller.write_command_to_server(
                 "enableOpenLoopMaxLimit", message_details={"status": True}
             )
@@ -562,7 +546,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             await controller.write_command_to_server("saveMirrorPosition")
 
             # Wait a little time to collect the messages
@@ -573,7 +556,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             server.model.mirror_position["x"] = 1
 
             await controller.write_command_to_server("setMirrorHome")
@@ -584,7 +566,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             # No this bit value
             with self.assertRaises(RuntimeError):
                 await controller.write_command_to_server(
@@ -595,7 +576,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-
             # Switch the communication power
             await controller.write_command_to_server(
                 "switchDigitalOutput",
@@ -628,6 +608,5 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == "__main__":
-
     # Do the unit test
     unittest.main()

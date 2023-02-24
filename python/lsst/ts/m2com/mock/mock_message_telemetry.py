@@ -39,7 +39,6 @@ class MockMessageTelemetry:
     """
 
     def __init__(self, writer):
-
         self.writer = writer
 
     async def write_position(self, data):

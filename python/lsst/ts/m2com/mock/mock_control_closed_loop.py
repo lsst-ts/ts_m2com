@@ -59,7 +59,6 @@ class MockControlClosedLoop:
     """
 
     def __init__(self):
-
         self.is_running = False
 
         self.temperature = MockControlClosedLoop._get_temperatures()
@@ -361,7 +360,10 @@ class MockControlClosedLoop:
         """Set the hardpoint compensation matrix."""
 
         # There are 3 axial actuators to be hardpoints
-        (hd_comp_axial, hd_comp_tangent,) = MockControlClosedLoop.calc_hp_comp_matrix(
+        (
+            hd_comp_axial,
+            hd_comp_tangent,
+        ) = MockControlClosedLoop.calc_hp_comp_matrix(
             self.get_actuator_location_axial(), self.hardpoints[:3], self.hardpoints[3:]
         )
         self._hd_comp = block_diag(hd_comp_axial, hd_comp_tangent)
@@ -1236,7 +1238,6 @@ class MockControlClosedLoop:
         # In the closed-loop control, update the measured forces. Otherwise, do
         # not update the values.
         if self.is_running:
-
             num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
 
             self.axial_forces["measured"] = final_force[
@@ -1303,7 +1304,6 @@ class MockControlClosedLoop:
         # Calculate the final force
         final_force = force_measured.copy()
         if not in_position:
-
             # Since the force error in hardpoints are always zero, we need to
             # deal with them seperatily.
             actuators_in_cycle = np.where(np.abs(force_error) <= force_per_cycle)[0]

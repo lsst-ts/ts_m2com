@@ -92,7 +92,6 @@ class Controller:
     def __init__(
         self, log=None, timeout_in_second=0.05, maxsize_queue=1000, is_csc=True
     ):
-
         # Set the logger
         if log is None:
             self.log = logging.getLogger(type(self).__name__)
@@ -196,7 +195,6 @@ class Controller:
             if self.are_clients_connected():
                 await asyncio.sleep(1)
             else:
-
                 try:
                     await asyncio.gather(
                         self.client_command.connect(timeout=timeout),
@@ -363,7 +361,6 @@ class Controller:
         """
 
         if message["id"] == "powerSystemState":
-
             power_type = None
             state = None
             try:
@@ -586,7 +583,6 @@ class Controller:
         time_wait_command_status_update = 0.5
         time_start = time.monotonic()
         while (time.monotonic() - time_start) < timeout:
-
             last_command_status = self.last_command_status
 
             if last_command_status == CommandStatus.Success:
@@ -714,7 +710,6 @@ class Controller:
 
         time_start = time.monotonic()
         while (time.monotonic() - time_start) < timeout:
-
             if callback_check(*args, **kwargs):
                 return True
 
@@ -741,14 +736,12 @@ class Controller:
         """
 
         if power_type == PowerType.Motor:
-
             if (self.power_system_status["motor_power_is_on"] == status) and (
                 self.power_system_status["motor_power_state"] == expected_state
             ):
                 return True
 
         else:
-
             if (self.power_system_status["communication_power_is_on"] == status) and (
                 self.power_system_status["communication_power_state"] == expected_state
             ):
@@ -844,7 +837,6 @@ class Controller:
         all_modes_are_clear = False
         all_modes_are_enabled = False
         for idx in range(1 + retry_times):
-
             # Try to get all the ILC modes first. If not, continue to the next
             # try.
             addresses_nan = np.where(np.isnan(self.ilc_modes))[0].tolist()
@@ -940,7 +932,6 @@ class Controller:
 
         # Raise the error if needed
         if not all_modes_are_received:
-
             addresses_nan = np.where(np.isnan(self.ilc_modes))[0].tolist()
             raise RuntimeError(
                 f"No response for the following ILCs: {addresses_nan} after "
@@ -948,7 +939,6 @@ class Controller:
             )
 
         if not all_modes_are_clear:
-
             modbus_ids_unknown = [address + 1 for address in addresses_unknown]
             raise RuntimeError(
                 f"Following ILCs have the unknown states: {addresses_unknown}. "
@@ -956,7 +946,6 @@ class Controller:
             )
 
         if not all_modes_are_enabled:
-
             for address in addresses_not_enabled:
                 self.log.debug(
                     f"ILC {address} is {InnerLoopControlMode(self.ilc_modes[address])!r} "

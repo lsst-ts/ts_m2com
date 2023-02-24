@@ -28,11 +28,9 @@ class TestMockErrorHandler(unittest.TestCase):
     """Test the Mock Error Handler class."""
 
     def setUp(self):
-
         self.error_handler = MockErrorHandler()
 
     def test_clear(self):
-
         self.error_handler._errors_new.add(1)
         self.error_handler._errors_reported.add(2)
 
@@ -54,7 +52,6 @@ class TestMockErrorHandler(unittest.TestCase):
         self.assertEqual(len(self.error_handler._limit_switches_extend_reported), 0)
 
     def test_add_new_error(self):
-
         self.error_handler.add_new_error(1)
         self.assertEqual(len(self.error_handler._errors_new), 1)
 
@@ -68,7 +65,6 @@ class TestMockErrorHandler(unittest.TestCase):
         self.assertEqual(len(self.error_handler._errors_new), 1)
 
     def test_add_new_limit_switch_exception(self):
-
         for actuator_id in (-1, 78, 79):
             for limit_switch_type in LimitSwitchType:
                 self.assertRaises(
@@ -79,7 +75,6 @@ class TestMockErrorHandler(unittest.TestCase):
                 )
 
     def test_add_new_limit_switch_retract(self):
-
         self._test_add_new_limit_switch(
             self.error_handler._limit_switches_retract_new,
             self.error_handler._limit_switches_retract_reported,
@@ -87,7 +82,6 @@ class TestMockErrorHandler(unittest.TestCase):
         )
 
     def _test_add_new_limit_switch(self, set_new, set_reported, limit_switch_type):
-
         self.error_handler.add_new_limit_switch(1, limit_switch_type)
         self.assertEqual(len(set_new), 1)
 
@@ -101,7 +95,6 @@ class TestMockErrorHandler(unittest.TestCase):
         self.assertEqual(len(set_new), 1)
 
     def test_add_new_limit_switch_extend(self):
-
         self._test_add_new_limit_switch(
             self.error_handler._limit_switches_extend_new,
             self.error_handler._limit_switches_extend_reported,
@@ -109,14 +102,12 @@ class TestMockErrorHandler(unittest.TestCase):
         )
 
     def test_exists_new_error(self):
-
         self.assertFalse(self.error_handler.exists_new_error())
 
         self.error_handler.add_new_error(1)
         self.assertTrue(self.error_handler.exists_new_error())
 
     def test_exists_new_limit_switch(self):
-
         for limit_switch_type in LimitSwitchType:
             self.assertFalse(
                 self.error_handler.exists_new_limit_switch(limit_switch_type)
@@ -128,14 +119,12 @@ class TestMockErrorHandler(unittest.TestCase):
             )
 
     def test_exists_error(self):
-
         self.assertFalse(self.error_handler.exists_error())
 
         self.error_handler._errors_reported.add(1)
         self.assertTrue(self.error_handler.exists_error())
 
     def test_exists_limit_switch(self):
-
         for limit_switch_type in LimitSwitchType:
             self.assertFalse(self.error_handler.exists_limit_switch(limit_switch_type))
 
@@ -147,12 +136,10 @@ class TestMockErrorHandler(unittest.TestCase):
             self._test_exists_limit_switch(set_reported, limit_switch_type)
 
     def _test_exists_limit_switch(self, set_reported, limit_switch_type):
-
         set_reported.add(1)
         self.assertTrue(self.error_handler.exists_limit_switch(limit_switch_type))
 
     def test_get_errors_to_report(self):
-
         self.error_handler.add_new_error(1)
 
         errors = self.error_handler.get_errors_to_report()
@@ -162,7 +149,6 @@ class TestMockErrorHandler(unittest.TestCase):
         self.assertEqual(len(self.error_handler._errors_reported), 1)
 
     def test_get_limit_switches_to_report(self):
-
         for limit_switch_type in LimitSwitchType:
             self.error_handler.add_new_limit_switch(1, limit_switch_type)
 
@@ -180,6 +166,5 @@ class TestMockErrorHandler(unittest.TestCase):
 
 
 if __name__ == "__main__":
-
     # Do the unit test
     unittest.main()

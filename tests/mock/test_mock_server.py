@@ -238,7 +238,6 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-
             server.model.control_closed_loop.temperature["exhaust"] = [99, 99]
             await asyncio.sleep(0.5)
 
@@ -356,7 +355,6 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-
             await client_cmd.write(MsgType.Command, "standby")
             await asyncio.sleep(3)
 
@@ -380,7 +378,6 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-
             await client_cmd.write(MsgType.Command, "standby")
             await asyncio.sleep(3)
 
@@ -393,7 +390,6 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-
             await client_cmd.write(MsgType.Command, "start")
             await asyncio.sleep(5)
 
@@ -419,7 +415,6 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-
             await client_cmd.write(MsgType.Command, "enterControl")
             await asyncio.sleep(0.5)
 
@@ -468,7 +463,6 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-
             force_axial = [1] * (NUM_ACTUATOR - NUM_TANGENT_LINK)
             force_tangent = [2] * NUM_TANGENT_LINK
 
@@ -493,7 +487,6 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-
             await server.model.power_motor.power_on()
             server.model.switch_force_balance_system(True)
             mirror_position_set_point = dict(
@@ -671,7 +664,6 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-
             # Check the telemetry
             await asyncio.sleep(1)
             self.assertGreater(client_tel.queue.qsize(), 10)
@@ -693,7 +685,6 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-
             server.model.select_inclination_source(
                 MTM2.InclinationTelemetrySource.MTMOUNT
             )
@@ -717,7 +708,6 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-
             # Check the initial telemetry
             await asyncio.sleep(0.5)
 
@@ -847,6 +837,5 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == "__main__":
-
     # Do the unit test
     unittest.main()

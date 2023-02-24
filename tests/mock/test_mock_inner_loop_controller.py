@@ -28,11 +28,9 @@ class TestMockInnerLoopController(unittest.TestCase):
     """Test the Mock Inner-Loop Controller class."""
 
     def setUp(self):
-
         self.inner_loop_controller = MockInnerLoopController()
 
     def test_set_mode(self):
-
         self.inner_loop_controller.set_mode(InnerLoopControlMode.Fault)
         self.assertEqual(self.inner_loop_controller.mode, InnerLoopControlMode.Fault)
 
@@ -44,6 +42,5 @@ class TestMockInnerLoopController(unittest.TestCase):
 
 
 if __name__ == "__main__":
-
     # Do the unit test
     unittest.main()

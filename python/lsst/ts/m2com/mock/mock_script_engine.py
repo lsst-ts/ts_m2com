@@ -34,7 +34,6 @@ class MockScriptEngine:
     """
 
     def __init__(self):
-
         self._name = ""
 
         self.is_running = False

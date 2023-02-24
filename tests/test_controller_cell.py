@@ -33,7 +33,6 @@ class TestControllerCell(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def setUpClass(cls):
-
         cls.log = logging.getLogger()
         cls.host = tcpip.LOCALHOST_IPV4
 
@@ -64,7 +63,6 @@ class TestControllerCell(unittest.IsolatedAsyncioTestCase):
 
     async def test_stop_loops(self):
         async with self.make_controller() as controller:
-
             self.assertTrue(controller.are_clients_connected())
 
             controller.run_loops = True
@@ -88,14 +86,12 @@ class TestControllerCell(unittest.IsolatedAsyncioTestCase):
         pass
 
     async def test_stop_loops_no_connection(self):
-
         controller = ControllerCell(log=self.log, host=self.host)
         await controller.stop_loops()
 
         self.assertFalse(controller.run_loops)
 
     async def test_close_tasks_no_connection(self):
-
         controller = ControllerCell(log=self.log, host=self.host)
         await controller.close_tasks()
 
