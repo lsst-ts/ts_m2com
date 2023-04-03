@@ -159,22 +159,26 @@ class ControllerCell(Controller):
             If timeout in connection.
         """
 
+        host = self.host
         port_command = self.port_command
         port_telemetry = self.port_telemetry
 
+        # Overwrite the host of _summit.yaml file in ts_config_mttcs to run the
+        # simulation mode on summit.
         # The ports of mock server are randomly assigned by the operation
         # system.
         if self.mock_server is not None:
+            host = LOCALHOST_IPV4
             port_command = self.mock_server.server_command.port
             port_telemetry = self.mock_server.server_telemetry.port
 
         self.log.debug(
-            f"Host in connection request: {self.host} with command port: "
+            f"Host in connection request: {host} with command port: "
             f"{port_command} and telemetry port: {port_telemetry}."
         )
 
         self.start(
-            self.host,
+            host,
             port_command,
             port_telemetry,
             sequence_generator=self._sequence_generator,
@@ -191,7 +195,7 @@ class ControllerCell(Controller):
         if not self.are_clients_connected():
             raise RuntimeError(
                 "Timeout in connection - Conection timeouted, connection "
-                f"failed or cannot connect. Host: {self.host}, ports: "
+                f"failed or cannot connect. Host: {host}, ports: "
                 f"{port_command} and {port_telemetry}."
             )
 
