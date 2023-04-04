@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v0.9.6
+------
+
+* Fix the bug to run the simulation mode with mock server on summit.
+
 v0.9.5
 ------
 
