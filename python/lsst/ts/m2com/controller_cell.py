@@ -20,7 +20,10 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import logging
 import time
+import typing
+from pathlib import Path
 
 from lsst.ts.tcpip import LOCALHOST_IPV4
 from lsst.ts.utils import index_generator, make_done_future
@@ -54,8 +57,8 @@ class ControllerCell(Controller):
         Command port to connect. (the default is None)
     port_telemetry : `int` or None, optional
         Telemetry port to connect. (the default is None)
-    timeout_connection : `int` or `float`, optional
-        Connection timeout in second. (the default is 10)
+    timeout_connection : `float`, optional
+        Connection timeout in second. (the default is 10.0)
 
     Attributes
     ----------
@@ -65,7 +68,7 @@ class ControllerCell(Controller):
         Command port to connect.
     port_telemetry : `int` or None
         Telemetry port to connect.
-    timeout_connection : `int` or `float`
+    timeout_connection : `float`
         Connection timeout in second.
     mock_server : `MockServer` or None
         Mock server to support the simulation.
@@ -82,15 +85,15 @@ class ControllerCell(Controller):
 
     def __init__(
         self,
-        log=None,
-        timeout_in_second=0.05,
-        maxsize_queue=1000,
-        is_csc=True,
-        host=None,
-        port_command=None,
-        port_telemetry=None,
-        timeout_connection=10,
-    ):
+        log: logging.Logger | None = None,
+        timeout_in_second: float = 0.05,
+        maxsize_queue: int = 1000,
+        is_csc: bool = True,
+        host: str | None = None,
+        port_command: int | None = None,
+        port_telemetry: int | None = None,
+        timeout_connection: float = 10.0,
+    ) -> None:
         super().__init__(
             log=log,
             timeout_in_second=timeout_in_second,
@@ -105,7 +108,7 @@ class ControllerCell(Controller):
         self.timeout_connection = timeout_connection
 
         # Mock server that is only needed in the simulation
-        self.mock_server = None
+        self.mock_server: MockServer | None = None
 
         # Sequence generator
         self._sequence_generator = index_generator()
@@ -123,7 +126,7 @@ class ControllerCell(Controller):
         # Task to monitor the connection status actively (asyncio.Future)
         self._task_connection_monitor_loop = make_done_future()
 
-    async def run_mock_server(self, config_dir, lut_path):
+    async def run_mock_server(self, config_dir: Path, lut_path: str) -> None:
         """Run the mock server to support the simulation mode.
 
         Parameters
@@ -150,7 +153,7 @@ class ControllerCell(Controller):
         self.mock_server.model.configure(config_dir, lut_path)
         await self.mock_server.start()
 
-    async def connect_server(self):
+    async def connect_server(self) -> None:
         """Connect the TCP/IP server.
 
         Raises
@@ -177,6 +180,11 @@ class ControllerCell(Controller):
             f"{port_command} and telemetry port: {port_telemetry}."
         )
 
+        # Workaround of the mypy checking
+        assert host is not None
+        assert port_command is not None
+        assert port_telemetry is not None
+
         self.start(
             host,
             port_command,
@@ -199,7 +207,12 @@ class ControllerCell(Controller):
                 f"{port_command} and {port_telemetry}."
             )
 
-    def start_task_event_loop(self, process_event, *args, **kwargs):
+    def start_task_event_loop(
+        self,
+        process_event: typing.Callable | typing.Coroutine,
+        *args: typing.Any,
+        **kwargs: typing.Dict[str, typing.Any],
+    ) -> None:
         """Start the task of event loop.
 
         Parameters
@@ -217,7 +230,12 @@ class ControllerCell(Controller):
             self._event_loop(process_event, *args, **kwargs)
         )
 
-    async def _event_loop(self, process_event, *args, **kwargs):
+    async def _event_loop(
+        self,
+        process_event: typing.Callable | typing.Coroutine,
+        *args: typing.Any,
+        **kwargs: typing.Dict[str, typing.Any],
+    ) -> None:
         """Update and output event information from component.
 
         Parameters
@@ -253,15 +271,21 @@ class ControllerCell(Controller):
 
             # Process the event
             if is_coroutine_function:
-                await process_event(*args, message=message, **kwargs)
+                await process_event(*args, message=message, **kwargs)  # type: ignore[operator]
             else:
-                process_event(*args, message=message, **kwargs)
+                process_event(*args, message=message, **kwargs)  # type: ignore[operator]
 
             await asyncio.sleep(self.timeout)
 
         self.log.debug("Component's event loop exited.")
 
-    def start_task_telemetry_loop(self, process_telemetry, *args, period=2, **kwargs):
+    def start_task_telemetry_loop(
+        self,
+        process_telemetry: typing.Callable | typing.Coroutine,
+        *args: typing.Any,
+        period: float = 2.0,
+        **kwargs: typing.Dict[str, typing.Any],
+    ) -> None:
         """Start the task of telemetry loop.
 
         Parameters
@@ -271,8 +295,8 @@ class ControllerCell(Controller):
             of "message" to receive the message as a dictionary.
         *args : `args`
             Arguments needed in "process_telemetry" function call.
-        period : `float` or `int`, optional
-            Period to check the telemetry rate in second. (the default is 2)
+        period : `float`, optional
+            Period to check the telemetry rate in second. (the default is 2.0)
         **kwargs : `dict`, optional
             Additional keyword arguments in "process_telemetry" function
             call.
@@ -281,7 +305,13 @@ class ControllerCell(Controller):
             self._telemetry_loop(process_telemetry, *args, period=period, **kwargs)
         )
 
-    async def _telemetry_loop(self, process_telemetry, *args, period=2, **kwargs):
+    async def _telemetry_loop(
+        self,
+        process_telemetry: typing.Callable | typing.Coroutine,
+        *args: typing.Any,
+        period: float = 2.0,
+        **kwargs: typing.Dict[str, typing.Any],
+    ) -> None:
         """Update and output telemetry information from component.
 
         Parameters
@@ -291,8 +321,8 @@ class ControllerCell(Controller):
             of "message" to receive the message as a dictionary.
         *args : `args`
             Arguments needed in "process_telemetry" function call.
-        period : `float` or `int`, optional
-            Period to check the telemetry rate in second. (the default is 2)
+        period : `float`, optional
+            Period to check the telemetry rate in second. (the default is 2.0)
         **kwargs : `dict`, optional
             Additional keyword arguments in "process_telemetry" function
             call.
@@ -309,6 +339,9 @@ class ControllerCell(Controller):
         messages_consumed_log_timer = asyncio.create_task(asyncio.sleep(period))
         while self.run_loops:
             if self.are_clients_connected():
+                # Workaround of the mypy checking
+                assert self.client_telemetry is not None
+
                 if (
                     time_wait_telemetry >= self.TELEMETRY_WAIT_TIMEOUT
                     and not is_telemetry_timed_out
@@ -344,9 +377,9 @@ class ControllerCell(Controller):
 
                 # Process the telemetry
                 if is_coroutine_function:
-                    await process_telemetry(*args, message=message, **kwargs)
+                    await process_telemetry(*args, message=message, **kwargs)  # type: ignore[operator]
                 else:
-                    process_telemetry(*args, message=message, **kwargs)
+                    process_telemetry(*args, message=message, **kwargs)  # type: ignore[operator]
 
                 # Evaluate the telemetry rate
                 messages_consumed += 1
@@ -364,8 +397,12 @@ class ControllerCell(Controller):
         self.log.debug("The component's telemetry loop exited/ended.")
 
     def start_task_connection_monitor_loop(
-        self, process_lost_connection, *args, period=1, **kwargs
-    ):
+        self,
+        process_lost_connection: typing.Callable | typing.Coroutine,
+        *args: typing.Any,
+        period: float = 1.0,
+        **kwargs: typing.Dict[str, typing.Any],
+    ) -> None:
         """Start the task of connection monitor loop.
 
         Parameters
@@ -374,8 +411,9 @@ class ControllerCell(Controller):
             Function to process the lost of connection.
         *args : `args`
             Arguments needed in "process_lost_connection" function call.
-        period : `float` or `int`, optional
-            Period to check the connection status in second. (the default is 1)
+        period : `float`, optional
+            Period to check the connection status in second. (the default is
+            1.0)
         **kwargs : `dict`, optional
             Additional keyword arguments in "process_lost_connection" function
             call.
@@ -387,8 +425,12 @@ class ControllerCell(Controller):
         )
 
     async def _connection_monitor_loop(
-        self, process_lost_connection, *args, period=1, **kwargs
-    ):
+        self,
+        process_lost_connection: typing.Callable | typing.Coroutine,
+        *args: typing.Any,
+        period: float = 1.0,
+        **kwargs: typing.Dict[str, typing.Any],
+    ) -> None:
         """Actively monitor the connection status from component. Disconnect
         the system if the connection is lost by itself.
 
@@ -398,8 +440,9 @@ class ControllerCell(Controller):
             Function to process the lost of connection.
         *args : `args`
             Arguments needed in "process_lost_connection" function call.
-        period : `float` or `int`, optional
-            Period to check the connection status in second. (the default is 1)
+        period : `float`, optional
+            Period to check the connection status in second. (the default is
+            1.0)
         **kwargs : `dict`, optional
             Additional keyword arguments in "process_lost_connection" function
             call.
@@ -424,15 +467,15 @@ class ControllerCell(Controller):
 
                     # Process the lost of connection
                     if is_coroutine_function:
-                        await process_lost_connection(*args, **kwargs)
+                        await process_lost_connection(*args, **kwargs)  # type: ignore[operator]
                     else:
-                        process_lost_connection(*args, **kwargs)
+                        process_lost_connection(*args, **kwargs)  # type: ignore[operator]
 
             await asyncio.sleep(period)
 
         self.log.debug("Connection monitor loop from component closed.")
 
-    async def close_tasks(self):
+    async def close_tasks(self) -> None:
         """Close the asynchronous tasks.
 
         Note: this function is safe to call even though there is no connection.
@@ -445,7 +488,7 @@ class ControllerCell(Controller):
         except Exception:
             self.log.exception("Exception while stopping the loops. Ignoring...")
 
-    async def _close_controller_and_mock_server(self):
+    async def _close_controller_and_mock_server(self) -> None:
         """Close the controller and mock server."""
 
         await self.close()
@@ -458,7 +501,7 @@ class ControllerCell(Controller):
             await self.mock_server.close()
             self.mock_server = None
 
-    async def stop_loops(self):
+    async def stop_loops(self) -> None:
         """Stop the loops.
 
         Note: this function is safe to call even though there is no connection.

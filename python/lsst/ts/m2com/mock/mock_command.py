@@ -20,6 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import typing
 
 from lsst.ts import salobj
 from lsst.ts.idl.enums import MTM2
@@ -36,6 +37,7 @@ from ..enum import (
     PowerSystemState,
     PowerType,
 )
+from . import MockMessageEvent, MockModel, MockPowerSystem
 
 __all__ = ["MockCommand"]
 
@@ -53,13 +55,15 @@ class MockCommand:
     SLEEP_TIME_SHORT = 0.01
     SLEEP_TIME_NORMAL = 5
 
-    def __init__(self, is_csc=True):
+    def __init__(self, is_csc: bool = True) -> None:
         # Is CSC or not.
         self._is_csc = is_csc
 
         self._digital_output = 0
 
-    async def enable(self, message, model, message_event):
+    async def enable(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Enable the system.
 
         Parameters
@@ -116,7 +120,12 @@ class MockCommand:
             CommandStatus.Success if command_success is True else CommandStatus.Fail,
         )
 
-    async def _power_on_fully(self, power_type, power_system, message_event):
+    async def _power_on_fully(
+        self,
+        power_type: PowerType,
+        power_system: MockPowerSystem,
+        message_event: MockMessageEvent,
+    ) -> None:
         """Fully power on the system.
 
         Parameters
@@ -139,7 +148,12 @@ class MockCommand:
             power_type, power_system.is_power_on(), power_system.state
         )
 
-    async def _power_off_fully(self, power_type, power_system, message_event):
+    async def _power_off_fully(
+        self,
+        power_type: PowerType,
+        power_system: MockPowerSystem,
+        message_event: MockMessageEvent,
+    ) -> None:
         """Fully power off the system.
 
         Parameters
@@ -162,7 +176,9 @@ class MockCommand:
             power_type, power_system.is_power_on(), power_system.state
         )
 
-    async def _report_digital_input_and_ouput(self, model, message_event):
+    async def _report_digital_input_and_ouput(
+        self, model: MockModel, message_event: MockMessageEvent
+    ) -> None:
         """Report the digital input and output.
 
         Parameters
@@ -179,7 +195,9 @@ class MockCommand:
         self._digital_output = model.get_digital_output()
         await message_event.write_digital_output(self._digital_output)
 
-    async def disable(self, message, model, message_event):
+    async def disable(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Disable the system.
 
         Parameters
@@ -216,7 +234,9 @@ class MockCommand:
 
         return model, CommandStatus.Success
 
-    async def standby(self, message, model, message_event):
+    async def standby(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Standby the system.
 
         Parameters
@@ -247,7 +267,9 @@ class MockCommand:
 
         return model, CommandStatus.Success
 
-    async def start(self, message, model, message_event):
+    async def start(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Start the system.
 
         Parameters
@@ -277,7 +299,9 @@ class MockCommand:
 
         return model, CommandStatus.Success
 
-    async def enter_control(self, message, model, message_event):
+    async def enter_control(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Enter the control.
 
         This is only supported for the commandable SAL component (CSC). In the
@@ -311,7 +335,9 @@ class MockCommand:
         else:
             return model, CommandStatus.Fail
 
-    async def exit_control(self, message, model, message_event):
+    async def exit_control(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Exit the control.
 
         This is only supported for the commandable SAL component (CSC). In the
@@ -359,7 +385,9 @@ class MockCommand:
         else:
             return model, CommandStatus.Fail
 
-    async def apply_forces(self, message, model, message_event):
+    async def apply_forces(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Apply the forces in addtional to the LUT force.
 
         LUT: look-up table.
@@ -391,7 +419,9 @@ class MockCommand:
 
         return model, command_status
 
-    async def position_mirror(self, message, model, message_event):
+    async def position_mirror(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Position the mirror.
 
         Parameters
@@ -438,7 +468,9 @@ class MockCommand:
             CommandStatus.Success if command_success is True else CommandStatus.Fail,
         )
 
-    async def reset_force_offsets(self, message, model, message_event):
+    async def reset_force_offsets(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Reset the actuator force offsets (not LUT force).
 
         LUT: look-up table.
@@ -465,7 +497,9 @@ class MockCommand:
 
         return model, CommandStatus.Success
 
-    async def clear_errors(self, message, model, message_event):
+    async def clear_errors(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Clear the system errors.
 
         Parameters
@@ -497,7 +531,9 @@ class MockCommand:
 
         return model, command_status
 
-    async def switch_force_balance_system(self, message, model, message_event):
+    async def switch_force_balance_system(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Switch the force balance system.
 
         Parameters
@@ -542,7 +578,9 @@ class MockCommand:
             CommandStatus.Success if command_success is True else CommandStatus.Fail,
         )
 
-    async def select_inclination_source(self, message, model, message_event):
+    async def select_inclination_source(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Select the source of inclination.
 
         Parameters
@@ -571,7 +609,9 @@ class MockCommand:
 
         return model, CommandStatus.Success
 
-    async def set_temperature_offset(self, message, model, message_event):
+    async def set_temperature_offset(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Set the temperature offset used in the calculation of LUT force.
 
         LUT: look-up table.
@@ -603,7 +643,9 @@ class MockCommand:
 
         return model, command_status
 
-    async def switch_command_source(self, message, model, message_event):
+    async def switch_command_source(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Switch the command source to be the commandable SAL component (CSC)
         or engineering user interface (EUI).
 
@@ -629,7 +671,9 @@ class MockCommand:
 
         return model, CommandStatus.Success
 
-    async def run_script(self, message, model, message_event):
+    async def run_script(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Run the binary script used in the engineering user interface (EUI).
 
         Parameters
@@ -672,7 +716,9 @@ class MockCommand:
 
         return model, CommandStatus.Success
 
-    async def move_actuators(self, message, model, message_event):
+    async def move_actuators(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Move the actuators.
 
         Parameters
@@ -715,7 +761,9 @@ class MockCommand:
 
         return model, CommandStatus.Success
 
-    async def reset_breakers(self, message, model, message_event):
+    async def reset_breakers(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Reset the breakers.
 
         Parameters
@@ -793,7 +841,9 @@ class MockCommand:
             CommandStatus.Success if command_success is True else CommandStatus.Fail,
         )
 
-    async def reboot_controller(self, message, model, message_event):
+    async def reboot_controller(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Reboot the cell controller.
 
         Parameters
@@ -815,7 +865,9 @@ class MockCommand:
 
         return model, CommandStatus.Success
 
-    async def enable_open_loop_max_limit(self, message, model, message_event):
+    async def enable_open_loop_max_limit(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Enable the maximum limit in open-loop control.
 
         Parameters
@@ -846,7 +898,9 @@ class MockCommand:
             CommandStatus.Success if command_success is True else CommandStatus.Fail,
         )
 
-    async def save_mirror_position(self, message, model, message_event):
+    async def save_mirror_position(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Save the position of mirror.
 
         Parameters
@@ -868,7 +922,9 @@ class MockCommand:
 
         return model, CommandStatus.Success
 
-    async def set_mirror_home(self, message, model, message_event):
+    async def set_mirror_home(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Set the home of mirror.
 
         Parameters
@@ -897,7 +953,9 @@ class MockCommand:
 
         return model, CommandStatus.Success
 
-    async def switch_digital_output(self, message, model, message_event):
+    async def switch_digital_output(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Switch the digital output.
 
         Parameters
@@ -947,7 +1005,9 @@ class MockCommand:
 
         return model, CommandStatus.Success
 
-    async def power(self, message, model, message_event):
+    async def power(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Power on/off the motor/communication system.
 
         Parameters
@@ -1000,7 +1060,9 @@ class MockCommand:
 
         return model, CommandStatus.Success
 
-    async def reset_actuator_steps(self, message, model, message_event):
+    async def reset_actuator_steps(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Reset the actuator steps.
 
         Notes
@@ -1027,7 +1089,9 @@ class MockCommand:
         """
         return model, CommandStatus.Success
 
-    async def set_closed_loop_control_mode(self, message, model, message_event):
+    async def set_closed_loop_control_mode(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Set the closed-loop control mode.
 
         Parameters
@@ -1057,7 +1121,9 @@ class MockCommand:
 
         return model, CommandStatus.Success
 
-    async def set_inner_loop_control_mode(self, message, model, message_event):
+    async def set_inner_loop_control_mode(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Set the inner-loop control mode.
 
         Parameters
@@ -1097,7 +1163,9 @@ class MockCommand:
 
         return model, CommandStatus.Success
 
-    async def get_inner_loop_control_mode(self, message, model, message_event):
+    async def get_inner_loop_control_mode(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """get the inner-loop control mode.
 
         Parameters
@@ -1133,7 +1201,9 @@ class MockCommand:
 
         return model, CommandStatus.Success
 
-    async def load_configuration(self, message, model, message_event):
+    async def load_configuration(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
         """Load the configuration.
 
         Parameters

@@ -33,10 +33,10 @@ class MockInnerLoopController:
         mode of ILC.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.mode = InnerLoopControlMode.Standby
 
-    def set_mode(self, mode):
+    def set_mode(self, mode: InnerLoopControlMode) -> None:
         """Set the mode.
 
         Notes

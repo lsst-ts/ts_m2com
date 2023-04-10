@@ -29,7 +29,13 @@ from lsst.ts.utils import make_done_future
 
 from ..enum import ClosedLoopControlMode, CommandStatus, DetailedState, LimitSwitchType
 from ..utility import write_json_packet
-from . import MockCommand, MockMessageEvent, MockMessageTelemetry, MockModel
+from . import (
+    MockCommand,
+    MockMessageEvent,
+    MockMessageTelemetry,
+    MockModel,
+    MockPowerSystem,
+)
 
 __all__ = ["MockServer"]
 
@@ -74,13 +80,13 @@ class MockServer:
 
     def __init__(
         self,
-        host,
-        port_command=50000,
-        port_telemetry=50001,
-        timeout_in_second=0.05,
-        log=None,
-        is_csc=True,
-    ):
+        host: str,
+        port_command: int = 50000,
+        port_telemetry: int = 50001,
+        timeout_in_second: float = 0.05,
+        log: logging.Logger | None = None,
+        is_csc: bool = True,
+    ) -> None:
         if log is None:
             self.log = logging.getLogger(type(self).__name__)
         else:
@@ -117,8 +123,8 @@ class MockServer:
         self._welcome_message_sent = False
 
         # Simulate the messages
-        self._message_event = None
-        self._message_telemetry = None
+        self._message_event: MockMessageEvent | None = None
+        self._message_telemetry: MockMessageTelemetry | None = None
 
         self._is_csc = is_csc
 
@@ -154,7 +160,9 @@ class MockServer:
             "cmd_loadConfiguration": self._command.load_configuration,
         }
 
-    async def _connect_state_changed_callback_command(self, server_command):
+    async def _connect_state_changed_callback_command(
+        self, server_command: tcpip.OneClientServer
+    ) -> None:
         """Called when the command server connection state changes.
 
         Notes
@@ -176,7 +184,7 @@ class MockServer:
                 self._monitor_message_command()
             )
 
-    async def _monitor_message_command(self, counts_min=5):
+    async def _monitor_message_command(self, counts_min: int = 5) -> None:
         """Monitor the message from command server.
 
         Parameters
@@ -245,12 +253,15 @@ class MockServer:
         self.model.script_engine.pause()
         self.model.script_engine.clear()
 
-    async def _send_welcome_message(self):
+    async def _send_welcome_message(self) -> None:
         """Send the welcome message to describe the system status and
         configuration..
 
         Most of messages are just the events.
         """
+
+        # Workaround of the mypy checking
+        assert self._message_event is not None
 
         await self._message_event.write_tcp_ip_connected(True)
         await self._message_event.write_commandable_by_dds(True)
@@ -294,8 +305,11 @@ class MockServer:
             ClosedLoopControlMode.Idle
         )
 
-    async def _monitor_and_report_system_status(self):
+    async def _monitor_and_report_system_status(self) -> None:
         """Monitor the system status and report the specific events."""
+
+        # Workaround of the mypy checking
+        assert self._message_event is not None
 
         if self.model.control_closed_loop.is_cell_temperature_high():
             await self._message_event.write_cell_temperature_high_warning(True)
@@ -326,14 +340,17 @@ class MockServer:
                 sorted(limit_switches_retract), sorted(limit_switches_extend)
             )
 
-    async def _report_errors(self):
+    async def _report_errors(self) -> None:
         """Report the errors."""
+
+        # Workaround of the mypy checking
+        assert self._message_event is not None
 
         errors = self.model.error_handler.get_errors_to_report()
         for error in errors:
             await self._message_event.write_error_code(error)
 
-    async def _process_message_command(self):
+    async def _process_message_command(self) -> None:
         """Process the incoming message from command server."""
 
         try:
@@ -374,7 +391,7 @@ class MockServer:
         except asyncio.IncompleteReadError:
             raise
 
-    def _decode_and_deserialize_json_message(self, msg_encode):
+    def _decode_and_deserialize_json_message(self, msg_encode: bytes | None) -> dict:
         """Decode the incoming JSON message and return a dictionary.
 
         Parameters
@@ -393,10 +410,10 @@ class MockServer:
             return json.loads(msg_encode.decode()) if msg_encode is not None else dict()
 
         except json.JSONDecodeError:
-            self.log.debug(f"Can not decode the message: {msg_encode}.")
+            self.log.debug(f"Can not decode the message: {msg_encode!r}.")
             return dict()
 
-    def _is_command(self, message_name):
+    def _is_command(self, message_name: str) -> bool:
         """Is the command or not.
 
         Parameters
@@ -412,7 +429,7 @@ class MockServer:
 
         return message_name.startswith("cmd_")
 
-    async def _acknowledge_command(self, sequence_id):
+    async def _acknowledge_command(self, sequence_id: int) -> None:
         """Acknowledge the command with the sequence ID.
 
         Parameters
@@ -425,7 +442,7 @@ class MockServer:
         msg_ack = {"id": id_ack.name.lower(), "sequence_id": sequence_id}
         await write_json_packet(self.server_command.writer, msg_ack)
 
-    async def _process_command(self, message):
+    async def _process_command(self, message: dict) -> CommandStatus:
         """Process the command.
 
         Parameters
@@ -438,6 +455,9 @@ class MockServer:
         `CommandStatus`
             Status of command execution.
         """
+
+        # Workaround of the mypy checking
+        assert self._message_event is not None
 
         command_name = message["id"]
         available_commands = list(self._command_response.keys())
@@ -453,7 +473,9 @@ class MockServer:
             )
             return CommandStatus.NoAck
 
-    async def _reply_command(self, sequence_id, command_status):
+    async def _reply_command(
+        self, sequence_id: int, command_status: CommandStatus
+    ) -> None:
         """Reply the command with the sequence ID.
 
         Parameters
@@ -470,7 +492,7 @@ class MockServer:
         }
         await write_json_packet(self.server_command.writer, msg_command_status)
 
-    def _is_event(self, message_name):
+    def _is_event(self, message_name: str) -> bool:
         """Is the event or not.
 
         Parameters
@@ -486,7 +508,7 @@ class MockServer:
 
         return message_name.startswith("evt_")
 
-    def _get_event_data(self, message):
+    def _get_event_data(self, message: dict) -> None:
         """Get the event data.
 
         Parameters
@@ -502,7 +524,9 @@ class MockServer:
         if name == "evt_mountinposition" and component == "mtmount":
             self.model.mtmount_in_position = message["inPosition"]
 
-    async def _run_and_report_script_engine_status(self, steps=1):
+    async def _run_and_report_script_engine_status(
+        self, steps: int | float = 1
+    ) -> None:
         """Run the script engine and report the status.
 
         Parameters
@@ -511,6 +535,9 @@ class MockServer:
             Steps to run. The value should be between 0 and 100. (the default
             is 1)
         """
+
+        # Workaround of the mypy checking
+        assert self._message_event is not None
 
         script_engine = self.model.script_engine
         if script_engine.is_running:
@@ -524,7 +551,7 @@ class MockServer:
                 script_engine.percentage
             )
 
-    def _run_control_open_loop(self, steps=500):
+    def _run_control_open_loop(self, steps: int = 500) -> None:
         """Run the open-loop control.
 
         Parameters
@@ -541,7 +568,7 @@ class MockServer:
             except Exception as error:
                 self.log.debug(f"Error when run the open-loop control: {error}")
 
-    def _check_error_force(self):
+    def _check_error_force(self) -> None:
         """Check the force error and fault the system if needed."""
 
         (
@@ -564,7 +591,9 @@ class MockServer:
                 switch, LimitSwitchType.Extend
             )
 
-    async def _connect_state_changed_callback_telemetry(self, server_telemetry):
+    async def _connect_state_changed_callback_telemetry(
+        self, server_telemetry: tcpip.OneClientServer
+    ) -> None:
         """Called when the telemetry server connection state changes.
 
         Notes
@@ -586,7 +615,7 @@ class MockServer:
                 self._monitor_message_telemetry()
             )
 
-    async def _monitor_message_telemetry(self):
+    async def _monitor_message_telemetry(self) -> None:
         """Monitor the message of incoming telemetry."""
 
         try:
@@ -609,8 +638,11 @@ class MockServer:
 
         await self.server_telemetry.close_client()
 
-    async def _write_message_telemetry(self):
+    async def _write_message_telemetry(self) -> None:
         """Write the telemetry message."""
+
+        # Workaround of the mypy checking
+        assert self._message_telemetry is not None
 
         telemetry_data = self.model.get_telemetry_data()
 
@@ -674,7 +706,7 @@ class MockServer:
                     telemetry_data["inclinometerAngleTma"]
                 )
 
-    async def _process_message_telemetry(self):
+    async def _process_message_telemetry(self) -> None:
         """Read and process data from telemetry server."""
 
         try:
@@ -704,23 +736,23 @@ class MockServer:
         except asyncio.IncompleteReadError:
             raise
 
-    def are_servers_connected(self):
+    def are_servers_connected(self) -> bool:
         """The command and telemetry sockets are connected or not.
 
         Returns
         -------
-        bool
+        `bool`
             True if servers are connected. Else, False.
         """
         return self.server_command.connected and self.server_telemetry.connected
 
-    async def start(self):
+    async def start(self) -> None:
         """Start the command and telemetry TCP/IP servers."""
         await asyncio.gather(
             self.server_command.start_task, self.server_telemetry.start_task
         )
 
-    async def close(self):
+    async def close(self) -> None:
         """Cancel the tasks and close the connections.
 
         Note: this function is safe to call even though there is no connection.
@@ -749,7 +781,7 @@ class MockServer:
         self.model.script_engine.pause()
         self.model.script_engine.clear()
 
-    async def _power_off_fully(self, power_system):
+    async def _power_off_fully(self, power_system: MockPowerSystem) -> None:
         """Fully power off the system.
 
         Parameters

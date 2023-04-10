@@ -21,11 +21,14 @@
 
 import asyncio
 import json
+import logging
+import typing
 from copy import deepcopy
 from os import getenv
 from pathlib import Path
 
 import numpy as np
+import numpy.typing
 import yaml
 from lsst.ts import tcpip
 
@@ -43,7 +46,7 @@ __all__ = [
 ]
 
 
-async def write_json_packet(writer, msg_input):
+async def write_json_packet(writer: asyncio.StreamWriter, msg_input: dict) -> None:
     """Write the json packet.
 
     Parameters
@@ -61,7 +64,7 @@ async def write_json_packet(writer, msg_input):
     await writer.drain()
 
 
-def check_queue_size(queue, log, name=""):
+def check_queue_size(queue: asyncio.Queue, log: logging.Logger, name: str = "") -> bool:
     """Check the size of queue and log the information if needed.
 
     Parameters
@@ -91,7 +94,7 @@ def check_queue_size(queue, log, name=""):
         return False
 
 
-def read_yaml_file(filepath):
+def read_yaml_file(filepath: str | Path) -> dict:
     """Read the yaml file.
 
     Parameters
@@ -120,7 +123,7 @@ def read_yaml_file(filepath):
     return content
 
 
-def collect_queue_messages(queue, name, flush=True):
+def collect_queue_messages(queue: asyncio.Queue, name: str, flush: bool = True) -> list:
     """Collect the specific messages in queue.
 
     This function is used in the unit test only.
@@ -151,7 +154,9 @@ def collect_queue_messages(queue, name, flush=True):
     return messages
 
 
-def get_queue_message_latest(queue, name, flush=True):
+def get_queue_message_latest(
+    queue: asyncio.Queue, name: str, flush: bool = True
+) -> dict:
     """Get the latest message in queue.
 
     This function is used in the unit test only.
@@ -176,7 +181,10 @@ def get_queue_message_latest(queue, name, flush=True):
     return messages[-1]
 
 
-def get_config_dir(env_variable="TS_CONFIG_MTTCS_DIR", relative_path="MTM2/v2"):
+def get_config_dir(
+    env_variable: str = "TS_CONFIG_MTTCS_DIR",
+    relative_path: str = "MTM2/v2",
+) -> Path:
     """Get the directory of configuration files.
 
     Parameters
@@ -193,10 +201,10 @@ def get_config_dir(env_variable="TS_CONFIG_MTTCS_DIR", relative_path="MTM2/v2"):
     `pathlib.PosixPath`
         Path of the configuration directory.
     """
-    return Path(getenv(env_variable)) / relative_path
+    return Path(getenv(env_variable, default="")) / relative_path
 
 
-def is_coroutine(function):
+def is_coroutine(function: typing.Callable | typing.Coroutine) -> bool:
     """Input function is a coroution or not.
 
     Parameters
@@ -212,7 +220,11 @@ def is_coroutine(function):
     return asyncio.iscoroutine(function) or asyncio.iscoroutinefunction(function)
 
 
-def check_limit_switches(actuator_forces, limit_force_axial, limit_force_tangent):
+def check_limit_switches(
+    actuator_forces: numpy.typing.NDArray[np.float64],
+    limit_force_axial: float,
+    limit_force_tangent: float,
+) -> typing.Tuple[bool, list, list]:
     """Check the limit switches are triggered or not.
 
     Parameters

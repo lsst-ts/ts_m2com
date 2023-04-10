@@ -21,7 +21,11 @@
 
 __all__ = ["MockControlClosedLoop"]
 
+import typing
+from pathlib import Path
+
 import numpy as np
+import numpy.typing
 import pandas as pd
 from scipy.linalg import block_diag
 from scipy.spatial import KDTree
@@ -58,7 +62,7 @@ class MockControlClosedLoop:
         Hardpoints are in position or not.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.is_running = False
 
         self.temperature = MockControlClosedLoop._get_temperatures()
@@ -107,21 +111,21 @@ class MockControlClosedLoop:
         self.in_position_hardpoints = False
 
         # Look-up tables (LUTs)
-        self._lut = dict()
+        self._lut: typing.Dict = dict()
 
         # Cell geometry used in the calculation of net total forces and moments
-        self._cell_geom = dict()
+        self._cell_geom: typing.Dict = dict()
 
         # Hardpoint compensation matrix
         self._hd_comp = np.array([])
 
     @staticmethod
     def _get_temperatures(
-        temperature_init_low=24.49,
-        temperature_init_high=26.53,
-        temperature_ref=21.0,
-        max_difference=2.0,
-    ):
+        temperature_init_low: float = 24.49,
+        temperature_init_high: float = 26.53,
+        temperature_ref: float = 21.0,
+        max_difference: float = 2.0,
+    ) -> dict:
         """Get the default temperatures. The unit is degree C.
 
         Parameters
@@ -159,13 +163,16 @@ class MockControlClosedLoop:
         temperatures["intake"] = [temperature_init_low] * 2
         temperatures["exhaust"] = [temperature_init_low] * 2
         temperatures["ref"] = [temperature_ref] * 12
-        temperatures["maxDiff"] = max_difference
+        temperatures["maxDiff"] = max_difference  # type: ignore
 
         return temperatures
 
     def simulate_temperature_and_update(
-        self, temperature_rms=0.05, max_temperature=28.0, min_temperature=0.0
-    ):
+        self,
+        temperature_rms: float = 0.05,
+        max_temperature: float = 28.0,
+        min_temperature: float = 0.0,
+    ) -> None:
         """Simulate the temperature change and update the internal value.
 
         Parameters
@@ -186,10 +193,10 @@ class MockControlClosedLoop:
         )
 
         if np.any(np.array(temperature_ring) > max_temperature):
-            temperature_change = -abs(temperature_change)
+            temperature_change = -np.abs(temperature_change)
 
         if np.any(np.array(temperature_ring) < min_temperature):
-            temperature_change = abs(temperature_change)
+            temperature_change = np.abs(temperature_change)
 
         # Simulate the new intake temperature
         num_intake_temperatures = len(self.temperature["intake"])
@@ -212,7 +219,11 @@ class MockControlClosedLoop:
         self.temperature["intake"] = temperature_intake_new
         self.temperature["exhaust"] = temperature_exhaust_new
 
-    def set_measured_forces(self, force_axial, force_tangent):
+    def set_measured_forces(
+        self,
+        force_axial: numpy.typing.NDArray[np.float64],
+        force_tangent: numpy.typing.NDArray[np.float64],
+    ) -> None:
         """Set the measured actuator forces.
 
         Parameters
@@ -241,7 +252,7 @@ class MockControlClosedLoop:
         self.axial_forces["measured"] = force_axial
         self.tangent_forces["measured"] = force_tangent
 
-    def load_file_lut(self, filepath):
+    def load_file_lut(self, filepath: Path) -> None:
         """Load the look-up table (LUT) files.
 
         Parameters
@@ -278,7 +289,7 @@ class MockControlClosedLoop:
         self._lut["temp_inv"] = MockControlClosedLoop.calc_temp_inv_matrix()
 
     @staticmethod
-    def calc_temp_inv_matrix():
+    def calc_temp_inv_matrix() -> numpy.typing.NDArray[np.float64]:
         """Calculate the temperature inversion matrix.
 
         Based on the "LSST_M2_temperature_sensors_20171102.pdf". The sensor map
@@ -315,7 +326,7 @@ class MockControlClosedLoop:
         # Do the pseudo-inverse
         return np.linalg.pinv(matrix)
 
-    def load_file_cell_geometry(self, filepath):
+    def load_file_cell_geometry(self, filepath: Path) -> None:
         """Load the file of cell geometry.
 
         Parameters
@@ -326,7 +337,7 @@ class MockControlClosedLoop:
 
         self._cell_geom = read_yaml_file(filepath)
 
-    def get_actuator_location_axial(self):
+    def get_actuator_location_axial(self) -> list:
         """Get the location of axial actuators.
 
         Returns
@@ -336,7 +347,7 @@ class MockControlClosedLoop:
         """
         return self._cell_geom["locAct_axial"]
 
-    def get_actuator_location_tangent(self):
+    def get_actuator_location_tangent(self) -> list:
         """Get the location of tangent actuators.
 
         Returns
@@ -346,7 +357,7 @@ class MockControlClosedLoop:
         """
         return self._cell_geom["locAct_tangent"]
 
-    def get_radius(self):
+    def get_radius(self) -> float:
         """Get the radius of the tangential actuators.
 
         Returns
@@ -356,7 +367,7 @@ class MockControlClosedLoop:
         """
         return self._cell_geom["radiusActTangent"]
 
-    def set_hardpoint_compensation(self):
+    def set_hardpoint_compensation(self) -> None:
         """Set the hardpoint compensation matrix."""
 
         # There are 3 axial actuators to be hardpoints
@@ -370,8 +381,12 @@ class MockControlClosedLoop:
 
     @staticmethod
     def calc_hp_comp_matrix(
-        location_axial_actuator, hardpoints_axial, hardpoints_tangent
-    ):
+        location_axial_actuator: typing.List[list],
+        hardpoints_axial: typing.List[int],
+        hardpoints_tangent: typing.List[int],
+    ) -> typing.Tuple[
+        numpy.typing.NDArray[np.float64], numpy.typing.NDArray[np.float64]
+    ]:
         """Calculate the hardpoint compensation matrix.
 
         Notes
@@ -435,14 +450,14 @@ class MockControlClosedLoop:
             idx for idx in range(num_axial_actuators) if idx not in hardpoints_axial
         ]
 
-        location_axial_actuator = np.array(location_axial_actuator)
+        location_axial_actuator_array = np.array(location_axial_actuator)
         matrix_hp = np.append(
-            location_axial_actuator[hardpoints_axial, :],
+            location_axial_actuator_array[hardpoints_axial, :],
             np.ones((NUM_HARDPOINTS_AXIAL, 1)),
             axis=1,
         )
         matrix_nhp = np.append(
-            location_axial_actuator[active_actuators_axial, :],
+            location_axial_actuator_array[active_actuators_axial, :],
             np.ones((num_axial_actuators - NUM_HARDPOINTS_AXIAL, 1)),
             axis=1,
         )
@@ -468,7 +483,9 @@ class MockControlClosedLoop:
         return hd_comp_axial, hd_comp_tangent
 
     @staticmethod
-    def select_axial_hardpoints(location_axial_actuator, specific_axial_hardpoint):
+    def select_axial_hardpoints(
+        location_axial_actuator: typing.List[list], specific_axial_hardpoint: int
+    ) -> list:
         """Select the axial hardpoints based on the specific axial hardpoint.
 
         Notes
@@ -521,16 +538,16 @@ class MockControlClosedLoop:
 
     @staticmethod
     def rigid_body_to_actuator_displacement(
-        location_axial_actuator,
-        location_tangent_link,
-        radius,
-        dx,
-        dy,
-        dz,
-        drx,
-        dry,
-        drz,
-    ):
+        location_axial_actuator: typing.List[list],
+        location_tangent_link: typing.List[float],
+        radius: float,
+        dx: float,
+        dy: float,
+        dz: float,
+        drx: float,
+        dry: float,
+        drz: float,
+    ) -> numpy.typing.NDArray[np.float64]:
         """Calculate the actuator displacements based on the rigid body
         position.
 
@@ -624,13 +641,13 @@ class MockControlClosedLoop:
 
     @staticmethod
     def hardpoint_to_rigid_body(
-        location_axial_actuator,
-        location_tangent_link,
-        radius,
-        hardpoints,
-        disp_hardpoint_current,
-        disp_hardpoint_home,
-    ):
+        location_axial_actuator: typing.List[list],
+        location_tangent_link: typing.List[float],
+        radius: float,
+        hardpoints: typing.List[int],
+        disp_hardpoint_current: typing.List[float],
+        disp_hardpoint_home: typing.List[float],
+    ) -> typing.Tuple[float, float, float, float, float, float]:
         """Calculate the rigid body position based on the hardpoint
         displacements.
 
@@ -679,9 +696,9 @@ class MockControlClosedLoop:
         )
 
         # Location of the axial hardpoints: (x_hp, y_hp, 1)
-        location_axial_actuator = np.array(location_axial_actuator)
+        location_axial_actuator_array = np.array(location_axial_actuator)
         location_axial_hardpoint = np.append(
-            location_axial_actuator[hardpoints[:NUM_HARDPOINTS_AXIAL], :],
+            location_axial_actuator_array[hardpoints[:NUM_HARDPOINTS_AXIAL], :],
             np.ones((NUM_HARDPOINTS_AXIAL, 1)),
             axis=1,
         )
@@ -759,8 +776,10 @@ class MockControlClosedLoop:
 
     @staticmethod
     def calculate_rigid_body_xy(
-        radius, tangent_hardpoint_displacement, tangent_hardpoint_location
-    ):
+        radius: float,
+        tangent_hardpoint_displacement: typing.List[float],
+        tangent_hardpoint_location: typing.List[float],
+    ) -> typing.Tuple[float, float, numpy.typing.NDArray[np.float64]]:
         """Calculate the rigid body (x, y) position.
 
         Notes
@@ -805,7 +824,7 @@ class MockControlClosedLoop:
 
         return mean_x, mean_y, delta_xy_tangent_hardpoint
 
-    def is_cell_temperature_high(self):
+    def is_cell_temperature_high(self) -> bool:
         """Cell temperature is high or not.
 
         Returns
@@ -821,7 +840,11 @@ class MockControlClosedLoop:
 
         return diff > self.temperature["maxDiff"]
 
-    def apply_forces(self, force_axial, force_tangent):
+    def apply_forces(
+        self,
+        force_axial: typing.List[float] | numpy.typing.NDArray[np.float64],
+        force_tangent: typing.List[float] | numpy.typing.NDArray[np.float64],
+    ) -> None:
         """Apply the actuator forces.
 
         Parameters
@@ -849,8 +872,10 @@ class MockControlClosedLoop:
         self.tangent_forces["applied"] = np.array(force_tangent)
 
     def is_actuator_force_out_limit(
-        self, applied_force_axial=None, applied_force_tangent=None
-    ):
+        self,
+        applied_force_axial: numpy.typing.NDArray[np.float64] | None = None,
+        applied_force_tangent: numpy.typing.NDArray[np.float64] | None = None,
+    ) -> typing.Tuple[bool, list, list]:
         """The actuator force is out of limit or not.
 
         Parameters
@@ -883,7 +908,11 @@ class MockControlClosedLoop:
             LIMIT_FORCE_TANGENT_CLOSED_LOOP,
         )
 
-    def get_demanded_force(self, applied_force_axial=None, applied_force_tangent=None):
+    def get_demanded_force(
+        self,
+        applied_force_axial: numpy.typing.NDArray[np.float64] | None = None,
+        applied_force_tangent: numpy.typing.NDArray[np.float64] | None = None,
+    ) -> numpy.typing.NDArray[np.float64]:
         """Get the demanded force in Newton.
 
         Parameters
@@ -921,7 +950,7 @@ class MockControlClosedLoop:
 
         return np.append(demanded_force_axial, demanded_force_tanget)
 
-    def reset_force_offsets(self):
+    def reset_force_offsets(self) -> None:
         """Reset the force offsets.
 
         This will put the applied force to be zero.
@@ -930,7 +959,7 @@ class MockControlClosedLoop:
         self.axial_forces["applied"] = np.zeros(NUM_ACTUATOR - NUM_TANGENT_LINK)
         self.tangent_forces["applied"] = np.zeros(NUM_TANGENT_LINK)
 
-    def get_net_forces_total(self):
+    def get_net_forces_total(self) -> dict:
         """Get the total net forces in Newton.
 
         Returns
@@ -942,7 +971,11 @@ class MockControlClosedLoop:
             self.axial_forces["measured"], self.tangent_forces["measured"]
         )
 
-    def _calculate_xyz_net_forces(self, axial_forces, tangent_forces):
+    def _calculate_xyz_net_forces(
+        self,
+        axial_forces: numpy.typing.NDArray[np.float64],
+        tangent_forces: numpy.typing.NDArray[np.float64],
+    ) -> dict:
         """Calculate the net forces in Newton on the individual axis.
 
         Parameters
@@ -966,7 +999,7 @@ class MockControlClosedLoop:
 
         return {"fx": fx, "fy": fy, "fz": fz}
 
-    def get_net_moments_total(self):
+    def get_net_moments_total(self) -> dict:
         """Get the total net moments in Newton * meter.
 
         Returns
@@ -978,7 +1011,11 @@ class MockControlClosedLoop:
             self.axial_forces["measured"], self.tangent_forces["measured"]
         )
 
-    def _calculate_xyz_net_moments(self, axial_forces, tangent_forces):
+    def _calculate_xyz_net_moments(
+        self,
+        axial_forces: numpy.typing.NDArray[np.float64],
+        tangent_forces: numpy.typing.NDArray[np.float64],
+    ) -> dict:
         """Calculate the total net moments in Newton * meter on the individual
         axis.
 
@@ -1002,7 +1039,7 @@ class MockControlClosedLoop:
 
         return {"mx": mx, "my": my, "mz": mz}
 
-    def get_force_balance(self):
+    def get_force_balance(self) -> dict:
         """Get the data of force balance system. This contains the net forces
         (in Newton) and net moments (in Newton * meter).
 
@@ -1023,7 +1060,7 @@ class MockControlClosedLoop:
 
         return force_balance
 
-    def calc_look_up_forces(self, lut_angle):
+    def calc_look_up_forces(self, lut_angle: float) -> None:
         """Calculate look-up table (LUT) forces using current system state
         (position and temperature).
 
@@ -1086,7 +1123,16 @@ class MockControlClosedLoop:
         self.axial_forces["hardpointCorrection"] = force_hardpoint[:num_axial_actuators]
         self.tangent_forces["hardpointCorrection"] = force_hardpoint[-NUM_TANGENT_LINK:]
 
-    def _calc_look_up_forces_temperature(self, lut_temperature, ref_temperature):
+    def _calc_look_up_forces_temperature(
+        self,
+        lut_temperature: numpy.typing.NDArray[np.float64],
+        ref_temperature: numpy.typing.NDArray[np.float64],
+    ) -> typing.Tuple[
+        numpy.typing.NDArray[np.float64],
+        numpy.typing.NDArray[np.float64],
+        numpy.typing.NDArray[np.float64],
+        numpy.typing.NDArray[np.float64],
+    ]:
         """Calculate the temperature-related forces based on the look-up table
         (LUT) in Newton.
 
@@ -1126,7 +1172,14 @@ class MockControlClosedLoop:
             np.squeeze(tcoef[3] * self._lut["Tu"]),
         )
 
-    def _calc_look_up_forces_gravity(self, lut_angle):
+    def _calc_look_up_forces_gravity(
+        self, lut_angle: float
+    ) -> typing.Tuple[
+        numpy.typing.NDArray[np.float64],
+        numpy.typing.NDArray[np.float64],
+        numpy.typing.NDArray[np.float64],
+        numpy.typing.NDArray[np.float64],
+    ]:
         """Calculate the gravity-related forces based on the look-up table
         (LUT) in Newton.
 
@@ -1176,7 +1229,11 @@ class MockControlClosedLoop:
             force_factory_offset,
         )
 
-    def _calc_look_up_forces_hardpoint(self, force_demanded, force_measured):
+    def _calc_look_up_forces_hardpoint(
+        self,
+        force_demanded: numpy.typing.NDArray[np.float64],
+        force_measured: numpy.typing.NDArray[np.float64],
+    ) -> numpy.typing.NDArray[np.float64]:
         """Calculate the forces of hardpoint compensation based on the look-up
         table (LUT) in Newton.
 
@@ -1207,7 +1264,7 @@ class MockControlClosedLoop:
 
         return force_hardpoint
 
-    def handle_forces(self, force_rms=0.5, force_per_cycle=5):
+    def handle_forces(self, force_rms: float = 0.5, force_per_cycle: float = 5) -> bool:
         """Handle forces and check the actuators are in position or not based
         on the demanded forces, hardpoint correction, and measured forces.
 
@@ -1255,7 +1312,9 @@ class MockControlClosedLoop:
 
         return in_position
 
-    def _force_dynamics(self, force_rms, force_per_cycle):
+    def _force_dynamics(
+        self, force_rms: float, force_per_cycle: float
+    ) -> typing.Tuple[bool, numpy.typing.NDArray[np.float64]]:
         """Handle the force dynamics.
 
         The method works by comparing the demanded forces with the current
@@ -1312,13 +1371,13 @@ class MockControlClosedLoop:
             for hardpoint in self.hardpoints:
                 actuators_in_cycle_no_hardpoint.discard(hardpoint)
 
-            actuators_in_cycle_no_hardpoint = np.array(
+            actuators_in_cycle_no_hardpoint_list = np.array(
                 list(actuators_in_cycle_no_hardpoint), dtype=int
             )
 
-            final_force[actuators_in_cycle_no_hardpoint] = (
-                force_demanded[actuators_in_cycle_no_hardpoint]
-                - force_hardpoint[actuators_in_cycle_no_hardpoint]
+            final_force[actuators_in_cycle_no_hardpoint_list] = (
+                force_demanded[actuators_in_cycle_no_hardpoint_list]
+                - force_hardpoint[actuators_in_cycle_no_hardpoint_list]
             )
 
             actuators_out_of_cycle = np.where(np.abs(force_error) > force_per_cycle)[0]
@@ -1337,7 +1396,14 @@ class MockControlClosedLoop:
 
         return in_position, final_force
 
-    def _get_force_error(self):
+    def _get_force_error(
+        self,
+    ) -> typing.Tuple[
+        numpy.typing.NDArray[np.float64],
+        numpy.typing.NDArray[np.float64],
+        numpy.typing.NDArray[np.float64],
+        numpy.typing.NDArray[np.float64],
+    ]:
         """Get the actuator force error.
 
         Returns

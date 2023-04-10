@@ -20,8 +20,11 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import logging
+import typing
+from pathlib import Path
 
 import numpy as np
+import numpy.typing
 from lsst.ts.idl.enums import MTM2
 
 from ..constant import (
@@ -30,7 +33,13 @@ from ..constant import (
     NUM_INNER_LOOP_CONTROLLER,
     NUM_TANGENT_LINK,
 )
-from ..enum import DigitalInput, DigitalOutput, MockErrorCode, PowerType
+from ..enum import (
+    DigitalInput,
+    DigitalOutput,
+    InnerLoopControlMode,
+    MockErrorCode,
+    PowerType,
+)
 from ..utility import read_yaml_file
 from . import (
     MockControlClosedLoop,
@@ -53,7 +62,7 @@ class MockModel:
         A logger. If None, a logger will be instantiated. (the default is
         None)
     inclinometer_angle : `float`, optional
-        Inclinometer angle in degree. (the default is 90)
+        Inclinometer angle in degree. (the default is 90.0)
     telemetry_interval : `float`, optional
         Telemetry interval in second. (the default is 0.05, which means
         20 Hz)
@@ -106,14 +115,14 @@ class MockModel:
 
     def __init__(
         self,
-        log=None,
-        inclinometer_angle=90,
-        telemetry_interval=0.05,
-        communication_voltage=23.0,
-        communication_current=6.5,
-        motor_voltage=23.0,
-        motor_current=8.5,
-    ):
+        log: logging.Logger | None = None,
+        inclinometer_angle: float = 90.0,
+        telemetry_interval: float = 0.05,
+        communication_voltage: float = 23.0,
+        communication_current: float = 6.5,
+        motor_voltage: float = 23.0,
+        motor_current: float = 8.5,
+    ) -> None:
         # Set the logger
         if log is None:
             self.log = logging.getLogger(type(self).__name__)
@@ -123,21 +132,25 @@ class MockModel:
         self.control_open_loop = MockControlOpenLoop()
         self.control_open_loop.inclinometer_angle = inclinometer_angle
 
-        self.control_closed_loop = MockControlClosedLoop()
+        self.control_closed_loop: MockControlClosedLoop = MockControlClosedLoop()
 
         self.telemetry_interval = telemetry_interval
 
-        self.inclination_source = MTM2.InclinationTelemetrySource.ONBOARD
+        self.inclination_source: MTM2.InclinationTelemetrySource = (
+            MTM2.InclinationTelemetrySource.ONBOARD
+        )
 
         self.mirror_position = self.get_default_mirror_position()
         self.mirror_position_offset = self.get_default_mirror_position()
 
-        self.power_communication = MockPowerSystem(
+        self.power_communication: MockPowerSystem = MockPowerSystem(
             communication_voltage, communication_current
         )
-        self.power_motor = MockPowerSystem(motor_voltage, motor_current)
+        self.power_motor: MockPowerSystem = MockPowerSystem(
+            motor_voltage, motor_current
+        )
 
-        self.in_position = False
+        self.in_position: bool = False
 
         # Generator to simulate the signal of ILC status
         self._ilc_status = self._uniq_ilc_status_generator()
@@ -147,16 +160,16 @@ class MockModel:
             self.list_ilc.append(MockInnerLoopController())
 
         # Parameters of independent displacement sensors (IMS)
-        self._disp_ims = dict()
+        self._disp_ims: typing.Dict = dict()
 
-        self.mtmount_in_position = False
+        self.mtmount_in_position: bool = False
 
-        self.script_engine = MockScriptEngine()
-        self.error_handler = MockErrorHandler()
+        self.script_engine: MockScriptEngine = MockScriptEngine()
+        self.error_handler: MockErrorHandler = MockErrorHandler()
 
         self._set_default_measured_forces()
 
-    def get_default_mirror_position(self):
+    def get_default_mirror_position(self) -> dict:
         """Get the default mirror position.
 
         Returns
@@ -166,7 +179,7 @@ class MockModel:
         """
         return dict([(axis, 0.0) for axis in ("x", "y", "z", "xRot", "yRot", "zRot")])
 
-    def _uniq_ilc_status_generator(self):
+    def _uniq_ilc_status_generator(self) -> typing.Generator:
         """Unique inner-loop controller (ILC) status generator.
 
         The details are in code 67, LTS-346.
@@ -182,7 +195,7 @@ class MockModel:
             yield value % 16
             value += 1
 
-    def set_inclinometer_angle(self, angle):
+    def set_inclinometer_angle(self, angle: float) -> None:
         """Set the angle of inclinometer.
 
         Parameters
@@ -206,7 +219,7 @@ class MockModel:
         # the force as well.
         self.control_closed_loop.in_position_hardpoints = False
 
-    def _set_default_measured_forces(self):
+    def _set_default_measured_forces(self) -> None:
         """Set the default measured forces."""
 
         forces = self.control_open_loop.get_forces_mirror_weight(
@@ -218,17 +231,17 @@ class MockModel:
         )
 
     @property
-    def position_limit_radial(self):
+    def position_limit_radial(self) -> float:
         """Mirror radial motion limit (in mm)."""
         return 7.74
 
     @property
-    def position_limit_z(self):
+    def position_limit_z(self) -> float:
         """Mirror motion limit in the optical direction (in mm)."""
         return 7.89
 
     @property
-    def digital_output_default(self):
+    def digital_output_default(self) -> typing.Iterable[DigitalOutput]:
         """Default digital output defined with the enum 'DigitalOutput'."""
         return (
             DigitalOutput.InterlockEnable,
@@ -237,7 +250,7 @@ class MockModel:
         )
 
     @property
-    def digital_input_default(self):
+    def digital_input_default(self) -> typing.Iterable[DigitalInput]:
         """Default digital input defined with the enum 'DigitalInput'."""
         return (
             DigitalInput.RedundancyOK,
@@ -265,7 +278,7 @@ class MockModel:
         )
 
     @property
-    def digital_input_communication(self):
+    def digital_input_communication(self) -> typing.Iterable[DigitalInput]:
         """Updated digital input when the communication power is on."""
         return (
             DigitalInput.J1_W12_1_CommunicationPowerBreaker,
@@ -277,7 +290,7 @@ class MockModel:
         )
 
     @property
-    def digital_input_motor(self):
+    def digital_input_motor(self) -> typing.Iterable[DigitalInput]:
         """Updated digital input when the motor power is on."""
         return (
             DigitalInput.J1_W9_1_MotorPowerBreaker,
@@ -292,7 +305,7 @@ class MockModel:
             DigitalInput.InterlockPowerReplay,
         )
 
-    def configure(self, config_dir, lut_path):
+    def configure(self, config_dir: Path, lut_path: str) -> None:
         """Do the configuration.
 
         Parameters
@@ -323,7 +336,9 @@ class MockModel:
         # By doing this, we can calculate the forces of look-up table.
         self.set_inclinometer_angle(self.control_open_loop.inclinometer_angle)
 
-    def is_actuator_force_out_limit(self):
+    def is_actuator_force_out_limit(
+        self,
+    ) -> typing.Tuple[bool, MockErrorCode, list, list]:
         """The actuator force is out of limit or not.
 
         By default, return the judgement based on the open-loop control. If
@@ -364,7 +379,7 @@ class MockModel:
 
         return is_out_limit, error_code, limit_switches_retract, limit_switches_extend
 
-    def fault(self, error_code):
+    def fault(self, error_code: MockErrorCode) -> None:
         """Fault the model.
 
         Parameters
@@ -381,7 +396,7 @@ class MockModel:
         self.switch_force_balance_system(False)
         self.control_closed_loop.reset_force_offsets()
 
-    def switch_force_balance_system(self, status):
+    def switch_force_balance_system(self, status: bool) -> bool:
         """Switch the force balance system.
 
         Parameters
@@ -415,11 +430,11 @@ class MockModel:
 
         return result
 
-    def clear_errors(self):
+    def clear_errors(self) -> None:
         """Clear the errors."""
         self.error_handler.clear()
 
-    def select_inclination_source(self, source):
+    def select_inclination_source(self, source: int) -> None:
         """Select the inclination source.
 
         Parameters
@@ -431,7 +446,7 @@ class MockModel:
 
         self.inclination_source = MTM2.InclinationTelemetrySource(int(source))
 
-    def get_telemetry_data(self):
+    def get_telemetry_data(self) -> dict:
         """Get the telemetry data.
 
         Returns
@@ -506,7 +521,7 @@ class MockModel:
 
         return telemetry_data
 
-    def _get_power_status(self, rms=0.05):
+    def _get_power_status(self, rms: float = 0.05) -> dict:
         """Get the power status.
 
         Parameters
@@ -532,7 +547,7 @@ class MockModel:
             "commCurrent": comm_current_update,
         }
 
-    def _get_ilc_data(self):
+    def _get_ilc_data(self) -> dict:
         """Get the inner-loop controller (ILC) data.
 
         Returns
@@ -543,7 +558,9 @@ class MockModel:
 
         return {"status": [next(self._ilc_status)] * NUM_ACTUATOR}
 
-    def _calculate_force_error_tangent(self, tangent_force_current):
+    def _calculate_force_error_tangent(
+        self, tangent_force_current: numpy.typing.NDArray[np.float64]
+    ) -> dict:
         """Calculate the tangent force error.
 
         This function is translated from TangentLoadCellFaultDetection.vi in
@@ -608,7 +625,7 @@ class MockModel:
             "sum": sum(tangent_force_current),
         }
 
-    def _get_displacement_sensors(self, mirror_position=None):
+    def _get_displacement_sensors(self, mirror_position: dict | None = None) -> dict:
         """Get the displacement sensors.
 
         Parameters
@@ -640,8 +657,11 @@ class MockModel:
         return {"thetaZ": theta_z, "deltaZ": delta_z}
 
     def balance_forces_and_steps(
-        self, force_rms=0.5, force_per_cycle=5, update_steps=True
-    ):
+        self,
+        force_rms: float = 0.5,
+        force_per_cycle: float = 5.0,
+        update_steps: bool = True,
+    ) -> bool:
         """Balance the forces and steps.
 
         This function will check the actuators are in position or not and
@@ -655,7 +675,7 @@ class MockModel:
         force_rms : `float`, optional
             Force rms variation in Newton. (default is 0.5)
         force_per_cycle : `float`, optional
-            Force per cycle to apply in Newton. (the default is 5)
+            Force per cycle to apply in Newton. (the default is 5.0)
         update_steps : `bool`, optional
             If True, update the steps based on the force change. Otherwise, no
             update. This takes a significant CPU usage (np.linalg.inv()). (the
@@ -731,7 +751,7 @@ class MockModel:
 
         return False
 
-    def get_current_hardpoint_displacement(self):
+    def get_current_hardpoint_displacement(self) -> numpy.typing.NDArray[np.float64]:
         """Get the current hardpoint displacements in meter.
 
         Returns
@@ -747,7 +767,7 @@ class MockModel:
             * 1e-3
         )
 
-    def _get_mirror_position_with_offset(self):
+    def _get_mirror_position_with_offset(self) -> dict:
         """Get the mirror position with the offset.
 
         Notes
@@ -768,7 +788,9 @@ class MockModel:
 
         return position
 
-    def _simulate_position_mirror(self, position_rms=0.005, angle_rms=0.005):
+    def _simulate_position_mirror(
+        self, position_rms: float = 0.005, angle_rms: float = 0.005
+    ) -> dict:
         """Simulate the position of mirror.
 
         Parameters
@@ -797,7 +819,7 @@ class MockModel:
 
         return position
 
-    def _simulate_zenith_angle(self, inclinometer_rms=0.05):
+    def _simulate_zenith_angle(self, inclinometer_rms: float = 0.05) -> dict:
         """Simulate the zenith angle data.
 
         Parameters
@@ -825,7 +847,7 @@ class MockModel:
 
         return zenith_angle
 
-    def handle_position_mirror(self, mirror_position_set_point):
+    def handle_position_mirror(self, mirror_position_set_point: dict) -> None:
         """Handle positioning the mirror.
 
         Notes
@@ -854,7 +876,7 @@ class MockModel:
         for axis in self.mirror_position_offset:
             self.mirror_position_offset[axis] = mirror_position_set_point[axis]
 
-    def check_set_point_position_mirror(self, mirror_position_set_point):
+    def check_set_point_position_mirror(self, mirror_position_set_point: dict) -> bool:
         """Check the set point of mirror's position.
 
         Parameters
@@ -915,7 +937,7 @@ class MockModel:
 
         return True
 
-    def enable_open_loop_max_limit(self, status):
+    def enable_open_loop_max_limit(self, status: bool) -> bool:
         """Enable the maximum limit of open-loop control.
 
         Parameters
@@ -940,7 +962,7 @@ class MockModel:
 
         return result
 
-    def reset_breakers(self, power_type):
+    def reset_breakers(self, power_type: PowerType) -> bool:
         """Reset the breakers.
 
         Parameters
@@ -965,7 +987,7 @@ class MockModel:
 
         return result
 
-    def get_digital_output(self):
+    def get_digital_output(self) -> int:
         """Get the value of digital output.
 
         Returns
@@ -984,7 +1006,7 @@ class MockModel:
 
         return digital_output
 
-    def get_digital_input(self):
+    def get_digital_input(self) -> int:
         """Get the value of digital input that represents the current state of
         the system.
 
@@ -1006,7 +1028,7 @@ class MockModel:
 
         return digital_input
 
-    def switch_digital_output(self, digital_output, bit):
+    def switch_digital_output(self, digital_output: int, bit: DigitalOutput) -> int:
         """Switch the digital output with the specific bit.
 
         Parameters
@@ -1027,7 +1049,9 @@ class MockModel:
             else (digital_output + bit.value)
         )
 
-    def set_mode_ilc(self, addresses, mode):
+    def set_mode_ilc(
+        self, addresses: typing.List[int], mode: InnerLoopControlMode
+    ) -> None:
         """Set the mode of inner-loop controller (ILC).
 
         Parameters
@@ -1041,7 +1065,9 @@ class MockModel:
         for address in addresses:
             self.list_ilc[address].set_mode(mode)
 
-    def get_mode_ilc(self, addresses):
+    def get_mode_ilc(
+        self, addresses: typing.List[int]
+    ) -> typing.List[InnerLoopControlMode]:
         """Get the mode of inner-loop controller (ILC).
 
         Parameters

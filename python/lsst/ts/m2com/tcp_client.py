@@ -23,6 +23,7 @@ import asyncio
 import copy
 import json
 import logging
+import typing
 
 from lsst.ts import tcpip
 from lsst.ts.utils import index_generator, make_done_future
@@ -82,14 +83,14 @@ class TcpClient:
 
     def __init__(
         self,
-        host,
-        port,
-        timeout_in_second=0.05,
-        log=None,
-        sequence_generator=None,
-        maxsize_queue=1000,
-        name="tcp-client",
-    ):
+        host: str,
+        port: int,
+        timeout_in_second: float = 0.05,
+        log: logging.Logger | None = None,
+        sequence_generator: typing.Generator | None = None,
+        maxsize_queue: int = 1000,
+        name: str = "tcp-client",
+    ) -> None:
         # Connection information
         self.host = host
         self.port = int(port)
@@ -101,8 +102,8 @@ class TcpClient:
         else:
             self.log = log.getChild(type(self).__name__)
 
-        self.reader = None
-        self.writer = None
+        self.reader: asyncio.StreamReader | None = None
+        self.writer: asyncio.StreamWriter | None = None
 
         self.timeout = timeout_in_second
 
@@ -112,7 +113,7 @@ class TcpClient:
         )
         self.last_sequence_id = -1
 
-        self.queue = asyncio.Queue(maxsize=int(maxsize_queue))
+        self.queue: asyncio.Queue = asyncio.Queue(maxsize=int(maxsize_queue))
 
         self.queue_full_log_interval = 1.0  # seconds
         self.queue_full_messages_lost = 0
@@ -124,7 +125,9 @@ class TcpClient:
         self._timer_queue_full_task = make_done_future()
         self._timer_check_queue_size_task = make_done_future()
 
-    async def connect(self, connect_retry_interval=1.0, timeout=10.0):
+    async def connect(
+        self, connect_retry_interval: float = 1.0, timeout: float = 10.0
+    ) -> None:
         """Connect to the server.
 
         Parameters
@@ -164,7 +167,7 @@ class TcpClient:
         # Create the task to monitor the incoming message from server
         self._monitor_loop_task = asyncio.create_task(self._monitor_msg())
 
-    def is_connected(self):
+    def is_connected(self) -> bool:
         """Determines if the client is connected to the server.
 
         Returns
@@ -180,7 +183,7 @@ class TcpClient:
             or self.writer.is_closing()
         )
 
-    async def _monitor_msg(self):
+    async def _monitor_msg(self) -> None:
         """Monitor the message."""
 
         self.log.info("Begin to monitor the incoming message.")
@@ -198,8 +201,11 @@ class TcpClient:
 
         self.log.info("Stop to monitor the incoming message.")
 
-    async def _put_read_msg_to_queue(self):
+    async def _put_read_msg_to_queue(self) -> None:
         """Put the read message to self.queue."""
+
+        # Workaround of the mypy checking
+        assert self.reader is not None
 
         try:
             data = await asyncio.wait_for(
@@ -239,7 +245,7 @@ class TcpClient:
         except asyncio.IncompleteReadError:
             raise
 
-    async def _basic_close(self):
+    async def _basic_close(self) -> None:
         """Cancel the monitor loop and close the connection."""
 
         # Cancel the task
@@ -256,12 +262,18 @@ class TcpClient:
 
             self.writer = None
 
-    async def write(self, msg_type, msg_name, msg_details=None, comp_name=None):
+    async def write(
+        self,
+        msg_type: MsgType,
+        msg_name: str,
+        msg_details: dict | None = None,
+        comp_name: str | None = None,
+    ) -> None:
         """Writes message to the server.
 
         Parameters
         ----------
-        msg_type : `MsgType`
+        msg_type : enum `MsgType`
             Message type.
         msg_name : `str`
             Message name.
@@ -307,9 +319,12 @@ class TcpClient:
         else:
             raise ValueError(f"The message type: {msg_type} is not supported.")
 
+        # Workaround of the mypy checking
+        assert self.writer is not None
+
         await write_json_packet(self.writer, msg_details_with_header)
 
-    def _add_cmd_header(self, msg_name, msg_details):
+    def _add_cmd_header(self, msg_name: str, msg_details: dict) -> dict:
         """Add the command header.
 
         Note: This method will modify the input: msg_details.
@@ -334,7 +349,9 @@ class TcpClient:
 
         return msg_details
 
-    def _add_evt_header(self, msg_name, msg_details, comp_name=None):
+    def _add_evt_header(
+        self, msg_name: str, msg_details: dict, comp_name: str | None = None
+    ) -> dict:
         """Add the event header.
 
         Note: This method will modify the input: msg_details.
@@ -361,7 +378,9 @@ class TcpClient:
 
         return msg_details
 
-    def _add_tel_header(self, msg_name, msg_details, comp_name=None):
+    def _add_tel_header(
+        self, msg_name: str, msg_details: dict, comp_name: str | None = None
+    ) -> dict:
         """Add the telemetry header.
 
         Note: This method will modify the input: msg_details.
@@ -388,7 +407,7 @@ class TcpClient:
 
         return msg_details
 
-    async def close(self):
+    async def close(self) -> None:
         """Cancel the task and close the connection.
 
         Note: this function is safe to call even though there is no connection.

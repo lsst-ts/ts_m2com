@@ -22,6 +22,7 @@
 import asyncio
 import logging
 import time
+import typing
 
 import numpy as np
 from lsst.ts import salobj
@@ -90,18 +91,22 @@ class Controller:
     """
 
     def __init__(
-        self, log=None, timeout_in_second=0.05, maxsize_queue=1000, is_csc=True
-    ):
+        self,
+        log: logging.Logger | None = None,
+        timeout_in_second: float = 0.05,
+        maxsize_queue: int = 1000,
+        is_csc: bool = True,
+    ) -> None:
         # Set the logger
         if log is None:
             self.log = logging.getLogger(type(self).__name__)
         else:
             self.log = log.getChild(type(self).__name__)
 
-        self.client_command = None
-        self.client_telemetry = None
+        self.client_command: TcpClient | None = None
+        self.client_telemetry: TcpClient | None = None
 
-        self.queue_event = asyncio.Queue(maxsize=int(maxsize_queue))
+        self.queue_event: asyncio.Queue = asyncio.Queue(maxsize=int(maxsize_queue))
 
         self.last_command_status = CommandStatus.Unknown
 
@@ -136,8 +141,13 @@ class Controller:
         self._task_analyze_message = make_done_future()
 
     def start(
-        self, host, port_command, port_telemetry, sequence_generator=None, timeout=10.0
-    ):
+        self,
+        host: str,
+        port_command: int,
+        port_telemetry: int,
+        sequence_generator: typing.Generator | None = None,
+        timeout: float = 10.0,
+    ) -> None:
         """Start the task and connection.
 
         Parameters
@@ -180,7 +190,7 @@ class Controller:
         self._task_connection = asyncio.create_task(self._connect(timeout))
         self._task_analyze_message = asyncio.create_task(self._analyze_message())
 
-    async def _connect(self, timeout):
+    async def _connect(self, timeout: float) -> None:
         """Connect to the servers.
 
         Parameters
@@ -190,6 +200,10 @@ class Controller:
         """
 
         self.log.info("Begin to connect the servers.")
+
+        # Workaround of the mypy checking
+        assert self.client_command is not None
+        assert self.client_telemetry is not None
 
         while self._start_connection:
             if self.are_clients_connected():
@@ -213,10 +227,14 @@ class Controller:
 
         self.log.info("Stop the connection with servers.")
 
-    async def _analyze_message(self):
+    async def _analyze_message(self) -> None:
         """Analyze the message from the command server."""
 
         self.log.info("Begin to analyze the message from the command server.")
+
+        # Workaround of the mypy checking
+        assert self.client_command is not None
+        assert self.client_telemetry is not None
 
         while self._start_connection:
             try:
@@ -233,7 +251,7 @@ class Controller:
 
         self.log.info("Stop the analysis of message.")
 
-    def _analyze_command_status_and_event(self, message):
+    def _analyze_command_status_and_event(self, message: dict) -> None:
         """Analyze the command status and event.
 
         Parameters
@@ -263,7 +281,7 @@ class Controller:
         self.queue_event.put_nowait(message)
         check_queue_size(self.queue_event, self.log)
 
-    def _is_command_status(self, message):
+    def _is_command_status(self, message: dict) -> bool:
         """Is the command status or not.
 
         Parameters
@@ -288,7 +306,7 @@ class Controller:
         else:
             return False
 
-    def _get_command_status(self, message):
+    def _get_command_status(self, message: dict) -> CommandStatus:
         """Get the command status.
 
         Parameters
@@ -302,6 +320,9 @@ class Controller:
             Command status.
         """
 
+        # Workaround of the mypy checking
+        assert self.client_command is not None
+
         message_name = message["id"]
         sequence_id = message["sequence_id"]
         if sequence_id == self.client_command.last_sequence_id:
@@ -312,7 +333,7 @@ class Controller:
             )
             return CommandStatus.Unknown
 
-    def _get_command_status_from_message_name(self, message_name):
+    def _get_command_status_from_message_name(self, message_name: str) -> CommandStatus:
         """Get the command status from message name.
 
         Parameters
@@ -334,8 +355,10 @@ class Controller:
             return CommandStatus.Ack
         elif message_name == CommandStatus.NoAck.name.lower():
             return CommandStatus.NoAck
+        else:
+            return CommandStatus.Unknown
 
-    def _is_controller_state(self, message):
+    def _is_controller_state(self, message: dict) -> bool:
         """Is the controller's state or not.
 
         Parameters
@@ -351,7 +374,7 @@ class Controller:
 
         return message["id"] == "summaryState"
 
-    def _update_power_status(self, message):
+    def _update_power_status(self, message: dict) -> None:
         """Check and update the power status.
 
         Parameters
@@ -385,7 +408,7 @@ class Controller:
                 ]
                 self.power_system_status["communication_power_state"] = state
 
-    def _update_closed_loop_control_mode(self, message):
+    def _update_closed_loop_control_mode(self, message: dict) -> None:
         """Check and update the closed-loop control mode.
 
         Parameters
@@ -401,7 +424,7 @@ class Controller:
             except ValueError:
                 self.log.debug(f"Get the unknown closed-loop control mode ({mode}).")
 
-    def _update_inner_loop_control_mode(self, message):
+    def _update_inner_loop_control_mode(self, message: dict) -> None:
         """Check and update the inner-loop control mode.
 
         Parameters
@@ -421,7 +444,7 @@ class Controller:
                     f"loop control mode ({mode})."
                 )
 
-    def are_clients_connected(self):
+    def are_clients_connected(self) -> bool:
         """The command and telemetry sockets are connected or not.
 
         Returns
@@ -436,7 +459,7 @@ class Controller:
             and self.client_telemetry.is_connected()
         )
 
-    async def close(self):
+    async def close(self) -> None:
         """Cancel the task and close the connection.
 
         Note: this function is safe to call even though there is no connection.
@@ -475,7 +498,9 @@ class Controller:
             [InnerLoopControlMode.Unknown] * NUM_INNER_LOOP_CONTROLLER
         )
 
-    def assert_controller_state(self, command_name, allowed_curr_states):
+    def assert_controller_state(
+        self, command_name: str, allowed_curr_states: typing.List[salobj.State]
+    ) -> None:
         """Assert the current controller's state is allowed to do the command
         or not.
 
@@ -502,7 +527,7 @@ class Controller:
                 f"{command_name} command is not allowed in controller's state {curr_state!r}."
             )
 
-    async def clear_errors(self):
+    async def clear_errors(self) -> None:
         """Clear the errors."""
 
         # In EUI, there is no OFFLINE state.
@@ -515,11 +540,11 @@ class Controller:
 
     async def write_command_to_server(
         self,
-        message_name,
-        message_details=None,
-        timeout=10.0,
-        controller_state_expected=None,
-    ):
+        message_name: str,
+        message_details: dict | None = None,
+        timeout: float = 10.0,
+        controller_state_expected: salobj.State | None = None,
+    ) -> None:
         """Write the command (message_name) to server.
 
         Parameters
@@ -545,6 +570,9 @@ class Controller:
         if not self.are_clients_connected():
             raise OSError("No TCP/IP connection.")
 
+        # Workaround of the mypy checking
+        assert self.client_command is not None
+
         # Send the command
         self.last_command_status = CommandStatus.Unknown
         await self.client_command.write(
@@ -559,8 +587,11 @@ class Controller:
             raise RuntimeError(f"{message_name} command failed.")
 
     async def _check_command_status(
-        self, command_name, timeout, controller_state_expected=None
-    ):
+        self,
+        command_name: str,
+        timeout: float,
+        controller_state_expected: salobj.State | None = None,
+    ) -> bool:
         """Check the command status from the controller.
 
         Parameters
@@ -618,7 +649,13 @@ class Controller:
 
         return False
 
-    async def power(self, power_type, status, expected_state=None, timeout=20.0):
+    async def power(
+        self,
+        power_type: PowerType,
+        status: bool,
+        expected_state: PowerSystemState | None = None,
+        timeout: float = 20.0,
+    ) -> None:
         """Power on/off the motor/communication system.
 
         Parameters
@@ -670,12 +707,12 @@ class Controller:
 
     async def _check_expected_value(
         self,
-        callback_check,
-        *args,
-        time_wait_update=0.5,
-        timeout=10.0,
-        **kwargs,
-    ):
+        callback_check: typing.Callable,
+        *args: typing.Any,
+        time_wait_update: float = 0.5,
+        timeout: float = 10.0,
+        **kwargs: typing.Dict[str, typing.Any],
+    ) -> bool:
         """Check the expected value.
 
         Notes
@@ -717,7 +754,9 @@ class Controller:
 
         return callback_check(*args, **kwargs)
 
-    def _callback_check_power_status(self, power_type, status, expected_state):
+    def _callback_check_power_status(
+        self, power_type: PowerType, status: bool, expected_state: PowerSystemState
+    ) -> bool:
         """Callback function to check the power status is expected or not.
 
         Parameters
@@ -749,7 +788,9 @@ class Controller:
 
         return False
 
-    async def set_closed_loop_control_mode(self, mode, timeout=10.0):
+    async def set_closed_loop_control_mode(
+        self, mode: ClosedLoopControlMode, timeout: float = 10.0
+    ) -> None:
         """Set the closed-loop control mode.
 
         Parameters
@@ -779,7 +820,7 @@ class Controller:
                 f"instead of {mode!r} in timeout."
             )
 
-    def _callback_check_clc_mode(self, expected_mode):
+    def _callback_check_clc_mode(self, expected_mode: ClosedLoopControlMode) -> bool:
         """Callback function to check the closed-loop control (CLC) mode is
         expected or not.
 
@@ -795,7 +836,9 @@ class Controller:
         """
         return self.closed_loop_control_mode == expected_mode
 
-    async def set_ilc_to_enabled(self, retry_times=3, timeout=10.0):
+    async def set_ilc_to_enabled(
+        self, retry_times: int = 3, timeout: float = 10.0
+    ) -> None:
         """Set the inner-loop control (ILC) mode to Enabled.
 
         Notes
@@ -956,7 +999,7 @@ class Controller:
                 f"Following ILCs are not Enabled: {addresses_not_enabled}."
             )
 
-    def _callback_check_ilc_mode_nan(self):
+    def _callback_check_ilc_mode_nan(self) -> bool:
         """Callback function to check the inner-loop control (ILC) mode is NaN
         or not. The "NaN" value means the controller does not receive the
         related event of ILC mode.
@@ -972,13 +1015,13 @@ class Controller:
 
     async def _set_ilc_mode(
         self,
-        mode_current,
-        mode_expected,
-        mode_command,
-        is_actuator_ilc=False,
-        is_sensor_ilc=False,
-        timeout=10.0,
-    ):
+        mode_current: InnerLoopControlMode,
+        mode_expected: InnerLoopControlMode,
+        mode_command: InnerLoopControlMode,
+        is_actuator_ilc: bool = False,
+        is_sensor_ilc: bool = False,
+        timeout: float = 10.0,
+    ) -> bool:
         """Set the inner-loop control (ILC) mode.
 
         Parameters
@@ -1025,13 +1068,16 @@ class Controller:
                 self._callback_check_ilc_mode,
                 mode_expected,
                 timeout=timeout,
-                is_actuator_ilc=is_actuator_ilc,
-                is_sensor_ilc=is_sensor_ilc,
+                is_actuator_ilc=is_actuator_ilc,  # type: ignore[arg-type]
+                is_sensor_ilc=is_sensor_ilc,  # type: ignore[arg-type]
             )
 
     def _callback_check_ilc_mode(
-        self, expected_mode, is_actuator_ilc=False, is_sensor_ilc=False
-    ):
+        self,
+        expected_mode: InnerLoopControlMode,
+        is_actuator_ilc: bool = False,
+        is_sensor_ilc: bool = False,
+    ) -> bool:
         """Callback function to check the inner-loop control (ILC) mode is
         expected or not.
 
@@ -1063,14 +1109,14 @@ class Controller:
 
         return len(indexes) == 0
 
-    async def reset_force_offsets(self):
+    async def reset_force_offsets(self) -> None:
         """Reset the user defined forces to zero."""
         await self.write_command_to_server("resetForceOffsets")
 
-    async def reset_actuator_steps(self):
+    async def reset_actuator_steps(self) -> None:
         """Resets the user defined actuator steps to zero."""
         await self.write_command_to_server("resetActuatorSteps")
 
-    async def load_configuration(self):
+    async def load_configuration(self) -> None:
         """Load the configuration."""
         await self.write_command_to_server("loadConfiguration")
