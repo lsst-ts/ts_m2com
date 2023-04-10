@@ -24,6 +24,7 @@ import contextlib
 import logging
 import sys
 import unittest
+from pathlib import Path
 
 from lsst.ts import salobj, tcpip
 from lsst.ts.m2com import (
@@ -32,6 +33,7 @@ from lsst.ts.m2com import (
     Controller,
     InnerLoopControlMode,
     MockErrorCode,
+    MockModel,
     MockServer,
     MsgType,
     PowerSystemState,
@@ -45,8 +47,13 @@ SLEEP_TIME_SHORT = 2
 class TestController(unittest.IsolatedAsyncioTestCase):
     """Test the Controller class."""
 
+    config_dir: Path
+    host: str
+    timeout_in_second: float
+    log: logging.Logger
+
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.config_dir = get_config_dir()
         cls.host = tcpip.LOCALHOST_IPV4
         cls.timeout_in_second = 0.05
@@ -57,7 +64,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         cls.log = logging.getLogger()
 
     @contextlib.asynccontextmanager
-    async def make_server(self):
+    async def make_server(self) -> MockServer:
         """Instantiate the mock server of M2 for the test."""
 
         server = MockServer(
@@ -76,11 +83,16 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             await server.close()
 
     @contextlib.asynccontextmanager
-    async def make_controller(self, server):
+    async def make_controller(self, server: MockServer) -> Controller:
         """Make the controller (or TCP/IP client) that talks to the server and
         wait for it to connect.
 
         Returns Controller.
+
+        Parameters
+        ----------
+        server : `MockServer`
+            Mock server.
         """
 
         controller = Controller(log=self.log)
@@ -103,25 +115,25 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(controller.client_telemetry)
         self.assertEqual(controller.last_command_status, CommandStatus.Unknown)
 
-    async def test_close(self):
+    async def test_close(self) -> None:
         controller = Controller()
         await controller.close()
 
         controller.start(tcpip.LOCALHOST_IPV4, 0, 0)
         await controller.close()
 
-    async def test_are_clients_connected(self):
+    async def test_are_clients_connected(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
             self.assertTrue(controller.are_clients_connected())
 
-    def test_are_clients_connected_no_connection(self):
+    def test_are_clients_connected_no_connection(self) -> None:
         controller = Controller()
 
         self.assertFalse(controller.are_clients_connected())
 
-    async def test_task_connection(self):
+    async def test_task_connection(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -140,7 +152,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertTrue(controller.are_clients_connected())
 
-    async def test_task_connection_timeout(self):
+    async def test_task_connection_timeout(self) -> None:
         # Let the controller connects to the wrong host position
         controller = Controller(log=self.log)
         controller.start(
@@ -161,7 +173,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(controller.client_command)
         self.assertIsNone(controller.client_telemetry)
 
-    async def test_task_analyze_message(self):
+    async def test_task_analyze_message(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -169,7 +181,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertGreaterEqual(controller.queue_event.qsize(), 11)
 
-    async def test_controller_state(self):
+    async def test_controller_state(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -183,7 +195,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(controller.controller_state, salobj.State.FAULT)
 
-    async def test_last_command_status_ack_success(self):
+    async def test_last_command_status_ack_success(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -198,7 +210,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(7)
             self.assertEqual(controller.last_command_status, CommandStatus.Success)
 
-    async def test_write_command_to_server_success(self):
+    async def test_write_command_to_server_success(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -208,7 +220,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(controller.controller_state, salobj.State.STANDBY)
 
-    async def test_write_command_to_server_wrong_expectation(self):
+    async def test_write_command_to_server_wrong_expectation(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -217,7 +229,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
                     "enterControl", controller_state_expected=salobj.State.ENABLED
                 )
 
-    async def test_write_command_to_server_short_timeout(self):
+    async def test_write_command_to_server_short_timeout(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -228,7 +240,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
                     controller_state_expected=salobj.State.ENABLED,
                 )
 
-    async def test_write_command_to_server_fail(self):
+    async def test_write_command_to_server_fail(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -237,7 +249,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
                     "switchForceBalanceSystem", message_details={"status": True}
                 )
 
-    async def test_write_command_to_closed_server(self):
+    async def test_write_command_to_closed_server(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -248,19 +260,19 @@ class TestController(unittest.IsolatedAsyncioTestCase):
                     "switchForceBalanceSystem", message_details={"status": True}
                 )
 
-    async def test_write_command_to_server_no_this_command(self):
+    async def test_write_command_to_server_no_this_command(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
             with self.assertRaises(RuntimeError):
                 await controller.write_command_to_server("noThisCommand")
 
-    async def test_write_command_to_server_no_connection(self):
+    async def test_write_command_to_server_no_connection(self) -> None:
         controller = Controller()
         with self.assertRaises(OSError):
             await controller.write_command_to_server("noConnection")
 
-    async def test_clear_errors(self):
+    async def test_clear_errors(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -276,7 +288,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(server.model.error_handler.exists_error())
             self.assertEqual(controller.controller_state, salobj.State.OFFLINE)
 
-    def test_is_controller_state(self):
+    def test_is_controller_state(self) -> None:
         controller = Controller()
 
         # Is controller's state
@@ -287,7 +299,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         message = {"id": "temp", "temp": 1}
         self.assertFalse(controller._is_controller_state(message))
 
-    def test_assert_controller_state(self):
+    def test_assert_controller_state(self) -> None:
         controller = Controller()
 
         # Allowed state
@@ -301,7 +313,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             [salobj.State.ENABLED],
         )
 
-    async def test_power_communication(self):
+    async def test_power_communication(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -321,7 +333,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
                 PowerSystemState.PoweredOff,
             )
 
-    async def test_power_motor(self):
+    async def test_power_motor(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -332,7 +344,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
                 PowerSystemState.PoweredOn,
             )
 
-    async def test_power_wrong_expected_state(self):
+    async def test_power_wrong_expected_state(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -343,7 +355,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
                     expected_state=PowerSystemState.ResettingBreakers,
                 )
 
-    async def test_reset_force_offsets(self):
+    async def test_reset_force_offsets(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -351,7 +363,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(controller.last_command_status, CommandStatus.Success)
 
-    async def test_reset_actuator_steps(self):
+    async def test_reset_actuator_steps(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -359,7 +371,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(controller.last_command_status, CommandStatus.Success)
 
-    async def test_set_closed_loop_control_mode(self):
+    async def test_set_closed_loop_control_mode(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -371,14 +383,14 @@ class TestController(unittest.IsolatedAsyncioTestCase):
                 controller.closed_loop_control_mode, ClosedLoopControlMode.TelemetryOnly
             )
 
-    async def test_set_ilc_to_enabled_fail_no_power(self):
+    async def test_set_ilc_to_enabled_fail_no_power(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
             with self.assertRaises(RuntimeError):
                 await controller.set_ilc_to_enabled()
 
-    async def test_set_ilc_to_enabled(self):
+    async def test_set_ilc_to_enabled(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -403,11 +415,11 @@ class TestController(unittest.IsolatedAsyncioTestCase):
 
             self._assert_ilc_enabled(server.model)
 
-    def _assert_ilc_enabled(self, model):
+    def _assert_ilc_enabled(self, model: MockModel) -> None:
         for ilc in model.list_ilc:
             self.assertEqual(ilc.mode, InnerLoopControlMode.Enabled)
 
-    async def test_set_ilc_to_enabled_from_fault(self):
+    async def test_set_ilc_to_enabled_from_fault(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -421,11 +433,11 @@ class TestController(unittest.IsolatedAsyncioTestCase):
 
             self._assert_ilc_enabled(server.model)
 
-    def _change_ilc_mode(self, model, mode):
+    def _change_ilc_mode(self, model: MockModel, mode: InnerLoopControlMode) -> None:
         for ilc in model.list_ilc:
             ilc.mode = mode
 
-    async def test_set_ilc_to_enabled_from_firmware_update(self):
+    async def test_set_ilc_to_enabled_from_firmware_update(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -439,7 +451,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
 
             self._assert_ilc_enabled(server.model)
 
-    async def test_set_ilc_to_enabled_from_unknown(self):
+    async def test_set_ilc_to_enabled_from_unknown(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:

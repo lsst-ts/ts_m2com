@@ -22,7 +22,9 @@
 import asyncio
 import contextlib
 import logging
+import typing
 import unittest
+from pathlib import Path
 
 import numpy as np
 from lsst.ts import salobj, tcpip
@@ -53,15 +55,20 @@ from lsst.ts.m2com import (
 class TestMockServer(unittest.IsolatedAsyncioTestCase):
     """Test the MockServer class."""
 
+    config_dir: Path
+    host: str
+    log: logging.Logger
+    maxsize_queue: int
+
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.config_dir = get_config_dir()
         cls.host = tcpip.LOCALHOST_IPV4
         cls.log = logging.getLogger()
         cls.maxsize_queue = 1000
 
     @contextlib.asynccontextmanager
-    async def make_server(self):
+    async def make_server(self) -> MockServer:
         """Instantiate the mock server of M2 for the test."""
 
         server = MockServer(
@@ -88,11 +95,16 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(server.model.error_handler.exists_error())
 
     @contextlib.asynccontextmanager
-    async def make_clients(self, server):
+    async def make_clients(self, server: MockServer) -> typing.AsyncIterator[TcpClient]:
         """Make two TCP/IP clients that talk to the server and wait for it to
         connect.
 
         Returns (client_cmd, client_tel).
+
+        Parameters
+        ----------
+        server : `MockServer`
+            Mock server.
         """
 
         client_cmd = TcpClient(
@@ -116,7 +128,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await client_cmd.close()
             await client_tel.close()
 
-    async def test_are_servers_connected(self):
+    async def test_are_servers_connected(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -197,7 +209,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(msg_clc_mode["id"], "closedLoopControlMode")
             self.assertEqual(msg_clc_mode["mode"], ClosedLoopControlMode.Idle)
 
-    async def test_monitor_msg_cmd_ack(self):
+    async def test_monitor_msg_cmd_ack(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -209,7 +221,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(msg_ack["sequence_id"], 1)
 
-    async def test_monitor_msg_cmd_success(self):
+    async def test_monitor_msg_cmd_success(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -221,7 +233,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(msg_success["sequence_id"], 1)
 
-    async def test_cmd_unknown(self):
+    async def test_cmd_unknown(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -233,7 +245,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(msg_noack["id"], "noack")
 
-    async def test_cell_temperature_high_warning(self):
+    async def test_cell_temperature_high_warning(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -247,7 +259,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             self.assertTrue(msg_high_temp["hiWarning"])
 
-    async def test_cmd_enable_noack_success(self):
+    async def test_cmd_enable_noack_success(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -261,7 +273,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(len(msg_success), 0)
 
-    async def test_cmd_enable_fail(self):
+    async def test_cmd_enable_fail(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -274,7 +286,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             msg_fail = get_queue_message_latest(client_cmd.queue, "fail")
             self.assertEqual(msg_fail["id"], "fail")
 
-    async def test_cmd_enable_success(self):
+    async def test_cmd_enable_success(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -313,7 +325,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             self.assertFalse(msg_open_loop_max_limit["status"])
 
-    async def test_cmd_disable(self):
+    async def test_cmd_disable(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -350,7 +362,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             self.assertFalse(msg_open_loop_max_limit["status"])
 
-    async def test_cmd_standby(self):
+    async def test_cmd_standby(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -373,7 +385,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(msg_digital_output["value"], TEST_DIGITAL_OUTPUT_NO_POWER)
 
-    async def test_cmd_standby_check_summary_state(self):
+    async def test_cmd_standby_check_summary_state(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -385,7 +397,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(msg_state["summaryState"], int(salobj.State.STANDBY))
 
-    async def test_cmd_start(self):
+    async def test_cmd_start(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -410,7 +422,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 msg_digital_output["value"], TEST_DIGITAL_OUTPUT_POWER_COMM
             )
 
-    async def test_cmd_enter_control(self):
+    async def test_cmd_enter_control(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -433,7 +445,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(msg_digital_output["value"], TEST_DIGITAL_OUTPUT_NO_POWER)
 
-    async def test_cmd_exit_control(self):
+    async def test_cmd_exit_control(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -458,7 +470,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(msg_digital_output["value"], TEST_DIGITAL_OUTPUT_NO_POWER)
 
-    async def test_cmd_apply_forces(self):
+    async def test_cmd_apply_forces(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -482,7 +494,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 force_tangent,
             )
 
-    async def test_cmd_position_mirror(self):
+    async def test_cmd_position_mirror(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -511,7 +523,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 server.model.mirror_position_offset, mirror_position_set_point
             )
 
-    async def test_cmd_reset_force_offsets(self):
+    async def test_cmd_reset_force_offsets(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -539,7 +551,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 0,
             )
 
-    async def test_cmd_clear_errors(self):
+    async def test_cmd_clear_errors(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -564,7 +576,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             msg_state = get_queue_message_latest(client_cmd.queue, "summaryState")
             self.assertEqual(msg_state["summaryState"], int(salobj.State.OFFLINE))
 
-    async def test_cmd_switch_force_balance_system_fail(self):
+    async def test_cmd_switch_force_balance_system_fail(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -588,7 +600,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             self.assertFalse(msg_open_loop_max_limit["status"])
 
-    async def test_cmd_switch_force_balance_system_success(self):
+    async def test_cmd_switch_force_balance_system_success(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -613,7 +625,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             self.assertFalse(msg_open_loop_max_limit["status"])
 
-    async def test_cmd_select_inclination_source(self):
+    async def test_cmd_select_inclination_source(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -634,7 +646,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(server.model.inclination_source, source)
 
-    async def test_cmd_set_temperature_offset(self):
+    async def test_cmd_set_temperature_offset(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -659,7 +671,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(server.model.control_closed_loop.temperature["ref"], ring)
 
-    async def test_telemetry_no_motor_power(self):
+    async def test_telemetry_no_motor_power(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -668,7 +680,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(1)
             self.assertGreater(client_tel.queue.qsize(), 10)
 
-    async def test_telemetry_with_motor_power(self):
+    async def test_telemetry_with_motor_power(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -680,7 +692,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(8)
             self.assertGreater(client_tel.queue.qsize(), 150)
 
-    async def test_telemetry_get_mtmount_elevation(self):
+    async def test_telemetry_get_mtmount_elevation(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -703,7 +715,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 server.model.control_open_loop.inclinometer_angle, elevation_angle
             )
 
-    async def test_telemetry_power_status(self):
+    async def test_telemetry_power_status(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -742,7 +754,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertGreater(msg_power_status["commVoltage"], 20)
             self.assertGreater(msg_power_status["commCurrent"], 5)
 
-    async def test_event_get_mtmount_mount_in_position(self):
+    async def test_event_get_mtmount_mount_in_position(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -759,7 +771,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(server.model.mtmount_in_position, inPosition)
 
-    async def test_cmd_power_on(self):
+    async def test_cmd_power_on(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -788,7 +800,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 msg_power_system_state[1]["state"], PowerSystemState.PoweredOn
             )
 
-    async def test_cmd_power_off(self):
+    async def test_cmd_power_off(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
@@ -820,7 +832,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 msg_power_system_state[1]["state"], PowerSystemState.PoweredOff
             )
 
-    async def test_cmd_load_configuration(self):
+    async def test_cmd_load_configuration(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,

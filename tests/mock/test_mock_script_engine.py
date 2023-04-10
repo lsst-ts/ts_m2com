@@ -27,10 +27,10 @@ from lsst.ts.m2com import MockScriptEngine
 class TestMockScriptEngine(unittest.TestCase):
     """Test the Mock Script Engine class."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.script_engine = MockScriptEngine()
 
-    def test_set_name_exception(self):
+    def test_set_name_exception(self) -> None:
         # Empty name
         self.assertRaises(ValueError, self.script_engine.set_name, "")
 
@@ -39,11 +39,11 @@ class TestMockScriptEngine(unittest.TestCase):
 
         self.assertRaises(RuntimeError, self.script_engine.set_name, "test2")
 
-    def _set_script_and_run(self, name):
+    def _set_script_and_run(self, name: str) -> None:
         self.script_engine.set_name(name)
         self.script_engine.run()
 
-    def test_set_name(self):
+    def test_set_name(self) -> None:
         name = "test"
         self.script_engine.percentage = 10
 
@@ -52,12 +52,12 @@ class TestMockScriptEngine(unittest.TestCase):
         self.assertEqual(self.script_engine._name, name)
         self.assertEqual(self.script_engine.percentage, 0)
 
-    def test_clear_exception(self):
+    def test_clear_exception(self) -> None:
         self._set_script_and_run("test")
 
         self.assertRaises(RuntimeError, self.script_engine.clear)
 
-    def test_clear(self):
+    def test_clear(self) -> None:
         self._run_script_to_done()
 
         self.script_engine.clear()
@@ -66,11 +66,11 @@ class TestMockScriptEngine(unittest.TestCase):
         self.assertEqual(self.script_engine.percentage, 0)
         self.assertFalse(self.script_engine.is_running)
 
-    def _run_script_to_done(self):
+    def _run_script_to_done(self) -> None:
         self._set_script_and_run("test")
         self.script_engine.run_steps(100)
 
-    def test_run_exception(self):
+    def test_run_exception(self) -> None:
         # No script is assigned
         self.assertRaises(RuntimeError, self.script_engine.run)
 
@@ -84,25 +84,25 @@ class TestMockScriptEngine(unittest.TestCase):
 
         self.assertRaises(RuntimeError, self.script_engine.run)
 
-    def test_run(self):
+    def test_run(self) -> None:
         self._set_script_and_run("test")
 
         self.assertTrue(self.script_engine.is_running)
 
-    def test_stop(self):
+    def test_stop(self) -> None:
         self._set_script_and_run("test")
         self.script_engine.stop()
 
         self.assertFalse(self.script_engine.is_running)
         self.assertEqual(self.script_engine.percentage, 100)
 
-    def test_pause(self):
+    def test_pause(self) -> None:
         self._set_script_and_run("test")
         self.script_engine.pause()
 
         self.assertFalse(self.script_engine.is_running)
 
-    def test_run_steps_exception(self):
+    def test_run_steps_exception(self) -> None:
         # Not running yet
         self.assertRaises(RuntimeError, self.script_engine.run_steps, 10)
 
@@ -110,7 +110,7 @@ class TestMockScriptEngine(unittest.TestCase):
         self._set_script_and_run("test")
         self.assertRaises(ValueError, self.script_engine.run_steps, 101)
 
-    def test_run_steps(self):
+    def test_run_steps(self) -> None:
         self._set_script_and_run("test")
 
         # Normal step

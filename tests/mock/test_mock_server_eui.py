@@ -22,7 +22,9 @@
 import asyncio
 import contextlib
 import logging
+import typing
 import unittest
+from pathlib import Path
 
 from lsst.ts import salobj, tcpip
 from lsst.ts.m2com import (
@@ -40,15 +42,20 @@ class TestMockServerEui(unittest.IsolatedAsyncioTestCase):
     machines in the cell controller.
     """
 
+    config_dir: Path
+    host: str
+    log: logging.Logger
+    maxsize_queue: int
+
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.config_dir = get_config_dir()
         cls.host = tcpip.LOCALHOST_IPV4
         cls.log = logging.getLogger()
         cls.maxsize_queue = 1000
 
     @contextlib.asynccontextmanager
-    async def make_server(self):
+    async def make_server(self) -> MockServer:
         """Instantiate the mock server of M2 for the test."""
 
         server = MockServer(
@@ -67,11 +74,16 @@ class TestMockServerEui(unittest.IsolatedAsyncioTestCase):
             await server.close()
 
     @contextlib.asynccontextmanager
-    async def make_clients(self, server):
+    async def make_clients(self, server: MockServer) -> typing.AsyncIterator[TcpClient]:
         """Make two TCP/IP clients that talk to the server and wait for it to
         connect.
 
         Returns (client_cmd, client_tel).
+
+        Parameters
+        ----------
+        server : `MockServer`
+            Mock server.
         """
 
         client_cmd = TcpClient(
@@ -95,7 +107,7 @@ class TestMockServerEui(unittest.IsolatedAsyncioTestCase):
             await client_cmd.close()
             await client_tel.close()
 
-    async def test_are_servers_connected(self):
+    async def test_are_servers_connected(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,

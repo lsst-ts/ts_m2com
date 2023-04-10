@@ -24,6 +24,7 @@ import contextlib
 import logging
 import sys
 import unittest
+from pathlib import Path
 
 import numpy as np
 from lsst.ts import salobj, tcpip
@@ -55,8 +56,13 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
     machines in the cell controller.
     """
 
+    config_dir: Path
+    host: str
+    timeout_in_second: float
+    log: logging.Logger
+
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.config_dir = get_config_dir()
         cls.host = tcpip.LOCALHOST_IPV4
         cls.timeout_in_second = 0.05
@@ -67,7 +73,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         cls.log = logging.getLogger()
 
     @contextlib.asynccontextmanager
-    async def make_server(self):
+    async def make_server(self) -> MockServer:
         """Instantiate the mock server of M2 for the test."""
 
         server = MockServer(
@@ -87,11 +93,16 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await server.close()
 
     @contextlib.asynccontextmanager
-    async def make_controller(self, server):
+    async def make_controller(self, server: MockServer) -> Controller:
         """Make the controller (or TCP/IP client) that talks to the server and
         wait for it to connect.
 
         Returns Controller.
+
+        Parameters
+        ----------
+        server : `MockServer`
+            Mock server.
         """
 
         controller = Controller(log=self.log, is_csc=False)
@@ -109,7 +120,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         finally:
             await controller.close()
 
-    async def test_init(self):
+    async def test_init(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -118,7 +129,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertEqual(controller.controller_state, salobj.State.STANDBY)
 
-    async def test_clear_errors(self):
+    async def test_clear_errors(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -134,21 +145,21 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(server.model.error_handler.exists_error())
             self.assertEqual(controller.controller_state, salobj.State.STANDBY)
 
-    async def test_enter_control(self):
+    async def test_enter_control(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
             with self.assertRaises(RuntimeError):
                 await controller.write_command_to_server("enterControl")
 
-    async def test_exit_control(self):
+    async def test_exit_control(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
             with self.assertRaises(RuntimeError):
                 await controller.write_command_to_server("exitControl")
 
-    async def test_switch_command_source(self):
+    async def test_switch_command_source(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -178,7 +189,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             )
             self.assertTrue(is_commandable_by_dds)
 
-    async def _get_latest_state_commandable_by_dds(self, queue):
+    async def _get_latest_state_commandable_by_dds(self, queue: asyncio.Queue) -> bool:
         """Get the latest state of "commandableByDDS" event.
 
         Parameters
@@ -197,7 +208,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         msg_latest = get_queue_message_latest(queue, "commandableByDDS")
         return msg_latest["state"]
 
-    async def test_run_script_fail(self):
+    async def test_run_script_fail(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -210,7 +221,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                     },
                 )
 
-    async def test_run_script_success_to_end(self):
+    async def test_run_script_success_to_end(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -264,7 +275,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertEqual(script_engine._name, "")
 
-    async def test_run_script_success_pause(self):
+    async def test_run_script_success_pause(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -337,7 +348,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertFalse(script_engine.is_running)
 
-    async def test_move_actuators_fail(self):
+    async def test_move_actuators_fail(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -347,7 +358,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                     message_details={"actuatorCommand": CommandActuator.Start},
                 )
 
-    async def test_move_actuators_success_to_end(self):
+    async def test_move_actuators_success_to_end(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -374,7 +385,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(message_axial_steps["steps"][2], 1000)
             self.assertEqual(message_axial_steps["steps"][3], 1000)
 
-    async def test_move_actuators_out_limit(self):
+    async def test_move_actuators_out_limit(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -412,7 +423,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(message_limit_switch_status["retract"], [0])
             self.assertEqual(message_limit_switch_status["extend"], [])
 
-    async def test_move_actuators_success_pause(self):
+    async def test_move_actuators_success_pause(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -469,7 +480,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                 message_axial_steps_pause["steps"][2],
             )
 
-    async def test_reset_breakers_communication(self):
+    async def test_reset_breakers_communication(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -488,7 +499,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(messages[-1]["value"], TEST_DIGITAL_OUTPUT_POWER_COMM)
 
-    async def test_reset_breakers_motor(self):
+    async def test_reset_breakers_motor(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -510,7 +521,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                 messages[-1]["value"], TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR
             )
 
-    async def test_reboot_controller(self):
+    async def test_reboot_controller(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -523,7 +534,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertFalse(controller.are_clients_connected())
 
-    async def test_enable_open_loop_max_limit(self):
+    async def test_enable_open_loop_max_limit(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -542,7 +553,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             )
             self.assertTrue(msg_open_loop_max_limit["status"])
 
-    async def test_save_mirror_position(self):
+    async def test_save_mirror_position(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -552,7 +563,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertEqual(controller.last_command_status, CommandStatus.Success)
 
-    async def test_set_mirror_home(self):
+    async def test_set_mirror_home(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -562,7 +573,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(server.model.mirror_position["x"], 0)
 
-    async def test_switch_digital_output_fail(self):
+    async def test_switch_digital_output_fail(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
@@ -572,7 +583,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                     "switchDigitalOutput", message_details={"bit": 0}
                 )
 
-    async def test_switch_digital_output_success(self):
+    async def test_switch_digital_output_success(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:

@@ -37,9 +37,9 @@ from lsst.ts.m2com import (
 class TestUtility(unittest.IsolatedAsyncioTestCase):
     """Test the functions in utility."""
 
-    def test_check_queue_size(self):
+    def test_check_queue_size(self) -> None:
         # No information is logged
-        queue = asyncio.Queue(maxsize=3)
+        queue: asyncio.Queue = asyncio.Queue(maxsize=3)
         log = logging.getLogger()
         self.assertFalse(check_queue_size(queue, log))
 
@@ -50,29 +50,29 @@ class TestUtility(unittest.IsolatedAsyncioTestCase):
         queue.put_nowait(2)
         self.assertTrue(check_queue_size(queue, log))
 
-    def test_read_yaml_file_exception(self):
+    def test_read_yaml_file_exception(self) -> None:
         self.assertRaises(IOError, read_yaml_file, "no_this_yaml_file.yaml")
 
-    def test_read_yaml_file(self):
+    def test_read_yaml_file(self) -> None:
         yaml_file = get_config_dir() / "harrisLUT" / "cell_geom.yaml"
         content = read_yaml_file(yaml_file)
 
         self.assertEqual(content["radiusActTangent"], 1.780189734)
 
-    def test_get_config_dir(self):
+    def test_get_config_dir(self) -> None:
         path = get_config_dir()
 
         self.assertTrue(path.exists())
         self.assertEqual(path.name, "v2")
 
-    def test_is_coroutine(self):
+    def test_is_coroutine(self) -> None:
         self.assertTrue(is_coroutine(asyncio.sleep))
         self.assertFalse(is_coroutine(self._function))
 
-    def _function(self):
+    def _function(self) -> None:
         pass
 
-    def test_check_limit_switches(self):
+    def test_check_limit_switches(self) -> None:
         # Nothing is triggered
         actuator_forces = np.zeros(NUM_ACTUATOR)
         limit_force_axial = 3
