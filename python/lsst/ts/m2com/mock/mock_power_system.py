@@ -20,6 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import typing
 
 import numpy as np
 
@@ -48,7 +49,7 @@ class MockPowerSystem:
     SLEEP_TIME_SHORT = 0.5
     SLEEP_TIME_LONG = 3
 
-    def __init__(self, default_voltage, default_current):
+    def __init__(self, default_voltage: float, default_current: float) -> None:
         # Power is on or not
         self._is_power_on = False
 
@@ -58,7 +59,7 @@ class MockPowerSystem:
         self._default_voltage = default_voltage
         self._default_current = default_current
 
-    async def power_on(self):
+    async def power_on(self) -> None:
         """Power on."""
 
         self._is_power_on = True
@@ -66,14 +67,14 @@ class MockPowerSystem:
         await asyncio.sleep(self.SLEEP_TIME_SHORT)
         self.state = PowerSystemState.PoweringOn
 
-    async def wait_power_fully_on(self):
+    async def wait_power_fully_on(self) -> None:
         """Wait the power to be fully on."""
 
         if self.state == PowerSystemState.PoweringOn:
             await asyncio.sleep(self.SLEEP_TIME_LONG)
             self.state = PowerSystemState.PoweredOn
 
-    async def power_off(self):
+    async def power_off(self) -> None:
         """Power off."""
 
         self._is_power_on = False
@@ -81,14 +82,14 @@ class MockPowerSystem:
         await asyncio.sleep(self.SLEEP_TIME_SHORT)
         self.state = PowerSystemState.PoweringOff
 
-    async def wait_power_fully_off(self):
+    async def wait_power_fully_off(self) -> None:
         """Wait the power to be fully off."""
 
         if self.state == PowerSystemState.PoweringOff:
             await asyncio.sleep(self.SLEEP_TIME_SHORT)
             self.state = PowerSystemState.PoweredOff
 
-    def is_power_on(self):
+    def is_power_on(self) -> bool:
         """Power is on or not.
 
         Returns
@@ -102,7 +103,7 @@ class MockPowerSystem:
             PowerSystemState.PoweredOn,
         )
 
-    def get_power(self, rms=0.05):
+    def get_power(self, rms: float = 0.05) -> typing.Tuple[float, float]:
         """Get the power.
 
         Parameters

@@ -21,7 +21,11 @@
 
 __all__ = ["MockControlOpenLoop"]
 
+import typing
+from pathlib import Path
+
 import numpy as np
+import numpy.typing
 import pandas as pd
 
 from ..constant import (
@@ -58,8 +62,8 @@ class MockControlOpenLoop:
     # actuator has its own calibrated value.
     STEP_TO_MM = 1.9967536601e-5
 
-    def __init__(self):
-        self.inclinometer_angle = 0
+    def __init__(self) -> None:
+        self.inclinometer_angle = 0.0
         self.open_loop_max_limit_is_enabled = False
         self.is_running = False
 
@@ -70,12 +74,14 @@ class MockControlOpenLoop:
         self.actuator_steps = np.zeros(NUM_ACTUATOR, dtype=int)
 
         # Selected actuator IDs to do the movement
-        self._selected_actuators = list()
+        self._selected_actuators: typing.List[int] = list()
 
         # Displacement of steps to do the movement
         self._displacement_steps = 0
 
-    def read_file_static_transfer_matrix(self, filepath, skiprows=7):
+    def read_file_static_transfer_matrix(
+        self, filepath: str | Path, skiprows: int = 7
+    ) -> None:
         """Read the file of static transfer matrix (the size is 78 x 78).
 
         This file comes from the vender's original project used in the
@@ -95,7 +101,9 @@ class MockControlOpenLoop:
 
         self._static_transfer_matrix = data.reshape(NUM_ACTUATOR, NUM_ACTUATOR)
 
-    def update_actuator_steps(self, actuator_steps):
+    def update_actuator_steps(
+        self, actuator_steps: numpy.typing.NDArray[np.int64]
+    ) -> None:
         """Update the current actuator steps referenced to the home position.
 
         Parameters
@@ -122,7 +130,7 @@ class MockControlOpenLoop:
 
         self.actuator_steps = actuator_steps
 
-    def correct_inclinometer_angle(self, angle, offset=0.94):
+    def correct_inclinometer_angle(self, angle: float, offset: float = 0.94) -> float:
         """Correct the inclinometer's value and make sure to limit the
         resulting value to the indicated range: (-270, 90).
 
@@ -157,7 +165,9 @@ class MockControlOpenLoop:
 
         return angle_correct
 
-    def get_forces_mirror_weight(self, angle):
+    def get_forces_mirror_weight(
+        self, angle: float
+    ) -> numpy.typing.NDArray[np.float64]:
         """Get the forces that bear the weight of mirror.
 
         This function is translated from vendor's original LabVIEW code.
@@ -198,7 +208,7 @@ class MockControlOpenLoop:
 
         return forces
 
-    def is_actuator_force_out_limit(self):
+    def is_actuator_force_out_limit(self) -> typing.Tuple[bool, list, list]:
         """The actuator force is out of limit or not. The result will depend
         on self.open_loop_max_limit_is_enabled.
 
@@ -227,7 +237,9 @@ class MockControlOpenLoop:
 
         return check_limit_switches(forces, limit_force_axial, limit_force_tangent)
 
-    def calculate_steps_to_forces(self, steps):
+    def calculate_steps_to_forces(
+        self, steps: numpy.typing.NDArray[np.int64]
+    ) -> numpy.typing.NDArray[np.float64]:
         """Calculate the steps to forces.
 
         This function is translated from vendor's original LabVIEW code.
@@ -249,7 +261,9 @@ class MockControlOpenLoop:
             steps.reshape(-1, 1)
         ).ravel() + self.get_forces_mirror_weight(self.inclinometer_angle)
 
-    def calculate_forces_to_steps(self, forces):
+    def calculate_forces_to_steps(
+        self, forces: numpy.typing.NDArray[np.float64]
+    ) -> numpy.typing.NDArray[np.int64]:
         """Calculate the forces to steps.
 
         This is the reverse of self.calculate_steps_to_forces().
@@ -275,7 +289,9 @@ class MockControlOpenLoop:
 
         return steps.ravel()
 
-    def calculate_forces_to_positions(self, forces):
+    def calculate_forces_to_positions(
+        self, forces: numpy.typing.NDArray[np.float64]
+    ) -> numpy.typing.NDArray[np.float64]:
         """Calculate the forces to positions.
 
         This is just an extension of self.calculate_forces_to_steps().
@@ -292,7 +308,7 @@ class MockControlOpenLoop:
         """
         return self.calculate_forces_to_steps(forces) * self.STEP_TO_MM
 
-    def get_actuator_positions(self):
+    def get_actuator_positions(self) -> numpy.typing.NDArray[np.float64]:
         """Get the actuator positions in millimeter.
 
         Returns
@@ -302,7 +318,12 @@ class MockControlOpenLoop:
         """
         return self.actuator_steps * self.STEP_TO_MM
 
-    def start(self, actuators, displacement, unit):
+    def start(
+        self,
+        actuators: typing.List[int],
+        displacement: int | float,
+        unit: ActuatorDisplacementUnit,
+    ) -> None:
         """Start the movement.
 
         Parameters
@@ -333,7 +354,9 @@ class MockControlOpenLoop:
 
         self.is_running = True
 
-    def _calculate_steps(self, displacement, unit):
+    def _calculate_steps(
+        self, displacement: int | float, unit: ActuatorDisplacementUnit
+    ) -> int:
         """Calculate the steps of displacement.
 
         Parameters
@@ -351,10 +374,10 @@ class MockControlOpenLoop:
         return (
             int(displacement / self.STEP_TO_MM)
             if unit == ActuatorDisplacementUnit.Millimeter
-            else displacement
+            else int(displacement)
         )
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the movement."""
 
         self.is_running = False
@@ -365,11 +388,11 @@ class MockControlOpenLoop:
         # are different.
         self._displacement_steps = 0
 
-    def pause(self):
+    def pause(self) -> None:
         """Pause the movement."""
         self.is_running = False
 
-    def resume(self):
+    def resume(self) -> None:
         """Resume the movement.
 
         Raises
@@ -383,7 +406,7 @@ class MockControlOpenLoop:
         else:
             raise RuntimeError("The movement is done.")
 
-    def run_steps(self, steps):
+    def run_steps(self, steps: int) -> None:
         """Run the steps.
 
         If the requested displacement is done or the actuator force is out of
@@ -421,7 +444,11 @@ class MockControlOpenLoop:
         if (self._displacement_steps == 0) or self.is_actuator_force_out_limit()[0]:
             self.is_running = False
 
-    def move_actuator_steps(self, actuators, steps):
+    def move_actuator_steps(
+        self,
+        actuators: typing.List[int] | numpy.typing.NDArray[np.int64],
+        steps: int | typing.List[int] | numpy.typing.NDArray[np.int64],
+    ) -> None:
         """Move the actuator steps.
 
         Parameters

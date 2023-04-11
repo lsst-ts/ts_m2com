@@ -19,6 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import typing
 
 __all__ = ["MockErrorHandler"]
 
@@ -29,26 +30,26 @@ from ..enum import LimitSwitchType
 class MockErrorHandler:
     """Mock Error Handler class to manage the errors."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         # New errors in the system
-        self._errors_new = set()
+        self._errors_new: typing.Set[int] = set()
 
         # Errors that had been reported
-        self._errors_reported = set()
+        self._errors_reported: typing.Set[int] = set()
 
         # New triggered retracted limit switches
-        self._limit_switches_retract_new = set()
+        self._limit_switches_retract_new: typing.Set[int] = set()
 
         # Reported triggered retracted limit switches
-        self._limit_switches_retract_reported = set()
+        self._limit_switches_retract_reported: typing.Set[int] = set()
 
         # New triggered extended limit switches
-        self._limit_switches_extend_new = set()
+        self._limit_switches_extend_new: typing.Set[int] = set()
 
         # Reported triggered extended limit switches
-        self._limit_switches_extend_reported = set()
+        self._limit_switches_extend_reported: typing.Set[int] = set()
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear all errors."""
 
         self._errors_new.clear()
@@ -60,7 +61,7 @@ class MockErrorHandler:
         self._limit_switches_extend_new.clear()
         self._limit_switches_extend_reported.clear()
 
-    def add_new_error(self, error_code):
+    def add_new_error(self, error_code: int) -> None:
         """Add the new error code.
 
         Parameters
@@ -70,7 +71,9 @@ class MockErrorHandler:
         """
         self._add_new_item(self._errors_new, self._errors_reported, error_code)
 
-    def _add_new_item(self, set_new, set_reported, item):
+    def _add_new_item(
+        self, set_new: typing.Set[int], set_reported: typing.Set[int], item: int
+    ) -> None:
         """Add the new item to set.
 
         The existed item will not be added.
@@ -88,7 +91,9 @@ class MockErrorHandler:
         if (item not in set_new) and (item not in set_reported):
             set_new.add(item)
 
-    def add_new_limit_switch(self, actuator_id, limit_switch_type):
+    def add_new_limit_switch(
+        self, actuator_id: int, limit_switch_type: LimitSwitchType
+    ) -> None:
         """Add the new triggered limit switch.
 
         Parameters
@@ -123,7 +128,7 @@ class MockErrorHandler:
                 actuator_id,
             )
 
-    def exists_new_error(self):
+    def exists_new_error(self) -> bool:
         """Exists the new error (not reported) or not.
 
         Returns
@@ -133,7 +138,7 @@ class MockErrorHandler:
         """
         return len(self._errors_new) != 0
 
-    def exists_new_limit_switch(self, limit_switch_type):
+    def exists_new_limit_switch(self, limit_switch_type: LimitSwitchType) -> bool:
         """Exists the new triggered limit switch (not reported) or not.
 
         Parameters
@@ -152,7 +157,7 @@ class MockErrorHandler:
             else (len(self._limit_switches_extend_new) != 0)
         )
 
-    def exists_error(self):
+    def exists_error(self) -> bool:
         """Exists the error (new or reported) or not.
 
         Returns
@@ -162,7 +167,7 @@ class MockErrorHandler:
         """
         return self.exists_new_error() or (len(self._errors_reported) != 0)
 
-    def exists_limit_switch(self, limit_switch_type):
+    def exists_limit_switch(self, limit_switch_type: LimitSwitchType) -> bool:
         """Exists the triggered limit switch (new or reported) or not.
 
         Parameters
@@ -181,7 +186,7 @@ class MockErrorHandler:
             else (len(self._limit_switches_extend_reported) != 0)
         )
 
-    def get_errors_to_report(self):
+    def get_errors_to_report(self) -> typing.Set[int]:
         """Get the errors that are not reported yet.
 
         Returns
@@ -195,7 +200,9 @@ class MockErrorHandler:
 
         return self._get_items_in_set_and_clear(self._errors_new)
 
-    def _get_items_in_set_and_clear(self, specific_set):
+    def _get_items_in_set_and_clear(
+        self, specific_set: typing.Set[int]
+    ) -> typing.Set[int]:
         """Get the items in the specific set and clear the set.
 
         Parameters
@@ -214,7 +221,9 @@ class MockErrorHandler:
 
         return items
 
-    def get_limit_switches_to_report(self, limit_switch_type):
+    def get_limit_switches_to_report(
+        self, limit_switch_type: LimitSwitchType
+    ) -> typing.Set[int]:
         """Get the limit switches that are not reported yet.
 
         Parameters

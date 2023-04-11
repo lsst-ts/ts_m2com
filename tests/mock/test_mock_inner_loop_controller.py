@@ -27,10 +27,10 @@ from lsst.ts.m2com import InnerLoopControlMode, MockInnerLoopController
 class TestMockInnerLoopController(unittest.TestCase):
     """Test the Mock Inner-Loop Controller class."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.inner_loop_controller = MockInnerLoopController()
 
-    def test_set_mode(self):
+    def test_set_mode(self) -> None:
         self.inner_loop_controller.set_mode(InnerLoopControlMode.Fault)
         self.assertEqual(self.inner_loop_controller.mode, InnerLoopControlMode.Fault)
 

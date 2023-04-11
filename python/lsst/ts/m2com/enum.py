@@ -19,6 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import typing
 from enum import Enum, IntEnum, auto
 
 __all__ = [
@@ -45,7 +46,10 @@ class BitEnum(Enum):
     order is from bit 0 to bit n. For the values of fields, use auto()
     directly. By doing this, the values will be 1, 2, 4, ..., 2 ** n, etc."""
 
-    def _generate_next_value_(self, start, count, last_values):
+    @staticmethod
+    def _generate_next_value_(
+        name: str, start: int, count: int, last_values: typing.List[typing.Any]
+    ) -> int:
         """Override parent method to generate power of 2 sequence of numbers,
         starting from 1 (e.g. 1, 2, 4, 8, ...)."""
         return 2**count

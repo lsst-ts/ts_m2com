@@ -33,13 +33,13 @@ class MockScriptEngine:
         Percentage of the running.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._name = ""
 
         self.is_running = False
-        self.percentage = 0
+        self.percentage = 0.0
 
-    def set_name(self, name):
+    def set_name(self, name: str) -> None:
         """Set the script name.
 
         Parameters
@@ -64,7 +64,7 @@ class MockScriptEngine:
         self._name = name
         self.percentage = 0
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear the script.
 
         Raises
@@ -79,7 +79,7 @@ class MockScriptEngine:
             self._name = ""
             self.percentage = 0
 
-    def run(self):
+    def run(self) -> None:
         """Run the script.
 
         Raises
@@ -103,7 +103,7 @@ class MockScriptEngine:
         else:
             raise RuntimeError("The script is done.")
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the script."""
 
         self.is_running = False
@@ -114,11 +114,11 @@ class MockScriptEngine:
         # are different.
         self.percentage = 100
 
-    def pause(self):
+    def pause(self) -> None:
         """Pause the script."""
         self.is_running = False
 
-    def run_steps(self, steps):
+    def run_steps(self, steps: int | float) -> None:
         """Run the steps.
 
         If the function executes successfully, the self.percentage will add the

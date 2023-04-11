@@ -23,6 +23,7 @@ import asyncio
 import contextlib
 import logging
 import unittest
+from pathlib import Path
 
 from lsst.ts import tcpip
 from lsst.ts.m2com import ControllerCell, get_config_dir
@@ -31,15 +32,19 @@ from lsst.ts.m2com import ControllerCell, get_config_dir
 class TestControllerCell(unittest.IsolatedAsyncioTestCase):
     """Test the ControllerCell class."""
 
+    log: logging.Logger
+    host: str
+    config_dir: Path
+
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.log = logging.getLogger()
         cls.host = tcpip.LOCALHOST_IPV4
 
         cls.config_dir = get_config_dir()
 
     @contextlib.asynccontextmanager
-    async def make_controller(self):
+    async def make_controller(self) -> ControllerCell:
         """Make the controller (or TCP/IP client) that talks to the server and
         wait for it to connect.
 
@@ -61,7 +66,7 @@ class TestControllerCell(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(controller.are_clients_connected())
 
-    async def test_stop_loops(self):
+    async def test_stop_loops(self) -> None:
         async with self.make_controller() as controller:
             self.assertTrue(controller.are_clients_connected())
 
@@ -76,23 +81,28 @@ class TestControllerCell(unittest.IsolatedAsyncioTestCase):
 
             self.assertFalse(controller.run_loops)
 
-    def _process_event(self, message=None):
+    def _process_event(self, message: dict | None = None) -> None:
         pass
 
-    def _process_telemetry(self, message=None):
+    def _process_telemetry(self, message: dict | None = None) -> None:
         pass
 
-    def _process_lost_connection(self):
+    def _process_lost_connection(self) -> None:
         pass
 
-    async def test_stop_loops_no_connection(self):
+    async def test_stop_loops_no_connection(self) -> None:
         controller = ControllerCell(log=self.log, host=self.host)
         await controller.stop_loops()
 
         self.assertFalse(controller.run_loops)
 
-    async def test_close_tasks_no_connection(self):
+    async def test_close_tasks_no_connection(self) -> None:
         controller = ControllerCell(log=self.log, host=self.host)
         await controller.close_tasks()
 
         self.assertFalse(controller.run_loops)
+
+
+if __name__ == "__main__":
+    # Do the unit test
+    unittest.main()
