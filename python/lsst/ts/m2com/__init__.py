@@ -27,6 +27,7 @@ except ImportError:
 from .constant import *
 from .enum import *
 from .utility import *
+from .error_handler import *
 from .mock import *
 from .tcp_client import *
 from .controller import *

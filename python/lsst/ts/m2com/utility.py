@@ -20,6 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import csv
 import json
 import logging
 import typing
@@ -38,6 +39,7 @@ __all__ = [
     "write_json_packet",
     "check_queue_size",
     "read_yaml_file",
+    "read_error_code_file",
     "collect_queue_messages",
     "get_queue_message_latest",
     "get_config_dir",
@@ -119,6 +121,41 @@ def read_yaml_file(filepath: str | Path) -> dict:
             content = yaml.safe_load(yaml_file)
     except IOError:
         raise IOError(f"Cannot open the yaml file: {filepath}.")
+
+    return content
+
+
+def read_error_code_file(filepath: str | Path) -> dict:
+    """Read the error code file.
+
+    Parameters
+    ----------
+    filepath : `str` or `pathlib.PosixPath`
+        TSV file path.
+
+    Returns
+    -------
+    content : `dict`
+        File content.
+
+    Raises
+    ------
+    `IOError`
+        Cannot open the file.
+    """
+
+    content = dict()
+    try:
+        with open(filepath, "r") as file:
+            csv_reader = csv.reader(file, delimiter="\t")
+
+            # Get the error details
+            for row in csv_reader:
+                if row[0].isdigit():
+                    content[row[0]] = row[1:]
+
+    except IOError:
+        raise IOError(f"Cannot open the error code file: {filepath}.")
 
     return content
 

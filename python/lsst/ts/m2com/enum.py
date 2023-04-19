@@ -211,5 +211,6 @@ class MockErrorCode(IntEnum):
     """
 
     NoError = 1
+    MonitoringIlcReadError = 6052
     LimitSwitchTriggeredClosedloop = 6056
     LimitSwitchTriggeredOpenloop = 6057

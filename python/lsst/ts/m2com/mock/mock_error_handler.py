@@ -25,17 +25,14 @@ __all__ = ["MockErrorHandler"]
 
 from ..constant import NUM_ACTUATOR
 from ..enum import LimitSwitchType
+from ..error_handler import ErrorHandler
 
 
-class MockErrorHandler:
+class MockErrorHandler(ErrorHandler):
     """Mock Error Handler class to manage the errors."""
 
     def __init__(self) -> None:
-        # New errors in the system
-        self._errors_new: typing.Set[int] = set()
-
-        # Errors that had been reported
-        self._errors_reported: typing.Set[int] = set()
+        super().__init__()
 
         # New triggered retracted limit switches
         self._limit_switches_retract_new: typing.Set[int] = set()
@@ -51,45 +48,13 @@ class MockErrorHandler:
 
     def clear(self) -> None:
         """Clear all errors."""
-
-        self._errors_new.clear()
-        self._errors_reported.clear()
+        super().clear()
 
         self._limit_switches_retract_new.clear()
         self._limit_switches_retract_reported.clear()
 
         self._limit_switches_extend_new.clear()
         self._limit_switches_extend_reported.clear()
-
-    def add_new_error(self, error_code: int) -> None:
-        """Add the new error code.
-
-        Parameters
-        ----------
-        error_code : `int`
-            Error code.
-        """
-        self._add_new_item(self._errors_new, self._errors_reported, error_code)
-
-    def _add_new_item(
-        self, set_new: typing.Set[int], set_reported: typing.Set[int], item: int
-    ) -> None:
-        """Add the new item to set.
-
-        The existed item will not be added.
-
-        Parameters
-        ----------
-        set_new : `set`
-            New set.
-        set_reported : `set`
-            Reported set.
-        item : `int`
-            Item to add.
-        """
-
-        if (item not in set_new) and (item not in set_reported):
-            set_new.add(item)
 
     def add_new_limit_switch(
         self, actuator_id: int, limit_switch_type: LimitSwitchType
@@ -128,16 +93,6 @@ class MockErrorHandler:
                 actuator_id,
             )
 
-    def exists_new_error(self) -> bool:
-        """Exists the new error (not reported) or not.
-
-        Returns
-        -------
-        `bool`
-            True if there is the new error. Otherwise, False.
-        """
-        return len(self._errors_new) != 0
-
     def exists_new_limit_switch(self, limit_switch_type: LimitSwitchType) -> bool:
         """Exists the new triggered limit switch (not reported) or not.
 
@@ -157,16 +112,6 @@ class MockErrorHandler:
             else (len(self._limit_switches_extend_new) != 0)
         )
 
-    def exists_error(self) -> bool:
-        """Exists the error (new or reported) or not.
-
-        Returns
-        -------
-        `bool`
-            True if there is the error. Otherwise, False.
-        """
-        return self.exists_new_error() or (len(self._errors_reported) != 0)
-
     def exists_limit_switch(self, limit_switch_type: LimitSwitchType) -> bool:
         """Exists the triggered limit switch (new or reported) or not.
 
@@ -185,41 +130,6 @@ class MockErrorHandler:
             if limit_switch_type == LimitSwitchType.Retract
             else (len(self._limit_switches_extend_reported) != 0)
         )
-
-    def get_errors_to_report(self) -> typing.Set[int]:
-        """Get the errors that are not reported yet.
-
-        Returns
-        -------
-        `set`
-            Errors to report.
-        """
-
-        # Note the union() will return a new set object
-        self._errors_reported = self._errors_reported.union(self._errors_new)
-
-        return self._get_items_in_set_and_clear(self._errors_new)
-
-    def _get_items_in_set_and_clear(
-        self, specific_set: typing.Set[int]
-    ) -> typing.Set[int]:
-        """Get the items in the specific set and clear the set.
-
-        Parameters
-        ----------
-        specific_set : `set`
-            Specific set.
-
-        Returns
-        -------
-        items : `set`
-            Items in the set.
-        """
-
-        items = specific_set.copy()
-        specific_set.clear()
-
-        return items
 
     def get_limit_switches_to_report(
         self, limit_switch_type: LimitSwitchType
