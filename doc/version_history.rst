@@ -2,6 +2,16 @@
 Version History
 ===============
 
+v1.0.0
+------
+
+* Add the **ErrorHandler** class and support the reading of summary faults status.
+* Update the **MockErrorHandler** class to be inherited from **ErrorHandler**.
+* In the Python simulator, when the motor power is on, the event of summary faults status will be sent to simulate the event from cell controller.
+* Update the ``MockControlClosedLoop.is_actuator_force_out_limit()`` to have the option of using the measured forces.
+* Only trigger the error of limit switch if the open-loop maximum is enabled.
+* Allow the bypass of state checking in ``Controller.clear_errors()``.
+
 v0.9.7
 ------
 
