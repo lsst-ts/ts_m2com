@@ -785,7 +785,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(5)
 
             msg_power_system_state = collect_queue_messages(
-                client_cmd.queue, "powerSystemState"
+                client_cmd.queue, "powerSystemState", flush=False
             )
 
             self.assertEqual(len(msg_power_system_state), 2)
@@ -799,6 +799,11 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 msg_power_system_state[1]["state"], PowerSystemState.PoweredOn
             )
+
+            msg_summary_faults_status = get_queue_message_latest(
+                client_cmd.queue, "summaryFaultsStatus"
+            )
+            self.assertEqual(msg_summary_faults_status["status"], 17179869184)
 
     async def test_cmd_power_off(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (

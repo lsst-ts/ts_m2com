@@ -30,6 +30,7 @@ from lsst.ts.m2com import (
     check_queue_size,
     get_config_dir,
     is_coroutine,
+    read_error_code_file,
     read_yaml_file,
 )
 
@@ -58,6 +59,14 @@ class TestUtility(unittest.IsolatedAsyncioTestCase):
         content = read_yaml_file(yaml_file)
 
         self.assertEqual(content["radiusActTangent"], 1.780189734)
+
+    def test_read_error_code_file(self) -> None:
+        error_code_file = get_config_dir() / "error_code.tsv"
+        content = read_error_code_file(error_code_file)
+
+        self.assertEqual(len(content), 64)
+        self.assertEqual(list(content.keys())[0], "1000")
+        self.assertEqual(list(content.keys())[-1], "6087")
 
     def test_get_config_dir(self) -> None:
         path = get_config_dir()
