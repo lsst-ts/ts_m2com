@@ -875,8 +875,16 @@ class MockControlClosedLoop:
         self,
         applied_force_axial: numpy.typing.NDArray[np.float64] | None = None,
         applied_force_tangent: numpy.typing.NDArray[np.float64] | None = None,
+        use_measured_force: bool = False,
     ) -> typing.Tuple[bool, list, list]:
         """The actuator force is out of limit or not.
+
+        Notes
+        -----
+        Remove the 'use_measured_force' after we implement the forward modeling
+        in the control algorithm. At that time, the measured force should be
+        consistent with the demanded force (with the consideration of hardpoint
+        correction).
 
         Parameters
         ----------
@@ -886,6 +894,9 @@ class MockControlClosedLoop:
         applied_force_tangent : `numpy.ndarray` or `None`, optional
             Tangent forces to apply in Newton. If `None` use current setup. (
             the default is None.)
+        use_measured_force : `bool`, optional
+            Use the measured force to compare with the limit. (the default is
+            False)
 
         Returns
         -------
@@ -897,13 +908,17 @@ class MockControlClosedLoop:
             Triggered extended limit switches.
         """
 
-        demanded_force = self.get_demanded_force(
-            applied_force_axial=applied_force_axial,
-            applied_force_tangent=applied_force_tangent,
+        force_to_check = (
+            np.append(self.axial_forces["measured"], self.tangent_forces["measured"])
+            if use_measured_force
+            else self.get_demanded_force(
+                applied_force_axial=applied_force_axial,
+                applied_force_tangent=applied_force_tangent,
+            )
         )
 
         return check_limit_switches(
-            demanded_force,
+            force_to_check,
             LIMIT_FORCE_AXIAL_CLOSED_LOOP,
             LIMIT_FORCE_TANGENT_CLOSED_LOOP,
         )

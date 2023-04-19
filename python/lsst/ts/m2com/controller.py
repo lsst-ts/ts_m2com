@@ -33,12 +33,14 @@ from . import (
     NUM_INNER_LOOP_CONTROLLER,
     ClosedLoopControlMode,
     CommandStatus,
+    ErrorHandler,
     InnerLoopControlMode,
     MsgType,
     PowerSystemState,
     PowerType,
     TcpClient,
     check_queue_size,
+    get_config_dir,
 )
 
 __all__ = ["Controller"]
@@ -67,6 +69,8 @@ class Controller:
     ----------
     log : `logging.Logger`
         A logger.
+    error_handler : `ErrorHandler`
+        Error handler.
     client_command : `TcpClient` or None
         Command client.
     client_telemetry : `TcpClient` or None
@@ -102,6 +106,8 @@ class Controller:
             self.log = logging.getLogger(type(self).__name__)
         else:
             self.log = log.getChild(type(self).__name__)
+
+        self.error_handler = self._get_error_handler()
 
         self.client_command: TcpClient | None = None
         self.client_telemetry: TcpClient | None = None
@@ -139,6 +145,25 @@ class Controller:
 
         # Task to analyze the message from server (asyncio.Future)
         self._task_analyze_message = make_done_future()
+
+    def _get_error_handler(self, filename: str = "error_code.tsv") -> ErrorHandler:
+        """Get the error handler.
+
+        Parameters
+        ----------
+        filename : `str`, optional
+            Name of the error code file. (the default is "error_code.tsv")
+
+        Returns
+        -------
+        error_handler : `ErrorHandler`
+            Error handler.
+        """
+
+        error_handler = ErrorHandler()
+        error_handler.read_error_list_file(get_config_dir() / filename)
+
+        return error_handler
 
     def start(
         self,
@@ -277,9 +302,18 @@ class Controller:
         # Check and update the inner-loop control mode
         self._update_inner_loop_control_mode(message)
 
+        # Add the received error code to the error handler
+        self._process_error_code(message)
+
+        # Process the summary faults status and update the internal state
+        self._process_summary_faults_status(message)
+
         # Put the event message into the queue for CSC/GUI to publish
         self.queue_event.put_nowait(message)
         check_queue_size(self.queue_event, self.log)
+
+        # Put the controller state to Fault if there is the error
+        self._check_and_fault_controller()
 
     def _is_command_status(self, message: dict) -> bool:
         """Is the command status or not.
@@ -444,6 +478,66 @@ class Controller:
                     f"loop control mode ({mode})."
                 )
 
+    def _process_error_code(self, message: dict) -> None:
+        """Process the error code.
+
+        Parameters
+        ----------
+        message : `dict`
+            Incoming message.
+        """
+
+        if message["id"] == "errorCode":
+            code = message["errorCode"]
+
+            # Code would be either error or warning, but not both.
+            if self.error_handler.is_error(code):
+                self.error_handler.add_new_error(code)
+
+            if self.error_handler.is_warning(code):
+                self.error_handler.add_new_warning(code)
+
+    def _process_summary_faults_status(self, message: dict) -> None:
+        """Process the summary faults status. The decoded bit will be put into
+        the 'errorCode' event.
+
+        Parameters
+        ----------
+        message : `dict`
+            Incoming message.
+        """
+
+        if message["id"] == "summaryFaultsStatus":
+            self.error_handler.decode_summary_faults_status(message["status"])
+
+            # Get the error and warning codes
+            # Note the union() will return a new set object
+            codes: set[int] = set()
+            if self.error_handler.exists_new_error():
+                codes = codes.union(self.error_handler.get_errors_to_report())
+
+            if self.error_handler.exists_new_warning():
+                codes = codes.union(self.error_handler.get_warnings_to_report())
+
+            # Put the message into the queue for CSC/GUI to publish
+            for code in codes:
+                self.queue_event.put_nowait({"id": "errorCode", "errorCode": code})
+
+    def _check_and_fault_controller(self) -> None:
+        """Check the system condition and fault the controller if needed.
+
+        Notes
+        -----
+        Remove this function after we fully test the ts_m2gui on summit. This
+        function is just to maintain the ts_m2gui and ts_mtm2 compatibility at
+        the moment.
+        """
+
+        if self.error_handler.exists_error() and (
+            self.controller_state != salobj.State.FAULT
+        ):
+            self.controller_state = salobj.State.FAULT
+
     def are_clients_connected(self) -> bool:
         """The command and telemetry sockets are connected or not.
 
@@ -513,7 +607,7 @@ class Controller:
 
         Raises
         ------
-        ValueError
+        `ValueError`
             When the command is not allowed in current controller's state.
         """
 
@@ -527,13 +621,31 @@ class Controller:
                 f"{command_name} command is not allowed in controller's state {curr_state!r}."
             )
 
-    async def clear_errors(self) -> None:
-        """Clear the errors."""
+    async def clear_errors(self, bypass_state_checking: bool = False) -> None:
+        """Clear the errors.
 
-        # In EUI, there is no OFFLINE state.
-        controller_state_expected = (
-            salobj.State.OFFLINE if self.is_csc else salobj.State.STANDBY
-        )
+        Notes
+        -----
+        Remove the 'bypass_state_checking' after we fully test the ts_m2gui on
+        summit. This function is just to maintain the ts_m2gui and ts_mtm2
+        compatibility at the moment.
+
+        Parameters
+        ----------
+        bypass_state_checking : `bool`, optional
+            Bypass the state checking or not. (the default is False.)
+        """
+
+        self.error_handler.clear()
+
+        if bypass_state_checking:
+            controller_state_expected = None
+        else:
+            # In EUI, there is no OFFLINE state.
+            controller_state_expected = (
+                salobj.State.OFFLINE if self.is_csc else salobj.State.STANDBY
+            )
+
         await self.write_command_to_server(
             "clearErrors", controller_state_expected=controller_state_expected
         )

@@ -409,3 +409,17 @@ class MockMessageEvent:
                     "mode": int(mode),
                 },
             )
+
+    async def write_summary_faults_status(self, status: int) -> None:
+        """Write the message: summary faults status.
+
+        Parameters
+        ----------
+        status : `int`
+            Summary faults status.
+        """
+
+        if self.writer is not None:
+            await write_json_packet(
+                self.writer, {"id": "summaryFaultsStatus", "status": status}
+            )

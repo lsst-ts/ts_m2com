@@ -34,6 +34,7 @@ from ..enum import (
     DetailedState,
     DigitalOutput,
     InnerLoopControlMode,
+    MockErrorCode,
     PowerSystemState,
     PowerType,
 )
@@ -1057,6 +1058,14 @@ class MockCommand:
         await message_event.write_open_loop_max_limit(
             model.control_open_loop.open_loop_max_limit_is_enabled
         )
+
+        if model.power_motor.is_power_on():
+            summary_faults_status = (
+                model.error_handler.get_summary_faults_status_from_codes(
+                    [MockErrorCode.MonitoringIlcReadError.value]
+                )
+            )
+            await message_event.write_summary_faults_status(summary_faults_status)
 
         return model, CommandStatus.Success
 
