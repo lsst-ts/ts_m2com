@@ -320,7 +320,7 @@ class ErrorHandler:
 
         Parameters
         ----------
-        codes : `list [int]`
+        codes : `list` [`int`]
             Collection of the dummy, error, and warning codes to construct the
             summary fault status. There should be no repeated value inside.
 

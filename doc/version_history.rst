@@ -2,7 +2,7 @@
 Version History
 ===============
 
-v1.0.0
+v0.10.0
 ------
 
 * Add the **ErrorHandler** class and support the reading of summary faults status.

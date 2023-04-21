@@ -125,7 +125,7 @@ def read_yaml_file(filepath: str | Path) -> dict:
     return content
 
 
-def read_error_code_file(filepath: str | Path) -> dict:
+def read_error_code_file(filepath: str | Path) -> dict[str, list]:
     """Read the error code file.
 
     Parameters
@@ -137,25 +137,16 @@ def read_error_code_file(filepath: str | Path) -> dict:
     -------
     content : `dict`
         File content.
-
-    Raises
-    ------
-    `IOError`
-        Cannot open the file.
     """
 
     content = dict()
-    try:
-        with open(filepath, "r") as file:
-            csv_reader = csv.reader(file, delimiter="\t")
+    with open(filepath, "r") as file:
+        csv_reader = csv.reader(file, delimiter="\t")
 
-            # Get the error details
-            for row in csv_reader:
-                if row[0].isdigit():
-                    content[row[0]] = row[1:]
-
-    except IOError:
-        raise IOError(f"Cannot open the error code file: {filepath}.")
+        # Get the error details
+        for row in csv_reader:
+            if row[0].isdigit():
+                content[row[0]] = row[1:]
 
     return content
 
