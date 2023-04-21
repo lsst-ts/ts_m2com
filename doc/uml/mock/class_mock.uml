@@ -3,6 +3,12 @@ package "tcpip" #DDDDDD {
   class OneClientServer
 }
 
+package "m2com" #DDDDDD {
+  class ErrorHandler
+}
+
+ErrorHandler <|-- MockErrorHandler
+
 MockServer "1" *-- "2" OneClientServer
 MockServer *-- MockModel
 MockServer *-- MockMessageTelemetry

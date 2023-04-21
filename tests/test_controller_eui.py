@@ -389,9 +389,11 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
+            server.model.control_open_loop.open_loop_max_limit_is_enabled = True
+
             # Change the default steps to trigger the fault easier
             steps = np.zeros(NUM_ACTUATOR, dtype=int)
-            steps[0] = -4500
+            steps[0] = -5500
             server.model.control_open_loop.update_actuator_steps(steps)
 
             await server.model.power_communication.power_on()

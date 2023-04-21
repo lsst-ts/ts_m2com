@@ -349,6 +349,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertAlmostEqual(demanded_force_apply[72], 18.113)
 
     def test_is_actuator_force_out_limit_axial(self) -> None:
+        # Check the demanded force
         applied_force_axial = [0] * (NUM_ACTUATOR - NUM_TANGENT_LINK)
         applied_force_axial[2] = 999
 
@@ -358,13 +359,42 @@ class TestMockControlClosedLoop(unittest.TestCase):
             )[0]
         )
 
+        # Check the measured force
+        self.assertFalse(
+            self.control_closed_loop.is_actuator_force_out_limit(
+                use_measured_force=True
+            )[0]
+        )
+
+        self.control_closed_loop.axial_forces["measured"][0] = 1000.0
+        self.assertTrue(
+            self.control_closed_loop.is_actuator_force_out_limit(
+                use_measured_force=True
+            )[0]
+        )
+
     def test_is_actuator_force_out_limit_tangent(self) -> None:
+        # Check the demanded force
         applied_force_tangent = [0] * NUM_TANGENT_LINK
         applied_force_tangent[2] = 9999
 
         self.assertTrue(
             self.control_closed_loop.is_actuator_force_out_limit(
                 applied_force_tangent=applied_force_tangent
+            )[0]
+        )
+
+        # Check the measured force
+        self.assertFalse(
+            self.control_closed_loop.is_actuator_force_out_limit(
+                use_measured_force=True
+            )[0]
+        )
+
+        self.control_closed_loop.tangent_forces["measured"][0] = 10000.0
+        self.assertTrue(
+            self.control_closed_loop.is_actuator_force_out_limit(
+                use_measured_force=True
             )[0]
         )
 

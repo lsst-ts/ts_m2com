@@ -1,4 +1,5 @@
 @startuml
+Controller *-- ErrorHandler
 Controller "1" *-- "2" TcpClient
 Controller <|-- ControllerCell
 @enduml

@@ -336,6 +336,9 @@ class MockModel:
         # By doing this, we can calculate the forces of look-up table.
         self.set_inclinometer_angle(self.control_open_loop.inclinometer_angle)
 
+        # Read the error code file
+        self.error_handler.read_error_list_file(config_dir / "error_code.tsv")
+
     def is_actuator_force_out_limit(
         self,
     ) -> typing.Tuple[bool, MockErrorCode, list, list]:
@@ -362,7 +365,9 @@ class MockModel:
                 is_out_limit,
                 limit_switches_retract,
                 limit_switches_extend,
-            ) = self.control_closed_loop.is_actuator_force_out_limit()
+            ) = self.control_closed_loop.is_actuator_force_out_limit(
+                use_measured_force=True
+            )
 
             if is_out_limit:
                 error_code = MockErrorCode.LimitSwitchTriggeredClosedloop

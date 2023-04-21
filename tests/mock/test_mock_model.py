@@ -78,6 +78,8 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
             -27.8006293,
         )
 
+        self.assertEqual(len(self.model.error_handler._list_code_total), 64)
+
     def test_get_default_mirror_position(self) -> None:
         mirror_position = self.model.get_default_mirror_position()
 
@@ -96,7 +98,7 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
 
     def test_is_actuator_force_out_limit_closed_loop(self) -> None:
         self.model.control_closed_loop.is_running = True
-        self.model.control_closed_loop.axial_forces["applied"][0] = 1000
+        self.model.control_closed_loop.axial_forces["measured"][0] = 1000
 
         (
             is_out_limit,

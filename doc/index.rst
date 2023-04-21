@@ -62,6 +62,7 @@ m2com
 .. uml:: uml/class_m2com.uml
     :caption: Class diagram of M2 common code
 
+* **ErrorHandler** deals with the summary faults status from M2 cell controller.
 * **Controller** has the business logic to communicate with hardware by TCP/IP interface.
 * **TcpClient** is a TCP/IP client.
 * **ControllerCell** is a high-level class to integrate with the **Controller** class to communicate with the M2 cell controller.

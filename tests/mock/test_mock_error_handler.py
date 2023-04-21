@@ -51,19 +51,6 @@ class TestMockErrorHandler(unittest.TestCase):
         self.assertEqual(len(self.error_handler._limit_switches_extend_new), 0)
         self.assertEqual(len(self.error_handler._limit_switches_extend_reported), 0)
 
-    def test_add_new_error(self) -> None:
-        self.error_handler.add_new_error(1)
-        self.assertEqual(len(self.error_handler._errors_new), 1)
-
-        # Repeated error should not be added
-        self.error_handler.add_new_error(1)
-        self.assertEqual(len(self.error_handler._errors_new), 1)
-
-        # If the error has been reported, it will not be added.
-        self.error_handler._errors_reported.add(2)
-        self.error_handler.add_new_error(2)
-        self.assertEqual(len(self.error_handler._errors_new), 1)
-
     def test_add_new_limit_switch_exception(self) -> None:
         for actuator_id in (-1, 78, 79):
             for limit_switch_type in LimitSwitchType:
@@ -103,12 +90,6 @@ class TestMockErrorHandler(unittest.TestCase):
             LimitSwitchType.Extend,
         )
 
-    def test_exists_new_error(self) -> None:
-        self.assertFalse(self.error_handler.exists_new_error())
-
-        self.error_handler.add_new_error(1)
-        self.assertTrue(self.error_handler.exists_new_error())
-
     def test_exists_new_limit_switch(self) -> None:
         for limit_switch_type in LimitSwitchType:
             self.assertFalse(
@@ -119,12 +100,6 @@ class TestMockErrorHandler(unittest.TestCase):
             self.assertTrue(
                 self.error_handler.exists_new_limit_switch(limit_switch_type)
             )
-
-    def test_exists_error(self) -> None:
-        self.assertFalse(self.error_handler.exists_error())
-
-        self.error_handler._errors_reported.add(1)
-        self.assertTrue(self.error_handler.exists_error())
 
     def test_exists_limit_switch(self) -> None:
         for limit_switch_type in LimitSwitchType:
@@ -142,15 +117,6 @@ class TestMockErrorHandler(unittest.TestCase):
     ) -> None:
         set_reported.add(1)
         self.assertTrue(self.error_handler.exists_limit_switch(limit_switch_type))
-
-    def test_get_errors_to_report(self) -> None:
-        self.error_handler.add_new_error(1)
-
-        errors = self.error_handler.get_errors_to_report()
-
-        self.assertEqual(errors, {1})
-        self.assertEqual(len(self.error_handler._errors_new), 0)
-        self.assertEqual(len(self.error_handler._errors_reported), 1)
 
     def test_get_limit_switches_to_report(self) -> None:
         for limit_switch_type in LimitSwitchType:

@@ -581,15 +581,18 @@ class MockServer:
         if is_out_limit:
             self.model.fault(error_code)
 
-        for switch in limit_switches_retract:
-            self.model.error_handler.add_new_limit_switch(
-                switch, LimitSwitchType.Retract
-            )
+        # Only trigger the error of limit switch if the open-loop maximum is
+        # enabled
+        if self.model.control_open_loop.open_loop_max_limit_is_enabled:
+            for switch in limit_switches_retract:
+                self.model.error_handler.add_new_limit_switch(
+                    switch, LimitSwitchType.Retract
+                )
 
-        for switch in limit_switches_extend:
-            self.model.error_handler.add_new_limit_switch(
-                switch, LimitSwitchType.Extend
-            )
+            for switch in limit_switches_extend:
+                self.model.error_handler.add_new_limit_switch(
+                    switch, LimitSwitchType.Extend
+                )
 
     async def _connect_state_changed_callback_telemetry(
         self, server_telemetry: tcpip.OneClientServer
