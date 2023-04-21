@@ -41,14 +41,12 @@ from ..enum import (
     PowerType,
 )
 from ..utility import read_yaml_file
-from . import (
-    MockControlClosedLoop,
-    MockControlOpenLoop,
-    MockErrorHandler,
-    MockInnerLoopController,
-    MockPowerSystem,
-    MockScriptEngine,
-)
+from .mock_control_closed_loop import MockControlClosedLoop
+from .mock_control_open_loop import MockControlOpenLoop
+from .mock_error_handler import MockErrorHandler
+from .mock_inner_loop_controller import MockInnerLoopController
+from .mock_power_system import MockPowerSystem
+from .mock_script_engine import MockScriptEngine
 
 __all__ = ["MockModel"]
 

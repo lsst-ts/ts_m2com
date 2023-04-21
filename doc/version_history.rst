@@ -2,8 +2,13 @@
 Version History
 ===============
 
+v0.10.1
+-------
+
+* Adapt the **.ts_pre_commit_config.yaml**.
+
 v0.10.0
-------
+-------
 
 * Add the **ErrorHandler** class and support the reading of summary faults status.
 * Update the **MockErrorHandler** class to be inherited from **ErrorHandler**.
