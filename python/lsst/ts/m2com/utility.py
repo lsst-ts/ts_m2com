@@ -33,7 +33,7 @@ import numpy.typing
 import yaml
 from lsst.ts import tcpip
 
-from . import NUM_ACTUATOR, NUM_TANGENT_LINK
+from .constant import NUM_ACTUATOR, NUM_TANGENT_LINK
 
 __all__ = [
     "write_json_packet",

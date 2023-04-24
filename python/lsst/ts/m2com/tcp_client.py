@@ -28,7 +28,8 @@ import typing
 from lsst.ts import tcpip
 from lsst.ts.utils import index_generator, make_done_future
 
-from . import MsgType, check_queue_size, write_json_packet
+from .enum import MsgType
+from .utility import check_queue_size, write_json_packet
 
 __all__ = ["TcpClient"]
 

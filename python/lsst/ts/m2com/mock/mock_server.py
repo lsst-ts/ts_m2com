@@ -29,13 +29,11 @@ from lsst.ts.utils import make_done_future
 
 from ..enum import ClosedLoopControlMode, CommandStatus, DetailedState, LimitSwitchType
 from ..utility import write_json_packet
-from . import (
-    MockCommand,
-    MockMessageEvent,
-    MockMessageTelemetry,
-    MockModel,
-    MockPowerSystem,
-)
+from .mock_command import MockCommand
+from .mock_message_event import MockMessageEvent
+from .mock_message_telemetry import MockMessageTelemetry
+from .mock_model import MockModel
+from .mock_power_system import MockPowerSystem
 
 __all__ = ["MockServer"]
 

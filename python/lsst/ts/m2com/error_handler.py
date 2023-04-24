@@ -23,7 +23,8 @@ __all__ = ["ErrorHandler"]
 
 from pathlib import Path
 
-from . import MINIMUM_ERROR_CODE, read_error_code_file
+from .constant import MINIMUM_ERROR_CODE
+from .utility import read_error_code_file
 
 
 class ErrorHandler:

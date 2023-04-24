@@ -28,20 +28,18 @@ import numpy as np
 from lsst.ts import salobj
 from lsst.ts.utils import make_done_future
 
-from . import (
-    NUM_ACTUATOR,
-    NUM_INNER_LOOP_CONTROLLER,
+from .constant import NUM_ACTUATOR, NUM_INNER_LOOP_CONTROLLER
+from .enum import (
     ClosedLoopControlMode,
     CommandStatus,
-    ErrorHandler,
     InnerLoopControlMode,
     MsgType,
     PowerSystemState,
     PowerType,
-    TcpClient,
-    check_queue_size,
-    get_config_dir,
 )
+from .error_handler import ErrorHandler
+from .tcp_client import TcpClient
+from .utility import check_queue_size, get_config_dir
 
 __all__ = ["Controller"]
 

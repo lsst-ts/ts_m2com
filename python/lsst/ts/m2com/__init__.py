@@ -25,10 +25,10 @@ except ImportError:
     __version__ = "?"
 
 from .constant import *
+from .controller import *
+from .controller_cell import *
 from .enum import *
-from .utility import *
 from .error_handler import *
 from .mock import *
 from .tcp_client import *
-from .controller import *
-from .controller_cell import *
+from .utility import *

@@ -28,7 +28,9 @@ from pathlib import Path
 from lsst.ts.tcpip import LOCALHOST_IPV4
 from lsst.ts.utils import index_generator, make_done_future
 
-from . import Controller, MockServer, is_coroutine
+from .controller import Controller
+from .mock import MockServer
+from .utility import is_coroutine
 
 __all__ = ["ControllerCell"]
 
