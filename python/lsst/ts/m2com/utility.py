@@ -254,7 +254,7 @@ def check_limit_switches(
     actuator_forces: numpy.typing.NDArray[np.float64],
     limit_force_axial: float,
     limit_force_tangent: float,
-) -> typing.Tuple[bool, list, list]:
+) -> tuple[bool, list, list]:
     """Check the limit switches are triggered or not.
 
     Parameters

@@ -20,7 +20,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
-import typing
 
 import numpy as np
 
@@ -103,7 +102,7 @@ class MockPowerSystem:
             PowerSystemState.PoweredOn,
         )
 
-    def get_power(self, rms: float = 0.05) -> typing.Tuple[float, float]:
+    def get_power(self, rms: float = 0.05) -> tuple[float, float]:
         """Get the power.
 
         Parameters

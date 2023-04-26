@@ -213,7 +213,7 @@ class ControllerCell(Controller):
         self,
         process_event: typing.Callable | typing.Coroutine,
         *args: typing.Any,
-        **kwargs: typing.Dict[str, typing.Any],
+        **kwargs: dict[str, typing.Any],
     ) -> None:
         """Start the task of event loop.
 
@@ -236,7 +236,7 @@ class ControllerCell(Controller):
         self,
         process_event: typing.Callable | typing.Coroutine,
         *args: typing.Any,
-        **kwargs: typing.Dict[str, typing.Any],
+        **kwargs: dict[str, typing.Any],
     ) -> None:
         """Update and output event information from component.
 
@@ -286,7 +286,7 @@ class ControllerCell(Controller):
         process_telemetry: typing.Callable | typing.Coroutine,
         *args: typing.Any,
         period: float = 2.0,
-        **kwargs: typing.Dict[str, typing.Any],
+        **kwargs: dict[str, typing.Any],
     ) -> None:
         """Start the task of telemetry loop.
 
@@ -312,7 +312,7 @@ class ControllerCell(Controller):
         process_telemetry: typing.Callable | typing.Coroutine,
         *args: typing.Any,
         period: float = 2.0,
-        **kwargs: typing.Dict[str, typing.Any],
+        **kwargs: dict[str, typing.Any],
     ) -> None:
         """Update and output telemetry information from component.
 
@@ -403,7 +403,7 @@ class ControllerCell(Controller):
         process_lost_connection: typing.Callable | typing.Coroutine,
         *args: typing.Any,
         period: float = 1.0,
-        **kwargs: typing.Dict[str, typing.Any],
+        **kwargs: dict[str, typing.Any],
     ) -> None:
         """Start the task of connection monitor loop.
 
@@ -431,7 +431,7 @@ class ControllerCell(Controller):
         process_lost_connection: typing.Callable | typing.Coroutine,
         *args: typing.Any,
         period: float = 1.0,
-        **kwargs: typing.Dict[str, typing.Any],
+        **kwargs: dict[str, typing.Any],
     ) -> None:
         """Actively monitor the connection status from component. Disconnect
         the system if the connection is lost by itself.

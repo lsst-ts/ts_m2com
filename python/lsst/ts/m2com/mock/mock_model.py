@@ -159,7 +159,7 @@ class MockModel:
             self.list_ilc.append(MockInnerLoopController())
 
         # Parameters of independent displacement sensors (IMS)
-        self._disp_ims: typing.Dict = dict()
+        self._disp_ims: dict = dict()
 
         self.mtmount_in_position: bool = False
 
@@ -340,7 +340,7 @@ class MockModel:
 
     def is_actuator_force_out_limit(
         self,
-    ) -> typing.Tuple[bool, MockErrorCode, list, list]:
+    ) -> tuple[bool, MockErrorCode, list, list]:
         """The actuator force is out of limit or not.
 
         By default, return the judgement based on the open-loop control. If
@@ -1073,9 +1073,7 @@ class MockModel:
         else:
             raise RuntimeError(f"Not supported status: {status!r}.")
 
-    def set_mode_ilc(
-        self, addresses: typing.List[int], mode: InnerLoopControlMode
-    ) -> None:
+    def set_mode_ilc(self, addresses: list[int], mode: InnerLoopControlMode) -> None:
         """Set the mode of inner-loop controller (ILC).
 
         Parameters
@@ -1089,9 +1087,7 @@ class MockModel:
         for address in addresses:
             self.list_ilc[address].set_mode(mode)
 
-    def get_mode_ilc(
-        self, addresses: typing.List[int]
-    ) -> typing.List[InnerLoopControlMode]:
+    def get_mode_ilc(self, addresses: list[int]) -> list[InnerLoopControlMode]:
         """Get the mode of inner-loop controller (ILC).
 
         Parameters

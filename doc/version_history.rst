@@ -8,6 +8,7 @@ v0.10.2
 * Add the ``Controller.set_control_parameters()`` to set the control parameters of closed-loop controller (CLC).
 * Do not check the communication power status (True/False) in ``Controller._callback_check_power_status()`` because sometimes, the cRIO simulator might put it on even though it should be off theoretically.
 * Allow to change the status of bit value of digital output.
+* Use the internal annotation instead of importing the **typing** module.
 
 v0.10.1
 -------

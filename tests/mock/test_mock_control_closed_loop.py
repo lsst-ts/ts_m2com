@@ -19,7 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import typing
 import unittest
 
 import numpy as np
@@ -313,7 +312,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
             self.control_closed_loop.tangent_forces["applied"], force_tangent
         )
 
-    def _apply_forces(self) -> typing.Tuple[list, list]:
+    def _apply_forces(self) -> tuple[list, list]:
         force_axial = [1] * (NUM_ACTUATOR - NUM_TANGENT_LINK)
         force_tangent = [2] * NUM_TANGENT_LINK
         self.control_closed_loop.apply_forces(force_axial, force_tangent)
@@ -586,7 +585,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
     def _get_force_measured_and_lut_angle(
         self, angle: float
-    ) -> typing.Tuple[numpy.typing.NDArray[np.float64], float]:
+    ) -> tuple[numpy.typing.NDArray[np.float64], float]:
         control_open_loop = MockControlOpenLoop()
         return control_open_loop.get_forces_mirror_weight(
             angle

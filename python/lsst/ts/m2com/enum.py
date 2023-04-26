@@ -49,7 +49,7 @@ class BitEnum(Enum):
 
     @staticmethod
     def _generate_next_value_(
-        name: str, start: int, count: int, last_values: typing.List[typing.Any]
+        name: str, start: int, count: int, last_values: list[typing.Any]
     ) -> int:
         """Override parent method to generate power of 2 sequence of numbers,
         starting from 1 (e.g. 1, 2, 4, 8, ...)."""

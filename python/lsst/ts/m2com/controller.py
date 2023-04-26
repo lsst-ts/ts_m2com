@@ -601,7 +601,7 @@ class Controller:
         )
 
     def assert_controller_state(
-        self, command_name: str, allowed_curr_states: typing.List[salobj.State]
+        self, command_name: str, allowed_curr_states: list[salobj.State]
     ) -> None:
         """Assert the current controller's state is allowed to do the command
         or not.
@@ -831,7 +831,7 @@ class Controller:
         *args: typing.Any,
         time_wait_update: float = 0.5,
         timeout: float = 10.0,
-        **kwargs: typing.Dict[str, typing.Any],
+        **kwargs: dict[str, typing.Any],
     ) -> bool:
         """Check the expected value.
 
