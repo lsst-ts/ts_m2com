@@ -36,6 +36,7 @@ from ..constant import (
 from ..enum import (
     DigitalInput,
     DigitalOutput,
+    DigitalOutputStatus,
     InnerLoopControlMode,
     MockErrorCode,
     PowerType,
@@ -1031,7 +1032,9 @@ class MockModel:
 
         return digital_input
 
-    def switch_digital_output(self, digital_output: int, bit: DigitalOutput) -> int:
+    def switch_digital_output(
+        self, digital_output: int, bit: DigitalOutput, status: DigitalOutputStatus
+    ) -> int:
         """Switch the digital output with the specific bit.
 
         Parameters
@@ -1040,17 +1043,35 @@ class MockModel:
             Digital output.
         bit : enum `DigitalOutput`
             Bit to switch.
+        status : enum `DigitalOutputStatus`
+            Digital output status.
 
         Returns
         -------
         `int`
             Updated value of the digital output.
+
+        Raises
+        ------
+        `RuntimeError`
+            If the status is not supported.
         """
-        return (
-            (digital_output - bit.value)
-            if (digital_output & bit.value)
-            else (digital_output + bit.value)
-        )
+
+        if status == DigitalOutputStatus.BinaryLowLevel:
+            return (digital_output | bit.value) - bit.value
+
+        elif status == DigitalOutputStatus.BinaryHighLevel:
+            return digital_output | bit.value
+
+        elif status == DigitalOutputStatus.ToggleBit:
+            return (
+                (digital_output - bit.value)
+                if (digital_output & bit.value)
+                else (digital_output + bit.value)
+            )
+
+        else:
+            raise RuntimeError(f"Not supported status: {status!r}.")
 
     def set_mode_ilc(
         self, addresses: typing.List[int], mode: InnerLoopControlMode

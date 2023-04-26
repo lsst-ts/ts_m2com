@@ -33,6 +33,7 @@ from ..enum import (
     CommandStatus,
     DetailedState,
     DigitalOutput,
+    DigitalOutputStatus,
     InnerLoopControlMode,
     MockErrorCode,
     PowerSystemState,
@@ -586,6 +587,12 @@ class MockCommand:
     ) -> typing.Tuple[MockModel, CommandStatus]:
         """Select the source of inclination.
 
+        Notes
+        -----
+        Remove this function after we use the ts_m2gui on summit. At that time,
+        the way to change the source of inclination is to modify the control
+        parameters of closed-loop controller (CLC).
+
         Parameters
         ----------
         message : `dict`
@@ -978,13 +985,16 @@ class MockCommand:
             Status of command execution.
         """
 
-        # Get the switched bit
+        # Get the switched bit and status
         try:
             bit = DigitalOutput(message["bit"])
+            status = DigitalOutputStatus(message["status"])
         except ValueError:
             return model, CommandStatus.Fail
 
-        self._digital_output = model.switch_digital_output(self._digital_output, bit)
+        self._digital_output = model.switch_digital_output(
+            self._digital_output, bit, status
+        )
         await message_event.write_digital_output(self._digital_output)
 
         # Turn on/off the power based on the bit value
@@ -1235,5 +1245,37 @@ class MockCommand:
         """
 
         await message_event.write_config()
+
+        return model, CommandStatus.Success
+
+    async def set_control_parameters(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> typing.Tuple[MockModel, CommandStatus]:
+        """Set the closed-loop controller (CLC) control parameters.
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        model.inclination_source = (
+            MTM2.InclinationTelemetrySource.MTMOUNT
+            if message["useExternalElevationAngle"]
+            else MTM2.InclinationTelemetrySource.ONBOARD
+        )
+
+        await message_event.write_inclination_telemetry_source(model.inclination_source)
 
         return model, CommandStatus.Success

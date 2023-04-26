@@ -32,6 +32,7 @@ __all__ = [
     "PowerType",
     "PowerSystemState",
     "DigitalOutput",
+    "DigitalOutputStatus",
     "DigitalInput",
     "LimitSwitchType",
     "ClosedLoopControlMode",
@@ -136,6 +137,15 @@ class DigitalOutput(BitEnum):
     SpareOutput_5 = auto()
     SpareOutput_6 = auto()
     SpareOutput_7 = auto()
+
+
+class DigitalOutputStatus(IntEnum):
+    """Digital output status to switch the individual bit value of
+    digital output."""
+
+    BinaryLowLevel = 1
+    BinaryHighLevel = auto()
+    ToggleBit = auto()
 
 
 class DigitalInput(BitEnum):
