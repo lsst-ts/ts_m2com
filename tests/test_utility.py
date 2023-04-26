@@ -26,6 +26,7 @@ import unittest
 import numpy as np
 from lsst.ts.m2com import (
     NUM_ACTUATOR,
+    camel_case,
     check_limit_switches,
     check_queue_size,
     get_config_dir,
@@ -114,6 +115,10 @@ class TestUtility(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(is_triggered)
         self.assertEqual(limit_switch_retract, [0, 71, 72, 77])
         self.assertEqual(limit_switch_extend, [1, 5, 73, 74])
+
+    def test_camel_case(self) -> None:
+        self.assertEqual(camel_case("ab"), "ab")
+        self.assertEqual(camel_case("ab_cd"), "abCd")
 
 
 if __name__ == "__main__":

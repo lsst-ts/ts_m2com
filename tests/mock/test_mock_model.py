@@ -35,6 +35,7 @@ from lsst.ts.m2com import (
     TEST_DIGITAL_OUTPUT_POWER_COMM,
     TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
     DigitalOutput,
+    DigitalOutputStatus,
     InnerLoopControlMode,
     MockErrorCode,
     MockModel,
@@ -490,15 +491,49 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
     def test_switch_digital_output(self) -> None:
         digital_output = self.model.get_digital_output()
 
+        # Binary low
+        digital_output_low_none = self.model.switch_digital_output(
+            digital_output, DigitalOutput.MotorPower, DigitalOutputStatus.BinaryLowLevel
+        )
+        self.assertEqual(digital_output_low_none, digital_output)
+
+        digital_output_low_exist = self.model.switch_digital_output(
+            digital_output,
+            DigitalOutput.ResetMotorBreakers,
+            DigitalOutputStatus.BinaryLowLevel,
+        )
+        self.assertEqual(
+            digital_output_low_exist,
+            digital_output - DigitalOutput.ResetMotorBreakers.value,
+        )
+
+        # Binary high
+        digital_output_high_none = self.model.switch_digital_output(
+            digital_output,
+            DigitalOutput.MotorPower,
+            DigitalOutputStatus.BinaryHighLevel,
+        )
+        self.assertEqual(
+            digital_output_high_none, digital_output + DigitalOutput.MotorPower.value
+        )
+
+        digital_output_high_exist = self.model.switch_digital_output(
+            digital_output,
+            DigitalOutput.ResetMotorBreakers,
+            DigitalOutputStatus.BinaryHighLevel,
+        )
+        self.assertEqual(digital_output_high_exist, digital_output)
+
+        # Toggle bit
         digital_output_with_motor_power = self.model.switch_digital_output(
-            digital_output, DigitalOutput.MotorPower
+            digital_output, DigitalOutput.MotorPower, DigitalOutputStatus.ToggleBit
         )
         self.assertTrue(
             digital_output_with_motor_power & DigitalOutput.MotorPower.value
         )
 
         digital_output_interlock_disabled = self.model.switch_digital_output(
-            digital_output, DigitalOutput.InterlockEnable
+            digital_output, DigitalOutput.InterlockEnable, DigitalOutputStatus.ToggleBit
         )
         self.assertFalse(
             digital_output_interlock_disabled & DigitalOutput.InterlockEnable.value

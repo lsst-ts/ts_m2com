@@ -38,6 +38,7 @@ from lsst.ts.m2com import (
     CommandStatus,
     Controller,
     DigitalOutput,
+    DigitalOutputStatus,
     MockErrorCode,
     MockServer,
     PowerType,
@@ -582,7 +583,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             # No this bit value
             with self.assertRaises(RuntimeError):
                 await controller.write_command_to_server(
-                    "switchDigitalOutput", message_details={"bit": 0}
+                    "switchDigitalOutput", message_details={"bit": 0, "status": 3}
                 )
 
     async def test_switch_digital_output_success(self) -> None:
@@ -592,7 +593,10 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             # Switch the communication power
             await controller.write_command_to_server(
                 "switchDigitalOutput",
-                message_details={"bit": DigitalOutput.CommunicationPower.value},
+                message_details={
+                    "bit": DigitalOutput.CommunicationPower.value,
+                    "status": DigitalOutputStatus.ToggleBit.value,
+                },
             )
 
             await asyncio.sleep(SLEEP_TIME_SHORT)
@@ -608,7 +612,10 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             # Switch the motor power
             await controller.write_command_to_server(
                 "switchDigitalOutput",
-                message_details={"bit": DigitalOutput.MotorPower.value},
+                message_details={
+                    "bit": DigitalOutput.MotorPower.value,
+                    "status": DigitalOutputStatus.ToggleBit.value,
+                },
             )
 
             await asyncio.sleep(SLEEP_TIME_SHORT)

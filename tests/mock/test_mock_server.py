@@ -852,6 +852,33 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             # command
             self.assertEqual(len(msg_config), 2)
 
+    async def test_cmd_set_control_parameters(self) -> None:
+        async with self.make_server() as server, self.make_clients(server) as (
+            client_cmd,
+            client_tel,
+        ):
+            await client_cmd.write(
+                MsgType.Command,
+                "setControlParameters",
+                msg_details={
+                    "enableLutTemperature": True,
+                    "enableLutInclinometer": True,
+                    "useExternalElevationAngle": True,
+                    "enableAngleComparison": True,
+                    "maxAngleDifference": 2.0,
+                },
+            )
+
+            await asyncio.sleep(0.5)
+
+            source = MTM2.InclinationTelemetrySource.MTMOUNT
+            self.assertEqual(server.model.inclination_source, source)
+
+            msg_source = get_queue_message_latest(
+                client_cmd.queue, "inclinationTelemetrySource"
+            )
+            self.assertEqual(msg_source["source"], int(source))
+
 
 if __name__ == "__main__":
     # Do the unit test
