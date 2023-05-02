@@ -21,7 +21,6 @@
 
 __all__ = ["MockControlOpenLoop"]
 
-import typing
 from pathlib import Path
 
 import numpy as np
@@ -74,7 +73,7 @@ class MockControlOpenLoop:
         self.actuator_steps = np.zeros(NUM_ACTUATOR, dtype=int)
 
         # Selected actuator IDs to do the movement
-        self._selected_actuators: typing.List[int] = list()
+        self._selected_actuators: list[int] = list()
 
         # Displacement of steps to do the movement
         self._displacement_steps = 0
@@ -208,7 +207,7 @@ class MockControlOpenLoop:
 
         return forces
 
-    def is_actuator_force_out_limit(self) -> typing.Tuple[bool, list, list]:
+    def is_actuator_force_out_limit(self) -> tuple[bool, list, list]:
         """The actuator force is out of limit or not. The result will depend
         on self.open_loop_max_limit_is_enabled.
 
@@ -320,7 +319,7 @@ class MockControlOpenLoop:
 
     def start(
         self,
-        actuators: typing.List[int],
+        actuators: list[int],
         displacement: int | float,
         unit: ActuatorDisplacementUnit,
     ) -> None:
@@ -446,8 +445,8 @@ class MockControlOpenLoop:
 
     def move_actuator_steps(
         self,
-        actuators: typing.List[int] | numpy.typing.NDArray[np.int64],
-        steps: int | typing.List[int] | numpy.typing.NDArray[np.int64],
+        actuators: list[int] | numpy.typing.NDArray[np.int64],
+        steps: int | list[int] | numpy.typing.NDArray[np.int64],
     ) -> None:
         """Move the actuator steps.
 

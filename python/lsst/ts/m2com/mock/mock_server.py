@@ -156,6 +156,7 @@ class MockServer:
             "cmd_setInnerLoopControlMode": self._command.set_inner_loop_control_mode,
             "cmd_getInnerLoopControlMode": self._command.get_inner_loop_control_mode,
             "cmd_loadConfiguration": self._command.load_configuration,
+            "cmd_setControlParameters": self._command.set_control_parameters,
         }
 
     async def _connect_state_changed_callback_command(

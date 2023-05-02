@@ -27,6 +27,7 @@ import typing
 from copy import deepcopy
 from os import getenv
 from pathlib import Path
+from re import sub
 
 import numpy as np
 import numpy.typing
@@ -45,6 +46,7 @@ __all__ = [
     "get_config_dir",
     "is_coroutine",
     "check_limit_switches",
+    "camel_case",
 ]
 
 
@@ -252,7 +254,7 @@ def check_limit_switches(
     actuator_forces: numpy.typing.NDArray[np.float64],
     limit_force_axial: float,
     limit_force_tangent: float,
-) -> typing.Tuple[bool, list, list]:
+) -> tuple[bool, list, list]:
     """Check the limit switches are triggered or not.
 
     Parameters
@@ -317,3 +319,26 @@ def check_limit_switches(
     is_triggered = (len(limit_switch_retract) != 0) or (len(limit_switch_extend) != 0)
 
     return is_triggered, limit_switch_retract.tolist(), limit_switch_extend.tolist()
+
+
+def camel_case(string_python: str) -> str:
+    """Formate the string of Python style to camel case. For example, 'ab_cd'
+    will be reformated to 'abCd'.
+
+    Copy from:
+    https://www.w3resource.com/python-exercises/string/
+    python-data-type-string-exercise-96.php
+
+    Parameters
+    ----------
+    string_python : `str`
+        Python-style string.
+
+    Returns
+    -------
+    `str`
+        String of camel case.
+    """
+
+    string_reformat = sub(r"(_|-)+", " ", string_python).title().replace(" ", "")
+    return "".join([string_reformat[0].lower(), string_reformat[1:]])

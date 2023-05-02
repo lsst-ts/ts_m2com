@@ -39,7 +39,7 @@ from .enum import (
 )
 from .error_handler import ErrorHandler
 from .tcp_client import TcpClient
-from .utility import check_queue_size, get_config_dir
+from .utility import camel_case, check_queue_size, get_config_dir
 
 __all__ = ["Controller"]
 
@@ -90,6 +90,8 @@ class Controller:
         Closed loop control mode in the cell controller.
     ilc_modes : `numpy.ndarray [InnerLoopControlMode]`
         Modes of the inner-loop controller (ILC).
+    control_parameters : `dict`
+        Control parameters in the closed-loop controller (CLC).
     """
 
     def __init__(
@@ -134,6 +136,14 @@ class Controller:
         self.ilc_modes = np.array(
             [InnerLoopControlMode.Unknown] * NUM_INNER_LOOP_CONTROLLER
         )
+
+        self.control_parameters = {
+            "enable_lut_temperature": True,
+            "enable_lut_inclinometer": True,
+            "use_external_elevation_angle": False,
+            "enable_angle_comparison": False,
+            "max_angle_difference": 2.0,
+        }
 
         # Start the connection task or not
         self._start_connection = False
@@ -591,7 +601,7 @@ class Controller:
         )
 
     def assert_controller_state(
-        self, command_name: str, allowed_curr_states: typing.List[salobj.State]
+        self, command_name: str, allowed_curr_states: list[salobj.State]
     ) -> None:
         """Assert the current controller's state is allowed to do the command
         or not.
@@ -821,7 +831,7 @@ class Controller:
         *args: typing.Any,
         time_wait_update: float = 0.5,
         timeout: float = 10.0,
-        **kwargs: typing.Dict[str, typing.Any],
+        **kwargs: dict[str, typing.Any],
     ) -> bool:
         """Check the expected value.
 
@@ -891,9 +901,10 @@ class Controller:
                 return True
 
         else:
-            if (self.power_system_status["communication_power_is_on"] == status) and (
-                self.power_system_status["communication_power_state"] == expected_state
-            ):
+            # cRIO simulator doesn't put the communication power to be off.
+            # Therefore, do not check
+            # 'self.power_system_status["communication_power_is_on"]' here.
+            if self.power_system_status["communication_power_state"] == expected_state:
                 return True
 
         return False
@@ -1230,3 +1241,15 @@ class Controller:
     async def load_configuration(self) -> None:
         """Load the configuration."""
         await self.write_command_to_server("loadConfiguration")
+
+    async def set_control_parameters(self) -> None:
+        """Set the control parameters of closed-loop controller (CLC)."""
+
+        message_details = dict()
+        for key, value in self.control_parameters.items():
+            message_details[camel_case(key)] = value
+
+        await self.write_command_to_server(
+            "setControlParameters",
+            message_details=message_details,
+        )

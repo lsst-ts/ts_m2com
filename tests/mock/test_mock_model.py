@@ -19,7 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import typing
 import unittest
 
 import numpy as np
@@ -35,6 +34,7 @@ from lsst.ts.m2com import (
     TEST_DIGITAL_OUTPUT_POWER_COMM,
     TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
     DigitalOutput,
+    DigitalOutputStatus,
     InnerLoopControlMode,
     MockErrorCode,
     MockModel,
@@ -218,7 +218,7 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         tangent_actuator_positions = telemetry_data["tangentEncoderPositions"]
         self.assertEqual(len(tangent_actuator_positions["position"]), NUM_TANGENT_LINK)
 
-    def _apply_forces(self) -> typing.Tuple[list, list]:
+    def _apply_forces(self) -> tuple[list, list]:
         force_axial = [1] * (NUM_ACTUATOR - NUM_TANGENT_LINK)
         force_tangent = [2] * NUM_TANGENT_LINK
         self.model.control_closed_loop.apply_forces(force_axial, force_tangent)
@@ -282,7 +282,7 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
 
     def _get_force_error_tangent_expected(
         self,
-    ) -> typing.Tuple[float, numpy.typing.NDArray[np.float64], dict]:
+    ) -> tuple[float, numpy.typing.NDArray[np.float64], dict]:
         return (
             89.853,
             np.array([-325.307, -447.377, 1128.37, -1249.98, 458.63, 267.627]),
@@ -490,15 +490,49 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
     def test_switch_digital_output(self) -> None:
         digital_output = self.model.get_digital_output()
 
+        # Binary low
+        digital_output_low_none = self.model.switch_digital_output(
+            digital_output, DigitalOutput.MotorPower, DigitalOutputStatus.BinaryLowLevel
+        )
+        self.assertEqual(digital_output_low_none, digital_output)
+
+        digital_output_low_exist = self.model.switch_digital_output(
+            digital_output,
+            DigitalOutput.ResetMotorBreakers,
+            DigitalOutputStatus.BinaryLowLevel,
+        )
+        self.assertEqual(
+            digital_output_low_exist,
+            digital_output - DigitalOutput.ResetMotorBreakers.value,
+        )
+
+        # Binary high
+        digital_output_high_none = self.model.switch_digital_output(
+            digital_output,
+            DigitalOutput.MotorPower,
+            DigitalOutputStatus.BinaryHighLevel,
+        )
+        self.assertEqual(
+            digital_output_high_none, digital_output + DigitalOutput.MotorPower.value
+        )
+
+        digital_output_high_exist = self.model.switch_digital_output(
+            digital_output,
+            DigitalOutput.ResetMotorBreakers,
+            DigitalOutputStatus.BinaryHighLevel,
+        )
+        self.assertEqual(digital_output_high_exist, digital_output)
+
+        # Toggle bit
         digital_output_with_motor_power = self.model.switch_digital_output(
-            digital_output, DigitalOutput.MotorPower
+            digital_output, DigitalOutput.MotorPower, DigitalOutputStatus.ToggleBit
         )
         self.assertTrue(
             digital_output_with_motor_power & DigitalOutput.MotorPower.value
         )
 
         digital_output_interlock_disabled = self.model.switch_digital_output(
-            digital_output, DigitalOutput.InterlockEnable
+            digital_output, DigitalOutput.InterlockEnable, DigitalOutputStatus.ToggleBit
         )
         self.assertFalse(
             digital_output_interlock_disabled & DigitalOutput.InterlockEnable.value

@@ -20,7 +20,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
-import typing
 
 from lsst.ts import salobj
 from lsst.ts.idl.enums import MTM2
@@ -165,7 +164,7 @@ class MockMessageEvent:
                 self.writer, {"id": "tcpIpConnected", "isConnected": is_connected}
             )
 
-    async def write_hardpoint_list(self, actuators: typing.List[int]) -> None:
+    async def write_hardpoint_list(self, actuators: list[int]) -> None:
         """Write the message: hardpoint list.
 
         Parameters
@@ -209,7 +208,7 @@ class MockMessageEvent:
                 self.writer, {"id": "inclinationTelemetrySource", "source": int(source)}
             )
 
-    async def write_temperature_offset(self, ring: typing.List[int | float]) -> None:
+    async def write_temperature_offset(self, ring: list[int | float]) -> None:
         """Write the message: temperature offset in degree C.
 
         Parameters
@@ -320,8 +319,8 @@ class MockMessageEvent:
 
     async def write_limit_switch_status(
         self,
-        limit_switch_retract: typing.List[int],
-        limit_switch_extend: typing.List[int],
+        limit_switch_retract: list[int],
+        limit_switch_extend: list[int],
     ) -> None:
         """Write the message: limit switch status.
 

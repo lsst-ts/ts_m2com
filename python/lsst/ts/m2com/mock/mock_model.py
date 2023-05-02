@@ -36,6 +36,7 @@ from ..constant import (
 from ..enum import (
     DigitalInput,
     DigitalOutput,
+    DigitalOutputStatus,
     InnerLoopControlMode,
     MockErrorCode,
     PowerType,
@@ -158,7 +159,7 @@ class MockModel:
             self.list_ilc.append(MockInnerLoopController())
 
         # Parameters of independent displacement sensors (IMS)
-        self._disp_ims: typing.Dict = dict()
+        self._disp_ims: dict = dict()
 
         self.mtmount_in_position: bool = False
 
@@ -339,7 +340,7 @@ class MockModel:
 
     def is_actuator_force_out_limit(
         self,
-    ) -> typing.Tuple[bool, MockErrorCode, list, list]:
+    ) -> tuple[bool, MockErrorCode, list, list]:
         """The actuator force is out of limit or not.
 
         By default, return the judgement based on the open-loop control. If
@@ -1031,7 +1032,9 @@ class MockModel:
 
         return digital_input
 
-    def switch_digital_output(self, digital_output: int, bit: DigitalOutput) -> int:
+    def switch_digital_output(
+        self, digital_output: int, bit: DigitalOutput, status: DigitalOutputStatus
+    ) -> int:
         """Switch the digital output with the specific bit.
 
         Parameters
@@ -1040,21 +1043,37 @@ class MockModel:
             Digital output.
         bit : enum `DigitalOutput`
             Bit to switch.
+        status : enum `DigitalOutputStatus`
+            Digital output status.
 
         Returns
         -------
         `int`
             Updated value of the digital output.
-        """
-        return (
-            (digital_output - bit.value)
-            if (digital_output & bit.value)
-            else (digital_output + bit.value)
-        )
 
-    def set_mode_ilc(
-        self, addresses: typing.List[int], mode: InnerLoopControlMode
-    ) -> None:
+        Raises
+        ------
+        `RuntimeError`
+            If the status is not supported.
+        """
+
+        if status == DigitalOutputStatus.BinaryLowLevel:
+            return (digital_output | bit.value) - bit.value
+
+        elif status == DigitalOutputStatus.BinaryHighLevel:
+            return digital_output | bit.value
+
+        elif status == DigitalOutputStatus.ToggleBit:
+            return (
+                (digital_output - bit.value)
+                if (digital_output & bit.value)
+                else (digital_output + bit.value)
+            )
+
+        else:
+            raise RuntimeError(f"Not supported status: {status!r}.")
+
+    def set_mode_ilc(self, addresses: list[int], mode: InnerLoopControlMode) -> None:
         """Set the mode of inner-loop controller (ILC).
 
         Parameters
@@ -1068,9 +1087,7 @@ class MockModel:
         for address in addresses:
             self.list_ilc[address].set_mode(mode)
 
-    def get_mode_ilc(
-        self, addresses: typing.List[int]
-    ) -> typing.List[InnerLoopControlMode]:
+    def get_mode_ilc(self, addresses: list[int]) -> list[InnerLoopControlMode]:
         """Get the mode of inner-loop controller (ILC).
 
         Parameters
