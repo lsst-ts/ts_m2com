@@ -27,7 +27,13 @@ from lsst.ts import salobj, tcpip
 from lsst.ts.idl.enums import MTM2
 from lsst.ts.utils import make_done_future
 
-from ..enum import ClosedLoopControlMode, CommandStatus, DetailedState, LimitSwitchType
+from ..enum import (
+    ClosedLoopControlMode,
+    CommandStatus,
+    DetailedState,
+    LimitSwitchType,
+    MockErrorCode,
+)
 from ..utility import write_json_packet
 from .mock_command import MockCommand
 from .mock_message_event import MockMessageEvent
@@ -303,6 +309,16 @@ class MockServer:
         await self._message_event.write_closed_loop_control_mode(
             ClosedLoopControlMode.Idle
         )
+
+        # Remove "if not self._is_csc" after we get ride of the ts_mtm2 on
+        # summit. At this moment, only simulate this event for the ts_m2gui.
+        if not self._is_csc:
+            summary_faults_status = (
+                self.model.error_handler.get_summary_faults_status_from_codes(
+                    [MockErrorCode.LostConnection.value]
+                )
+            )
+            await self._message_event.write_summary_faults_status(summary_faults_status)
 
     async def _monitor_and_report_system_status(self) -> None:
         """Monitor the system status and report the specific events."""

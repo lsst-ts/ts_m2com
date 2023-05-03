@@ -222,5 +222,6 @@ class MockErrorCode(IntEnum):
 
     NoError = 1
     MonitoringIlcReadError = 6052
+    LostConnection = 6053
     LimitSwitchTriggeredClosedloop = 6056
     LimitSwitchTriggeredOpenloop = 6057
