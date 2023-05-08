@@ -197,6 +197,19 @@ class MockCommand:
 
         self._digital_output = model.get_digital_output()
         await message_event.write_digital_output(self._digital_output)
+        await self.report_interlock(message_event)
+
+    async def report_interlock(self, message_event: MockMessageEvent) -> None:
+        """Report the interlock status.
+
+        Parameters
+        ----------
+        message_event : MockMessageEvent
+            Instance of MockMessageEvent to write the event.
+        """
+        await message_event.write_interlock(
+            bool(self._digital_output & DigitalOutput.InterlockEnable.value)
+        )
 
     async def disable(
         self, message: dict, model: MockModel, message_event: MockMessageEvent
@@ -827,6 +840,8 @@ class MockCommand:
                 )
 
             await message_event.write_digital_output(digital_output_reset)
+            await self.report_interlock(message_event)
+
             await message_event.write_digital_input(digital_input_reset)
             await message_event.write_power_system_state(
                 power_type,
@@ -838,6 +853,8 @@ class MockCommand:
             await asyncio.sleep(self.SLEEP_TIME_NORMAL)
 
             await message_event.write_digital_output(digital_output_default)
+            await self.report_interlock(message_event)
+
             await message_event.write_power_system_state(
                 power_type, power_system.is_power_on(), power_system.state
             )
@@ -995,6 +1012,7 @@ class MockCommand:
             self._digital_output, bit, status
         )
         await message_event.write_digital_output(self._digital_output)
+        await self.report_interlock(message_event)
 
         # Turn on/off the power based on the bit value
         if self._digital_output & DigitalOutput.CommunicationPower.value:

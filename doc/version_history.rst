@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v0.10.3
+-------
+
+* Add the ``MockCommand.report_interlock()`` to report the interlock event.
+* Update the ``MockServer._send_welcome_message()`` to send the lost connection error at welcome message.
+
 v0.10.2
 -------
 

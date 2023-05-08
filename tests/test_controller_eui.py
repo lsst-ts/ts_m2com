@@ -128,7 +128,9 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(controller.is_csc)
 
             await asyncio.sleep(SLEEP_TIME_SHORT)
-            self.assertEqual(controller.controller_state, salobj.State.STANDBY)
+
+            # This fault comes from the simulated disconnection error
+            self.assertEqual(controller.controller_state, salobj.State.FAULT)
 
     async def test_clear_errors(self) -> None:
         async with self.make_server() as server, self.make_controller(
