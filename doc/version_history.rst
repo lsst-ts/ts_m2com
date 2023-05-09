@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v0.10.4
+-------
+
+* Fix the rz calculation in ``MockControlClosedLoop.hardpoint_to_rigid_body()``.
+* Add the ``MockModel.is_force_error_tangent_out_limit()`` and do the related check in ``MockServer._check_error_force()``.
+
 v0.10.3
 -------
 
