@@ -586,15 +586,25 @@ class MockServer:
     def _check_error_force(self) -> None:
         """Check the force error and fault the system if needed."""
 
+        # Check the actutor force
         (
-            is_out_limit,
-            error_code,
+            is_out_limit_actuator_force,
+            error_code_actuator_force,
             limit_switches_retract,
             limit_switches_extend,
         ) = self.model.is_actuator_force_out_limit()
 
-        if is_out_limit:
-            self.model.fault(error_code)
+        if is_out_limit_actuator_force:
+            self.model.fault(error_code_actuator_force)
+
+        # Check the force error of tangent links
+        (
+            is_out_limit_force_error_tangent,
+            error_code_force_error_tangent,
+        ) = self.model.is_force_error_tangent_out_limit()
+
+        if is_out_limit_force_error_tangent:
+            self.model.fault(error_code_force_error_tangent)
 
         # Only trigger the error of limit switch if the open-loop maximum is
         # enabled

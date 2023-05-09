@@ -32,6 +32,10 @@ from ..constant import (
     NUM_ACTUATOR,
     NUM_INNER_LOOP_CONTROLLER,
     NUM_TANGENT_LINK,
+    TANGENT_LINK_LOAD_BEARING_LINK,
+    TANGENT_LINK_NON_LOAD_BEARING_LINK,
+    TANGENT_LINK_THETA_Z_MOMENT,
+    TANGENT_LINK_TOTAL_WEIGHT_ERROR,
 )
 from ..enum import (
     DigitalInput,
@@ -165,6 +169,13 @@ class MockModel:
 
         self.script_engine: MockScriptEngine = MockScriptEngine()
         self.error_handler: MockErrorHandler = MockErrorHandler()
+
+        # Force error of the tangent link to check the glass safety
+        self._force_error_tangent = {
+            "force": [0.0] * NUM_TANGENT_LINK,
+            "weight": 0.0,
+            "sum": 0.0,
+        }
 
         self._set_default_measured_forces()
 
@@ -348,13 +359,13 @@ class MockModel:
 
         Returns
         -------
-        `bool`
+        is_out_limit : `bool`
             True if the actuator force is out of limit. Otherwise, False.
-        enum `MockErrorCode`
+        error_code : enum `MockErrorCode`
             Error code.
-        `list`
+        limit_switches_retract : `list`
             Triggered retracted limit switches.
-        `list`
+        limit_switches_extend : `list`
             Triggered extended limit switches.
         """
 
@@ -382,6 +393,58 @@ class MockModel:
                 error_code = MockErrorCode.LimitSwitchTriggeredOpenloop
 
         return is_out_limit, error_code, limit_switches_retract, limit_switches_extend
+
+    def is_force_error_tangent_out_limit(self) -> tuple[bool, MockErrorCode]:
+        """The force error of tangent link is out of limit or not.
+
+        This function is translated from TangentLoadCellFaultDetection.vi in
+        ts_mtm2 LabVIEW project.
+
+        Returns
+        -------
+        is_out_limit : `bool`
+            True if the force error is out of limit. Otherwise, False.
+        error_code : enum `MockErrorCode`
+            Error code.
+        """
+
+        # Check four fault conditions
+        force_error_tangent = self._force_error_tangent
+
+        is_out_limit_total_weight = (
+            np.abs(force_error_tangent["weight"]) >= TANGENT_LINK_TOTAL_WEIGHT_ERROR
+        )
+        is_out_limit_theta_z = (
+            np.abs(force_error_tangent["sum"]) >= TANGENT_LINK_THETA_Z_MOMENT
+        )
+
+        force_error_individual = np.array(force_error_tangent["force"])
+
+        # Tangent link: A1, A4
+        is_out_limit_non_load = np.any(
+            np.abs(force_error_individual[[0, 3]]) >= TANGENT_LINK_NON_LOAD_BEARING_LINK
+        )
+
+        # Tangent link: A2, A3, A5, A6
+        is_out_limit_load = np.any(
+            np.abs(force_error_individual[[1, 2, 4, 5]])
+            >= TANGENT_LINK_LOAD_BEARING_LINK
+        )
+
+        # Decide the error code
+        is_out_limit = (
+            is_out_limit_total_weight
+            or is_out_limit_theta_z
+            or is_out_limit_non_load
+            or is_out_limit_load
+        )
+        error_code = (
+            MockErrorCode.TangentLoadCellFault
+            if is_out_limit
+            else MockErrorCode.NoError
+        )
+
+        return is_out_limit, error_code
 
     def fault(self, error_code: MockErrorCode) -> None:
         """Fault the model.
@@ -513,6 +576,9 @@ class MockModel:
             telemetry_data["tangentEncoderPositions"] = {
                 "position": positions[-NUM_TANGENT_LINK:].tolist()
             }
+
+            # Update the internal data
+            self._force_error_tangent = telemetry_data["forceErrorTangent"]
 
         telemetry_data["powerStatus"] = self._get_power_status()
         telemetry_data["powerStatusRaw"] = self._get_power_status()

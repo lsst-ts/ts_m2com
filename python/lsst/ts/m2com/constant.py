@@ -31,6 +31,10 @@ __all__ = [
     "LIMIT_FORCE_TANGENT_OPEN_LOOP",
     "MAX_LIMIT_FORCE_AXIAL_OPEN_LOOP",
     "MAX_LIMIT_FORCE_TANGENT_OPEN_LOOP",
+    "TANGENT_LINK_TOTAL_WEIGHT_ERROR",
+    "TANGENT_LINK_LOAD_BEARING_LINK",
+    "TANGENT_LINK_THETA_Z_MOMENT",
+    "TANGENT_LINK_NON_LOAD_BEARING_LINK",
     "MINIMUM_ERROR_CODE",
     "TEST_DIGITAL_OUTPUT_NO_POWER",
     "TEST_DIGITAL_OUTPUT_POWER_COMM",
@@ -50,13 +54,30 @@ MIRROR_WEIGHT_KG = 1588.65
 
 # Limits of force in Newton
 LIMIT_FORCE_AXIAL_CLOSED_LOOP = 444.82  # 100 lbf
+
+# This value is ~ (MIRROR_WEIGHT_KG * 9.8 / 4 + TANGENT_LINK_LOAD_BEARING_LINK)
+# under the condition that only tangent links bear the mirror's weight.
 LIMIT_FORCE_TANGENT_CLOSED_LOOP = 4893.04  # 1100 lbf
 
 LIMIT_FORCE_AXIAL_OPEN_LOOP = 489.3  # 110 lbf
+
+# Add the buffer of (1000 lbf / 4) to each tangent link
+# compared with LIMIT_FORCE_TANGENT_CLOSED_LOOP.
 LIMIT_FORCE_TANGENT_OPEN_LOOP = 6005.1  # 1350 lbf
 
 MAX_LIMIT_FORCE_AXIAL_OPEN_LOOP = 622.75  # 140 lbf
+
+# Add the buffer of (200 lbf / 4) to each tangent link
+# compared with LIMIT_FORCE_TANGENT_OPEN_LOOP.
 MAX_LIMIT_FORCE_TANGENT_OPEN_LOOP = 6227.51  # 1400 lbf
+
+# Thresholds of the force errors of the tangent links in
+# TangentLoadCellFaultDetection.vi in ts_mtm2 LabVIEW project.
+# The unit is Newton.
+TANGENT_LINK_TOTAL_WEIGHT_ERROR = 2000
+TANGENT_LINK_LOAD_BEARING_LINK = 1000
+TANGENT_LINK_THETA_Z_MOMENT = 1000
+TANGENT_LINK_NON_LOAD_BEARING_LINK = 1000
 
 # Randomly-chosen minimum error code by vendor
 MINIMUM_ERROR_CODE = 6000
