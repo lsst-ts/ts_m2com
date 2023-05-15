@@ -26,7 +26,7 @@ import typing
 import unittest
 from pathlib import Path
 
-from lsst.ts import salobj, tcpip
+from lsst.ts import tcpip
 from lsst.ts.m2com import (
     MockServer,
     TcpClient,
@@ -116,8 +116,10 @@ class TestMockServerEui(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(1)
             self.assertGreaterEqual(client_cmd.queue.qsize(), 9)
 
-            message_state = get_queue_message_latest(client_cmd.queue, "summaryState")
-            self.assertEqual(message_state["summaryState"], salobj.State.STANDBY)
+            message_status = get_queue_message_latest(
+                client_cmd.queue, "summaryFaultsStatus"
+            )
+            self.assertEqual(message_status["status"], 2**57)
 
 
 if __name__ == "__main__":
