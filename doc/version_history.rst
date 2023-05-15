@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v0.10.5
+-------
+
+* Adapt the behaviour that the M2 cell LabVIEW project only reports the summary faults status instead of error code.
+* Simulate the enabled faults mask.
+
 v0.10.4
 -------
 
