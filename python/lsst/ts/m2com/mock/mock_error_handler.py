@@ -23,16 +23,24 @@ import typing
 
 __all__ = ["MockErrorHandler"]
 
-from ..constant import NUM_ACTUATOR
+from ..constant import DEFAULT_ENABLED_FAULTS_MASK, NUM_ACTUATOR
 from ..enum import LimitSwitchType
 from ..error_handler import ErrorHandler
 
 
 class MockErrorHandler(ErrorHandler):
-    """Mock Error Handler class to manage the errors."""
+    """Mock Error Handler class to manage the errors.
+
+    Attributes
+    ----------
+    enabled_faults_mask : `int`
+        Enabled faults mask.
+    """
 
     def __init__(self) -> None:
         super().__init__()
+
+        self.enabled_faults_mask = DEFAULT_ENABLED_FAULTS_MASK
 
         # New triggered retracted limit switches
         self._limit_switches_retract_new: typing.Set[int] = set()
@@ -55,6 +63,30 @@ class MockErrorHandler(ErrorHandler):
 
         self._limit_switches_extend_new.clear()
         self._limit_switches_extend_reported.clear()
+
+    def add_new_error(self, code: int) -> None:
+        if self._is_enabled_faults(code):
+            super().add_new_error(code)
+
+    def _is_enabled_faults(self, code: int) -> bool:
+        """The error code is enabled fault or not.
+
+        Parameters
+        ----------
+        code : `int`
+            Error code.
+
+        Returns
+        -------
+        `bool`
+            True if the error code is enabled. Otherwise, False.
+        """
+        bit = self.get_bit_from_code(code)
+        return bool(self.enabled_faults_mask & (2**bit))
+
+    def add_new_warning(self, code: int) -> None:
+        if self._is_enabled_faults(code):
+            super().add_new_warning(code)
 
     def add_new_limit_switch(
         self, actuator_id: int, limit_switch_type: LimitSwitchType

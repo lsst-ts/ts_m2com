@@ -163,6 +163,7 @@ class MockServer:
             "cmd_getInnerLoopControlMode": self._command.get_inner_loop_control_mode,
             "cmd_loadConfiguration": self._command.load_configuration,
             "cmd_setControlParameters": self._command.set_control_parameters,
+            "cmd_setEnabledFaultsMask": self._command.set_enabled_faults_mask,
         }
 
     async def _connect_state_changed_callback_command(
@@ -310,15 +311,9 @@ class MockServer:
             ClosedLoopControlMode.Idle
         )
 
-        # Remove "if not self._is_csc" after we get ride of the ts_mtm2 on
-        # summit. At this moment, only simulate this event for the ts_m2gui.
-        if not self._is_csc:
-            summary_faults_status = (
-                self.model.error_handler.get_summary_faults_status_from_codes(
-                    [MockErrorCode.LostConnection.value]
-                )
-            )
-            await self._message_event.write_summary_faults_status(summary_faults_status)
+        await self._message_event.write_enabled_faults_mask(
+            self.model.error_handler.enabled_faults_mask
+        )
 
     async def _monitor_and_report_system_status(self) -> None:
         """Monitor the system status and report the specific events."""
@@ -336,10 +331,12 @@ class MockServer:
         error_handler = self.model.error_handler
         if error_handler.exists_new_error():
             await self._message_event.write_summary_state(salobj.State.FAULT)
-            await self._report_errors()
             await self._message_event.write_force_balance_system_status(
                 self.model.control_closed_loop.is_running
             )
+
+        if error_handler.exists_new_error() or error_handler.exists_new_warning():
+            await self._report_summary_faults_status()
 
         # Report the triggered limit switches
         if error_handler.exists_new_limit_switch(
@@ -355,15 +352,14 @@ class MockServer:
                 sorted(limit_switches_retract), sorted(limit_switches_extend)
             )
 
-    async def _report_errors(self) -> None:
-        """Report the errors."""
+    async def _report_summary_faults_status(self) -> None:
+        """Report the summary faults status."""
 
         # Workaround of the mypy checking
         assert self._message_event is not None
 
-        errors = self.model.error_handler.get_errors_to_report()
-        for error in errors:
-            await self._message_event.write_error_code(error)
+        status = self.model.error_handler.get_summary_faults_status_to_report()
+        await self._message_event.write_summary_faults_status(status)
 
     async def _process_message_command(self) -> None:
         """Process the incoming message from command server."""
@@ -779,6 +775,11 @@ class MockServer:
         await asyncio.gather(
             self.server_command.start_task, self.server_telemetry.start_task
         )
+
+        # Remove "if not self._is_csc" after we get ride of the ts_mtm2 on
+        # summit. At this moment, only simulate this event for the ts_m2gui.
+        if not self._is_csc:
+            self.model.error_handler.add_new_error(MockErrorCode.LostConnection.value)
 
     async def close(self) -> None:
         """Cancel the tasks and close the connections.

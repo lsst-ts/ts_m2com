@@ -536,6 +536,7 @@ class MockCommand:
         """
 
         model.clear_errors()
+        await message_event.write_summary_faults_status(0)
 
         # In EUI, there is no OFFLINE state.
         if self._is_csc:
@@ -1089,12 +1090,9 @@ class MockCommand:
         )
 
         if model.power_motor.is_power_on():
-            summary_faults_status = (
-                model.error_handler.get_summary_faults_status_from_codes(
-                    [MockErrorCode.MonitoringIlcReadError.value]
-                )
+            model.error_handler.add_new_warning(
+                MockErrorCode.MonitoringIlcReadError.value
             )
-            await message_event.write_summary_faults_status(summary_faults_status)
 
         return model, CommandStatus.Success
 
@@ -1294,5 +1292,34 @@ class MockCommand:
         )
 
         await message_event.write_inclination_telemetry_source(model.inclination_source)
+
+        return model, CommandStatus.Success
+
+    async def set_enabled_faults_mask(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> tuple[MockModel, CommandStatus]:
+        """Set the enabled faults mask.
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        mask = int(message["mask"])
+        model.error_handler.enabled_faults_mask = mask
+
+        await message_event.write_enabled_faults_mask(mask)
 
         return model, CommandStatus.Success
