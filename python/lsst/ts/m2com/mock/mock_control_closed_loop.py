@@ -763,11 +763,23 @@ class MockControlClosedLoop:
         y = 2 * (y_current - y_home)
 
         # Calculate the rz in radian
+
+        # The details can follow:
+        # Least-Squares Rigid Motion Using SVD by Olga Sorkine-Hornung and
+        # Michael Rabinovich, 2017
+        # https://igl.ethz.ch/projects/ARAP/svd_rot.pdf
         mat_u, _, mat_v = np.linalg.svd(
             delta_xy_home.T.dot(delta_xy_current), full_matrices=True
         )
-        mat_r = mat_v.T.dot(mat_u.T)
-        rz = np.arctan2(mat_r[1, 0], mat_r[1, 1])
+
+        # Consider the potential reflection when calculating the rotation
+        # matrix
+        mat_det_vut = np.array([[1, 0], [0, numpy.linalg.det(mat_v.dot(mat_u.T))]])
+        mat_r = mat_v.dot(mat_det_vut).dot(mat_u.T)
+
+        # mat_r is the rotation matrix of rz, based on the sign of cos(rz) to
+        # decide the direction of rotation.
+        rz = np.arctan2(np.sign(mat_r[0, 0]) * mat_r[1, 0], abs(mat_r[0, 0]))
 
         return x, y, z, rx, ry, rz
 
@@ -802,10 +814,18 @@ class MockControlClosedLoop:
             Delta (x, y) position compared with the mean (x, y) in meter.
         """
 
+        # d: actuator displacement
+        # R: radius
+        # theta, theta_0: angles of tangent links at current and home positions
+        # d = R * tan(theta - theta_0)
+        # => theta = theta_0 + tan^(-1)(d/R)
         theta = (
             np.arctan2(tangent_hardpoint_displacement, radius)
             + tangent_hardpoint_location
         )
+
+        # x = R * cos(pi/2 - theta) = R * sin(theta)
+        # y = R * sin(pi/2 - theta) = R * cos(theta)
         x_tangent_hardpoint = radius * np.sin(theta)
         y_tangent_hardpoint = radius * np.cos(theta)
 

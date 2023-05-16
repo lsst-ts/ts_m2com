@@ -246,6 +246,62 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertAlmostEqual(ry * 1e6, 0)
         self.assertAlmostEqual(rz * 1e6, 0.2126332)
 
+    def test_rigid_body_movement(self) -> None:
+        # x, y, z in mm
+        # rx, ry, rz in urad
+        list_test_data = [
+            [3.0, 4.0, 5.0, 15.0, -5.0, -8.0],
+            [3.0, -4.0, 5.0, 15.0, -5.0, 0.0],
+            [-3.0, 4.0, 5.0, 15.0, -5.0, 8.0],
+        ]
+        for test_data in list_test_data:
+            self._verify_rigid_body_movement(
+                test_data[0],
+                test_data[1],
+                test_data[2],
+                test_data[3],
+                test_data[4],
+                test_data[5],
+            )
+
+    def _verify_rigid_body_movement(
+        self,
+        x_taget: float,
+        y_taget: float,
+        z_taget: float,
+        rx_target: float,
+        ry_target: float,
+        rz_target: float,
+        places: int = 2,
+    ) -> None:
+        displacments_xyz = MockControlClosedLoop.rigid_body_to_actuator_displacement(
+            self.control_closed_loop.get_actuator_location_axial(),
+            self.control_closed_loop.get_actuator_location_tangent(),
+            self.control_closed_loop.get_radius(),
+            x_taget * 1e-3,
+            y_taget * 1e-3,
+            z_taget * 1e-3,
+            rx_target * 1e-6,
+            ry_target * 1e-6,
+            rz_target * 1e-6,
+        )
+
+        x, y, z, rx, ry, rz = MockControlClosedLoop.hardpoint_to_rigid_body(
+            self.control_closed_loop.get_actuator_location_axial(),
+            self.control_closed_loop.get_actuator_location_tangent(),
+            self.control_closed_loop.get_radius(),
+            self.control_closed_loop.hardpoints,
+            [displacments_xyz[idx] for idx in self.control_closed_loop.hardpoints],
+            [0] * 6,
+        )
+
+        self.assertAlmostEqual(x * 1e3, x_taget, places=places)
+        self.assertAlmostEqual(y * 1e3, y_taget, places=places)
+        self.assertAlmostEqual(z * 1e3, z_taget, places=places)
+        self.assertAlmostEqual(rx * 1e6, rx_target, places=places)
+        self.assertAlmostEqual(ry * 1e6, ry_target, places=places)
+        self.assertAlmostEqual(rz * 1e6, rz_target, places=places)
+
     def test_simulate_temperature_and_update(self) -> None:
         temperature_original = self.control_closed_loop.temperature.copy()
         self.control_closed_loop.simulate_temperature_and_update()

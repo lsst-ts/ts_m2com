@@ -53,15 +53,22 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
     def test_init(self) -> None:
         # In the default condition, there should be no force error
         (
-            is_out_limit,
-            error_code,
+            is_out_limit_actuator_force,
+            error_code_actuator_force,
             limit_switches_retract,
             limit_switches_extend,
         ) = self.model.is_actuator_force_out_limit()
-        self.assertFalse(is_out_limit)
-        self.assertEqual(error_code, MockErrorCode.NoError)
+        self.assertFalse(is_out_limit_actuator_force)
+        self.assertEqual(error_code_actuator_force, MockErrorCode.NoError)
         self.assertEqual(len(limit_switches_retract), 0)
         self.assertEqual(len(limit_switches_extend), 0)
+
+        (
+            is_out_limit_force_error_tangent,
+            error_code_force_error_tangent,
+        ) = self.model.is_force_error_tangent_out_limit()
+        self.assertFalse(is_out_limit_force_error_tangent)
+        self.assertEqual(error_code_force_error_tangent, MockErrorCode.NoError)
 
         self.assertAlmostEqual(
             self.model.control_closed_loop.axial_forces["measured"][0], 216.2038167
@@ -125,6 +132,34 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(error_code, MockErrorCode.LimitSwitchTriggeredOpenloop)
         self.assertEqual(limit_switches_retract, [0])
         self.assertEqual(limit_switches_extend, [])
+
+    def test_is_force_error_tangent_out_limit(self) -> None:
+        # Check the total weight
+        self.model._force_error_tangent["weight"] = -2000.0
+        is_out_limit, error_code = self.model.is_force_error_tangent_out_limit()
+
+        self.assertTrue(is_out_limit)
+        self.assertEqual(error_code, MockErrorCode.TangentLoadCellFault)
+
+        # Check the moment of theta z
+        self.model._force_error_tangent["weight"] = 0.0
+        self.model._force_error_tangent["sum"] = -1000.0
+
+        is_out_limit, error_code = self.model.is_force_error_tangent_out_limit()
+        self.assertTrue(is_out_limit)
+
+        # Check the non-load bearing link
+        self.model._force_error_tangent["sum"] = 0.0
+        self.model._force_error_tangent["force"] = [-1000.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+        is_out_limit, error_code = self.model.is_force_error_tangent_out_limit()
+        self.assertTrue(is_out_limit)
+
+        # Check the load bearing link
+        self.model._force_error_tangent["force"] = [0.0, -1000.0, 0.0, 0.0, 0.0, 0.0]
+
+        is_out_limit, error_code = self.model.is_force_error_tangent_out_limit()
+        self.assertTrue(is_out_limit)
 
     def test_fault_motor_power_not_on(self) -> None:
         self.model.fault(MockErrorCode.LimitSwitchTriggeredOpenloop)
