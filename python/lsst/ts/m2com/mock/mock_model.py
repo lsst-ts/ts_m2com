@@ -411,40 +411,40 @@ class MockModel:
         # Check four fault conditions
         force_error_tangent = self._force_error_tangent
 
-        is_out_limit_total_weight = (
+        force_is_out_limit_total_weight = (
             np.abs(force_error_tangent["weight"]) >= TANGENT_LINK_TOTAL_WEIGHT_ERROR
         )
-        is_out_limit_theta_z = (
+        force_is_out_limit_theta_z = (
             np.abs(force_error_tangent["sum"]) >= TANGENT_LINK_THETA_Z_MOMENT
         )
 
         force_error_individual = np.array(force_error_tangent["force"])
 
         # Tangent link: A1, A4
-        is_out_limit_non_load = np.any(
+        force_is_out_limit_non_load = np.any(
             np.abs(force_error_individual[[0, 3]]) >= TANGENT_LINK_NON_LOAD_BEARING_LINK
         )
 
         # Tangent link: A2, A3, A5, A6
-        is_out_limit_load = np.any(
+        force_is_out_limit_load = np.any(
             np.abs(force_error_individual[[1, 2, 4, 5]])
             >= TANGENT_LINK_LOAD_BEARING_LINK
         )
 
         # Decide the error code
-        is_out_limit = (
-            is_out_limit_total_weight
-            or is_out_limit_theta_z
-            or is_out_limit_non_load
-            or is_out_limit_load
+        force_is_out_limit = (
+            force_is_out_limit_total_weight
+            or force_is_out_limit_theta_z
+            or force_is_out_limit_non_load
+            or force_is_out_limit_load
         )
         error_code = (
             MockErrorCode.TangentLoadCellFault
-            if is_out_limit
+            if force_is_out_limit
             else MockErrorCode.NoError
         )
 
-        return is_out_limit, error_code
+        return force_is_out_limit, error_code
 
     def fault(self, error_code: MockErrorCode) -> None:
         """Fault the model.
