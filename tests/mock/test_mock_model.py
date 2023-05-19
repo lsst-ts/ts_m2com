@@ -85,7 +85,7 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
             -27.8006293,
         )
 
-        self.assertEqual(len(self.model.error_handler._list_code_total), 64)
+        self.assertEqual(len(self.model.error_handler.list_code_total), 64)
 
     def test_get_default_mirror_position(self) -> None:
         mirror_position = self.model.get_default_mirror_position()
@@ -205,7 +205,7 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.model.control_closed_loop.is_running)
 
     def test_clear_errors(self) -> None:
-        self.model.error_handler.add_new_error(1)
+        self.model.error_handler.add_new_error(MockErrorCode.LostConnection.value)
         self.model.clear_errors()
 
         self.assertFalse(self.model.error_handler.exists_new_error())

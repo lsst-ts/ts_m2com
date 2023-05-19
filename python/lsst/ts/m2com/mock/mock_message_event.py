@@ -110,20 +110,6 @@ class MockMessageEvent:
                 self.writer, {"id": "summaryState", "summaryState": int(summary_state)}
             )
 
-    async def write_error_code(self, error_code: int) -> None:
-        """Write the message: error code.
-
-        Parameters
-        ----------
-        error_code : int
-            Error code.
-        """
-
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer, {"id": "errorCode", "errorCode": int(error_code)}
-            )
-
     async def write_commandable_by_dds(self, state: bool) -> None:
         """Write the message: commandable by DDS or not.
 
@@ -421,4 +407,18 @@ class MockMessageEvent:
         if self.writer is not None:
             await write_json_packet(
                 self.writer, {"id": "summaryFaultsStatus", "status": status}
+            )
+
+    async def write_enabled_faults_mask(self, mask: int) -> None:
+        """Write the message: enabled faults mask.
+
+        Parameters
+        ----------
+        mask : `int`
+            Enabled faults mask.
+        """
+
+        if self.writer is not None:
+            await write_json_packet(
+                self.writer, {"id": "enabledFaultsMask", "mask": mask}
             )

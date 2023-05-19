@@ -32,7 +32,7 @@ class TestErrorHandler(unittest.TestCase):
         self.error_handler.read_error_list_file(get_config_dir() / "error_code.tsv")
 
     def test_init(self) -> None:
-        self.assertEqual(len(self.error_handler._list_code_total), 64)
+        self.assertEqual(len(self.error_handler.list_code_total), 64)
         self.assertEqual(len(self.error_handler._list_code_error), 25)
         self.assertEqual(len(self.error_handler._list_code_warning), 11)
 
@@ -170,6 +170,22 @@ class TestErrorHandler(unittest.TestCase):
         self.assertEqual(
             self.error_handler.get_summary_faults_status_from_codes([6051, 6055]), 24
         )
+
+    def test_get_summary_faults_status_to_report(self) -> None:
+        # No faults
+        self.assertEqual(self.error_handler.get_summary_faults_status_to_report(), 0)
+
+        # Some faults
+        self.error_handler._errors_reported.add(6051)
+        self.error_handler._errors_new.add(6055)
+        self.error_handler._warnings_reported.add(6057)
+        self.error_handler._warnings_new.add(6059)
+
+        self.assertEqual(
+            self.error_handler.get_summary_faults_status_to_report(), 0x138
+        )
+        self.assertEqual(self.error_handler._errors_reported, {6051, 6055})
+        self.assertEqual(self.error_handler._warnings_reported, {6057, 6059})
 
 
 if __name__ == "__main__":

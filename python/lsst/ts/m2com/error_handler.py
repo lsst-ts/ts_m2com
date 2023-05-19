@@ -28,12 +28,17 @@ from .utility import read_error_code_file
 
 
 class ErrorHandler:
-    """Error Handler class to manage the errors."""
+    """Error Handler class to manage the errors.
+
+    Attributes
+    ----------
+    list_code_total : `list`
+        List of the dummy, error, and warning codes to map the bit value of
+        summary faults status in cell controller with the related code.
+    """
 
     def __init__(self) -> None:
-        # List of the dummy, error, and warning codes to map the bit value of
-        # summary faults status in cell controller with the related code
-        self._list_code_total: list[int] = list()
+        self.list_code_total: list[int] = list()
 
         # List of the defined error code
         self._list_code_error: list[int] = list()
@@ -63,7 +68,7 @@ class ErrorHandler:
         """
 
         # Reset the lists
-        self._list_code_total = list()
+        self.list_code_total = list()
         self._list_code_error = list()
         self._list_code_warning = list()
 
@@ -71,7 +76,7 @@ class ErrorHandler:
         content = read_error_code_file(filepath)
         for key, value in content.items():
             error_code = int(key)
-            self._list_code_total.append(error_code)
+            self.list_code_total.append(error_code)
 
             if error_code >= MINIMUM_ERROR_CODE:
                 list_code = (
@@ -99,7 +104,7 @@ class ErrorHandler:
         status : `int`
             Summary faults status.
         """
-        for idx, code in enumerate(self._list_code_total):
+        for idx, code in enumerate(self.list_code_total):
             mask = 2**idx
             if status < mask:
                 break
@@ -314,7 +319,7 @@ class ErrorHandler:
         `int`
             0-based bit value.
         """
-        return self._list_code_total.index(code)
+        return self.list_code_total.index(code)
 
     def get_summary_faults_status_from_codes(self, codes: list[int]) -> int:
         """Get the summary faults status from codes.
@@ -335,3 +340,21 @@ class ErrorHandler:
             summary_faults_status += 2 ** self.get_bit_from_code(code)
 
         return summary_faults_status
+
+    def get_summary_faults_status_to_report(self) -> int:
+        """Get the summary faults status to report.
+
+        Note this function will put all unreported errors and warnings to the
+        reported items.
+
+        Returns
+        -------
+        `int`
+            Summary faults status.
+        """
+
+        self.get_errors_to_report()
+        self.get_warnings_to_report()
+
+        errors_and_warnings = self._errors_reported.union(self._warnings_reported)
+        return self.get_summary_faults_status_from_codes(list(errors_and_warnings))

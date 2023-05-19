@@ -28,6 +28,7 @@ from pathlib import Path
 
 from lsst.ts import salobj, tcpip
 from lsst.ts.m2com import (
+    DEFAULT_ENABLED_FAULTS_MASK,
     ClosedLoopControlMode,
     CommandStatus,
     Controller,
@@ -463,6 +464,20 @@ class TestController(unittest.IsolatedAsyncioTestCase):
 
             with self.assertRaises(RuntimeError):
                 await controller.set_ilc_to_enabled()
+
+    async def test_reset_enabled_faults_mask(self) -> None:
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+            server.model.error_handler.enabled_faults_mask = 0
+
+            await controller.reset_enabled_faults_mask()
+            await asyncio.sleep(SLEEP_TIME_SHORT)
+
+            self.assertEqual(
+                server.model.error_handler.enabled_faults_mask,
+                DEFAULT_ENABLED_FAULTS_MASK,
+            )
 
 
 if __name__ == "__main__":

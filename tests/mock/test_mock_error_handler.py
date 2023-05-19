@@ -21,7 +21,7 @@
 
 import unittest
 
-from lsst.ts.m2com import LimitSwitchType, MockErrorHandler
+from lsst.ts.m2com import LimitSwitchType, MockErrorHandler, get_config_dir
 
 
 class TestMockErrorHandler(unittest.TestCase):
@@ -29,6 +29,25 @@ class TestMockErrorHandler(unittest.TestCase):
 
     def setUp(self) -> None:
         self.error_handler = MockErrorHandler()
+        self.error_handler.read_error_list_file(get_config_dir() / "error_code.tsv")
+
+    def test_add_new_error(self) -> None:
+        # Enabled fault
+        self.error_handler.add_new_error(6051)
+        self.assertEqual(len(self.error_handler._errors_new), 1)
+
+        # Not enabled fault
+        self.error_handler.add_new_error(1035)
+        self.assertEqual(len(self.error_handler._errors_new), 1)
+
+    def test_add_new_warning(self) -> None:
+        # Enabled fault
+        self.error_handler.add_new_warning(6059)
+        self.assertEqual(len(self.error_handler._warnings_new), 1)
+
+        # Not enabled fault
+        self.error_handler.add_new_warning(1035)
+        self.assertEqual(len(self.error_handler._warnings_new), 1)
 
     def test_clear(self) -> None:
         self.error_handler._errors_new.add(1)

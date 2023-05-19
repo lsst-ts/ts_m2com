@@ -28,7 +28,11 @@ import numpy as np
 from lsst.ts import salobj
 from lsst.ts.utils import make_done_future
 
-from .constant import NUM_ACTUATOR, NUM_INNER_LOOP_CONTROLLER
+from .constant import (
+    DEFAULT_ENABLED_FAULTS_MASK,
+    NUM_ACTUATOR,
+    NUM_INNER_LOOP_CONTROLLER,
+)
 from .enum import (
     ClosedLoopControlMode,
     CommandStatus,
@@ -488,6 +492,8 @@ class Controller:
 
     def _process_error_code(self, message: dict) -> None:
         """Process the error code.
+
+        Note. Remove this function after we get ride of ts_mtm2 on summit.
 
         Parameters
         ----------
@@ -1253,3 +1259,21 @@ class Controller:
             "setControlParameters",
             message_details=message_details,
         )
+
+    async def set_enabled_faults_mask(self, mask: int) -> None:
+        """Set the enabled faults mask.
+
+        Parameters
+        ----------
+        mask : `int`
+            Enabled faults mask.
+        """
+
+        await self.write_command_to_server(
+            "setEnabledFaultsMask",
+            message_details={"mask": int(mask)},
+        )
+
+    async def reset_enabled_faults_mask(self) -> None:
+        """Reset the enabled faults mask to default."""
+        await self.set_enabled_faults_mask(DEFAULT_ENABLED_FAULTS_MASK)

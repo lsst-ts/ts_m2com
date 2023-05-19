@@ -30,6 +30,7 @@ import numpy as np
 from lsst.ts import salobj, tcpip
 from lsst.ts.idl.enums import MTM2
 from lsst.ts.m2com import (
+    DEFAULT_ENABLED_FAULTS_MASK,
     NUM_ACTUATOR,
     NUM_TANGENT_LINK,
     TEST_DIGITAL_INPUT_NO_POWER,
@@ -137,7 +138,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             # Check the one-time message
             await asyncio.sleep(0.5)
-            self.assertGreaterEqual(client_cmd.queue.qsize(), 13)
+            self.assertGreaterEqual(client_cmd.queue.qsize(), 14)
 
             # Check the TCP/IP connection
             msg_tcpip = client_cmd.queue.get_nowait()
@@ -208,6 +209,10 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             msg_clc_mode = client_cmd.queue.get_nowait()
             self.assertEqual(msg_clc_mode["id"], "closedLoopControlMode")
             self.assertEqual(msg_clc_mode["mode"], ClosedLoopControlMode.Idle)
+
+            msg_mask = client_cmd.queue.get_nowait()
+            self.assertEqual(msg_mask["id"], "enabledFaultsMask")
+            self.assertEqual(msg_mask["mask"], DEFAULT_ENABLED_FAULTS_MASK)
 
     async def test_monitor_msg_cmd_ack(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
@@ -561,10 +566,12 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(1)
 
             # Check the error code
-            msg_error_code = get_queue_message_latest(client_cmd.queue, "errorCode")
+            msg_status = get_queue_message_latest(
+                client_cmd.queue, "summaryFaultsStatus"
+            )
             self.assertEqual(
-                msg_error_code["errorCode"],
-                MockErrorCode.LimitSwitchTriggeredClosedloop.value,
+                msg_status["status"],
+                2**6,
             )
 
             # Clear the error
@@ -878,6 +885,25 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 client_cmd.queue, "inclinationTelemetrySource"
             )
             self.assertEqual(msg_source["source"], int(source))
+
+    async def test_cmd_set_enabled_faults_mask(self) -> None:
+        async with self.make_server() as server, self.make_clients(server) as (
+            client_cmd,
+            client_tel,
+        ):
+            mask = 8
+            await client_cmd.write(
+                MsgType.Command,
+                "setEnabledFaultsMask",
+                msg_details={"mask": mask},
+            )
+
+            await asyncio.sleep(0.5)
+
+            self.assertEqual(server.model.error_handler.enabled_faults_mask, mask)
+
+            msg_mask = get_queue_message_latest(client_cmd.queue, "enabledFaultsMask")
+            self.assertEqual(msg_mask["mask"], mask)
 
 
 if __name__ == "__main__":
