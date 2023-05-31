@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v0.10.6
+-------
+
+* Add the ``MockMessageEvent.write_configuration_files()`` and the ``MockMessageEvent.configuration_file`` attribute.
+* Allow the controller to set the configuration file.
+
 v0.10.5
 -------
 
