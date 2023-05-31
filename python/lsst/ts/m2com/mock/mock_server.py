@@ -164,6 +164,7 @@ class MockServer:
             "cmd_loadConfiguration": self._command.load_configuration,
             "cmd_setControlParameters": self._command.set_control_parameters,
             "cmd_setEnabledFaultsMask": self._command.set_enabled_faults_mask,
+            "cmd_setConfigurationFile": self._command.set_configuration_file,
         }
 
     async def _connect_state_changed_callback_command(
@@ -314,6 +315,8 @@ class MockServer:
         await self._message_event.write_enabled_faults_mask(
             self.model.error_handler.enabled_faults_mask
         )
+
+        await self._message_event.write_configuration_files()
 
     async def _monitor_and_report_system_status(self) -> None:
         """Monitor the system status and report the specific events."""

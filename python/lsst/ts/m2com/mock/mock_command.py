@@ -1323,3 +1323,30 @@ class MockCommand:
         await message_event.write_enabled_faults_mask(mask)
 
         return model, CommandStatus.Success
+
+    async def set_configuration_file(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> tuple[MockModel, CommandStatus]:
+        """Set the configuration file.
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        message_event.configuration_file = message["file"]
+        await message_event.write_config()
+
+        return model, CommandStatus.Success

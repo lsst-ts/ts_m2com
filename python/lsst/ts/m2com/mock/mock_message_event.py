@@ -20,6 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import asyncio
+import re
 
 from lsst.ts import salobj
 from lsst.ts.idl.enums import MTM2
@@ -48,10 +49,16 @@ class MockMessageEvent:
     ----------
     writer : `asyncio.StreamWriter` or None
         Writer of the socket.
+    configuration_file : `str`
+        Configuration file.
     """
 
     def __init__(self, writer: asyncio.StreamWriter | None) -> None:
         self.writer = writer
+
+        self.configuration_file = (
+            "Configurable_File_Description_20180831T092556_surrogate_handling.csv"
+        )
 
     async def write_m2_assembly_in_position(self, in_position: bool) -> None:
         """Write the message: M2 assembly is in position or not.
@@ -263,14 +270,19 @@ class MockMessageEvent:
         """Write the message: config."""
 
         if self.writer is not None:
+            (
+                version,
+                control_parameters,
+                lut_parameters,
+            ) = self._get_configuration_file_details()
             await write_json_packet(
                 self.writer,
                 {
                     "id": "config",
-                    "configuration": "Configurable_File_Description_surrogate_handling.csv",
-                    "version": "20180831T092556",
-                    "controlParameters": "CtrlParameterFiles_surg",
-                    "lutParameters": "FinalHandlingLUTs",
+                    "configuration": self.configuration_file,
+                    "version": version,
+                    "controlParameters": control_parameters,
+                    "lutParameters": lut_parameters,
                     "powerWarningMotor": 5.0,
                     "powerFaultMotor": 10.0,
                     "powerThresholdMotor": 20.0,
@@ -288,6 +300,38 @@ class MockMessageEvent:
                     "cellTemperatureDelta": 2.0,
                 },
             )
+
+    def _get_configuration_file_details(self) -> tuple[str, str, str]:
+        """Get the details of configuration file.
+
+        Returns
+        -------
+        `str`
+            Version.
+        control_parameters : `str`
+            Control parameters.
+        lut_parameters : `str`
+            Look-up table parameters.
+        """
+
+        result = re.match(
+            r"\S+_\S+_(\w+)_(\w+)_([a-zA-z]+).csv", self.configuration_file
+        )
+        if result is not None:
+            control_parameters = (
+                "CtrlParameterFiles_2018-07-19_104257_m2"
+                if (result.groups()[1].lower() == "m2")
+                else "CtrlParameterFiles_2018-07-19_104314_surg"
+            )
+            lut_parameters = (
+                "FinalOpticalLUTs"
+                if (result.groups()[2].lower() == "optical")
+                else "FinalHandlingLUTs"
+            )
+
+            return result.groups()[0], control_parameters, lut_parameters
+
+        return "", "", ""
 
     async def write_open_loop_max_limit(self, status: bool) -> None:
         """Write the message: open-loop maximum limit is enabled or not.
@@ -421,4 +465,21 @@ class MockMessageEvent:
         if self.writer is not None:
             await write_json_packet(
                 self.writer, {"id": "enabledFaultsMask", "mask": mask}
+            )
+
+    async def write_configuration_files(self) -> None:
+        """Write the message: configuration files."""
+
+        if self.writer is not None:
+            await write_json_packet(
+                self.writer,
+                {
+                    "id": "configurationFiles",
+                    "files": [
+                        "Configurable_File_Description_20180831T091922_M2_optical.csv",
+                        "Configurable_File_Description_20180831T092326_M2_handling.csv",
+                        "Configurable_File_Description_20180831T092423_surrogate_optical.csv",
+                        "Configurable_File_Description_20180831T092556_surrogate_handling.csv",
+                    ],
+                },
             )
