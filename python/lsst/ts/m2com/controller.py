@@ -1277,3 +1277,17 @@ class Controller:
     async def reset_enabled_faults_mask(self) -> None:
         """Reset the enabled faults mask to default."""
         await self.set_enabled_faults_mask(DEFAULT_ENABLED_FAULTS_MASK)
+
+    async def set_configuration_file(self, file: str) -> None:
+        """Set the configuration file.
+
+        Parameters
+        ----------
+        file : `str`
+            Configuration file.
+        """
+
+        await self.write_command_to_server(
+            "setConfigurationFile",
+            message_details={"file": file},
+        )

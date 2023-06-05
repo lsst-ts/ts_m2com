@@ -137,8 +137,8 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(server.are_servers_connected())
 
             # Check the one-time message
-            await asyncio.sleep(0.5)
-            self.assertGreaterEqual(client_cmd.queue.qsize(), 14)
+            await asyncio.sleep(1)
+            self.assertGreaterEqual(client_cmd.queue.qsize(), 15)
 
             # Check the TCP/IP connection
             msg_tcpip = client_cmd.queue.get_nowait()
@@ -213,6 +213,10 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             msg_mask = client_cmd.queue.get_nowait()
             self.assertEqual(msg_mask["id"], "enabledFaultsMask")
             self.assertEqual(msg_mask["mask"], DEFAULT_ENABLED_FAULTS_MASK)
+
+            msg_config_files = client_cmd.queue.get_nowait()
+            self.assertEqual(msg_config_files["id"], "configurationFiles")
+            self.assertEqual(len(msg_config_files["files"]), 4)
 
     async def test_monitor_msg_cmd_ack(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
@@ -904,6 +908,25 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             msg_mask = get_queue_message_latest(client_cmd.queue, "enabledFaultsMask")
             self.assertEqual(msg_mask["mask"], mask)
+
+    async def test_cmd_set_configuration_file(self) -> None:
+        async with self.make_server() as server, self.make_clients(server) as (
+            client_cmd,
+            client_tel,
+        ):
+            file = "Configurable_File_Description_20180831T092326_M2_handling.csv"
+            await client_cmd.write(
+                MsgType.Command,
+                "setConfigurationFile",
+                msg_details={"file": file},
+            )
+
+            await asyncio.sleep(0.5)
+
+            self.assertEqual(server._message_event.configuration_file, file)
+
+            msg_config = get_queue_message_latest(client_cmd.queue, "config")
+            self.assertEqual(msg_config["version"], "20180831T092326")
 
 
 if __name__ == "__main__":
