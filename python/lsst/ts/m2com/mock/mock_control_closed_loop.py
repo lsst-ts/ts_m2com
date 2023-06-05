@@ -1152,8 +1152,16 @@ class MockControlClosedLoop:
             force_demanded, force_measured
         )
 
-        self.axial_forces["hardpointCorrection"] = force_hardpoint[:num_axial_actuators]
-        self.tangent_forces["hardpointCorrection"] = force_hardpoint[-NUM_TANGENT_LINK:]
+        # Use the negative sign here as requested by scientist.
+        # This is different from the calculation in ts_mtm2_cell with a
+        # negative sign.
+        # The benefit is to make the understanding of force's details easier.
+        self.axial_forces["hardpointCorrection"] = -force_hardpoint[
+            :num_axial_actuators
+        ]
+        self.tangent_forces["hardpointCorrection"] = -force_hardpoint[
+            -NUM_TANGENT_LINK:
+        ]
 
     def _calc_look_up_forces_temperature(
         self,
@@ -1357,7 +1365,7 @@ class MockControlClosedLoop:
         modified by the amount of "force_per_cycle".
 
         The target is:
-        |force_demanded - force_measured - hardpoints| < force_error
+        |force_demanded + hardpoints - force_measured| < force_error
 
         Parameters
         ----------
@@ -1409,7 +1417,7 @@ class MockControlClosedLoop:
 
             final_force[actuators_in_cycle_no_hardpoint_list] = (
                 force_demanded[actuators_in_cycle_no_hardpoint_list]
-                - force_hardpoint[actuators_in_cycle_no_hardpoint_list]
+                + force_hardpoint[actuators_in_cycle_no_hardpoint_list]
             )
 
             actuators_out_of_cycle = np.where(np.abs(force_error) > force_per_cycle)[0]
@@ -1463,7 +1471,7 @@ class MockControlClosedLoop:
         # directly as a first order assumption. In the real control system,
         # we need to consider a feedback loop to decide the actual value of
         # measured force from the previous loop in hardware controller.
-        force_error = force_demanded - force_hardpoint - force_measured
+        force_error = force_demanded + force_hardpoint - force_measured
 
         # Do not consider the force error in hardpoints.
         # This is the logic in M2 cell LabVIEW code by vendor. Need to figure

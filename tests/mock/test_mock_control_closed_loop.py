@@ -745,7 +745,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
         ] = coef_hardpoint * np.ones(NUM_TANGENT_LINK)
 
     def test_force_dynamics_not_in_position_small(self) -> None:
-        self._prepare_force(5, 1)
+        self._prepare_force(3, 1)
         in_position, final_force = self.control_closed_loop._force_dynamics(0.5, 5)
 
         self.assertFalse(in_position)

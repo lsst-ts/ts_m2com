@@ -82,7 +82,7 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
 
         self.assertAlmostEqual(
             self.model.control_closed_loop.axial_forces["hardpointCorrection"][0],
-            -27.8006293,
+            27.8006293,
         )
 
         self.assertEqual(len(self.model.error_handler.list_code_total), 64)
@@ -100,7 +100,7 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.model.control_open_loop.inclinometer_angle, 120)
         self.assertAlmostEqual(
             self.model.control_closed_loop.axial_forces["hardpointCorrection"][0],
-            -89.3292369,
+            89.3292369,
         )
 
     def test_is_actuator_force_out_limit_closed_loop(self) -> None:
