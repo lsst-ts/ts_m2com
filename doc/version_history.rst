@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v0.10.7
+-------
+
+* Use the reversed direction of hardpoint correction in ``MockControlClosedLoop`` class.
+
 v0.10.6
 -------
 
