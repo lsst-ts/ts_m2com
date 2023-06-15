@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v0.10.8
+-------
+
+* Migrate the functions to **Controller** class from **ts_m2**.
+
 v0.10.7
 -------
 
