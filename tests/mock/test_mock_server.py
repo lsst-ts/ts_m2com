@@ -33,6 +33,9 @@ from lsst.ts.m2com import (
     DEFAULT_ENABLED_FAULTS_MASK,
     NUM_ACTUATOR,
     NUM_TANGENT_LINK,
+    NUM_TEMPERATURE_EXHAUST,
+    NUM_TEMPERATURE_INTAKE,
+    NUM_TEMPERATURE_RING,
     TEST_DIGITAL_INPUT_NO_POWER,
     TEST_DIGITAL_INPUT_POWER_COMM,
     TEST_DIGITAL_INPUT_POWER_COMM_MOTOR,
@@ -171,9 +174,11 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             msg_temp_offset = client_cmd.queue.get_nowait()
             self.assertEqual(msg_temp_offset["id"], "temperatureOffset")
 
-            self.assertEqual(msg_temp_offset["ring"], [21.0] * 12)
-            self.assertEqual(msg_temp_offset["intake"], [0] * 2)
-            self.assertEqual(msg_temp_offset["exhaust"], [0] * 2)
+            self.assertEqual(msg_temp_offset["ring"], [21.0] * NUM_TEMPERATURE_RING)
+            self.assertEqual(msg_temp_offset["intake"], [0.0] * NUM_TEMPERATURE_INTAKE)
+            self.assertEqual(
+                msg_temp_offset["exhaust"], [0.0] * NUM_TEMPERATURE_EXHAUST
+            )
 
             # Check the detailed states
             msg_detailed_state_publish_only = client_cmd.queue.get_nowait()
@@ -259,7 +264,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            server.model.control_closed_loop.temperature["exhaust"] = [99, 99]
+            server.model.control_closed_loop.temperature["exhaust"] = [99.0, 99.0]
             await asyncio.sleep(0.5)
 
             msg_high_temp = get_queue_message_latest(
@@ -662,9 +667,9 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            ring = [11.0] * 12
-            intake = [11.0] * 2
-            exhaust = [11.0] * 2
+            ring = [11.0] * NUM_TEMPERATURE_RING
+            intake = [11.0] * NUM_TEMPERATURE_INTAKE
+            exhaust = [11.0] * NUM_TEMPERATURE_EXHAUST
             await client_cmd.write(
                 MsgType.Command,
                 "setTemperatureOffset",
@@ -677,8 +682,10 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
 
             self.assertEqual(msg_temp_offset["ring"], ring)
-            self.assertEqual(msg_temp_offset["intake"], [0] * 2)
-            self.assertEqual(msg_temp_offset["exhaust"], [0] * 2)
+            self.assertEqual(msg_temp_offset["intake"], [0.0] * NUM_TEMPERATURE_INTAKE)
+            self.assertEqual(
+                msg_temp_offset["exhaust"], [0.0] * NUM_TEMPERATURE_EXHAUST
+            )
 
             self.assertEqual(server.model.control_closed_loop.temperature["ref"], ring)
 
