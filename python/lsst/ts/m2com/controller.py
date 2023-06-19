@@ -1236,20 +1236,44 @@ class Controller:
 
         return len(indexes) == 0
 
-    async def reset_force_offsets(self) -> None:
-        """Reset the user defined forces to zero."""
-        await self.write_command_to_server("resetForceOffsets")
+    async def reset_force_offsets(self, timeout: float = 10.0) -> None:
+        """Reset the user defined forces to zero.
 
-    async def reset_actuator_steps(self) -> None:
-        """Resets the user defined actuator steps to zero."""
-        await self.write_command_to_server("resetActuatorSteps")
+        Parameters
+        ----------
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+        """
+        await self.write_command_to_server("resetForceOffsets", timeout=timeout)
 
-    async def load_configuration(self) -> None:
-        """Load the configuration."""
-        await self.write_command_to_server("loadConfiguration")
+    async def reset_actuator_steps(self, timeout: float = 10.0) -> None:
+        """Resets the user defined actuator steps to zero.
 
-    async def set_control_parameters(self) -> None:
-        """Set the control parameters of closed-loop controller (CLC)."""
+        Parameters
+        ----------
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+        """
+        await self.write_command_to_server("resetActuatorSteps", timeout=timeout)
+
+    async def load_configuration(self, timeout: float = 10.0) -> None:
+        """Load the configuration.
+
+        Parameters
+        ----------
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+        """
+        await self.write_command_to_server("loadConfiguration", timeout=timeout)
+
+    async def set_control_parameters(self, timeout: float = 10.0) -> None:
+        """Set the control parameters of closed-loop controller (CLC).
+
+        Parameters
+        ----------
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+        """
 
         message_details = dict()
         for key, value in self.control_parameters.items():
@@ -1258,36 +1282,224 @@ class Controller:
         await self.write_command_to_server(
             "setControlParameters",
             message_details=message_details,
+            timeout=timeout,
         )
 
-    async def set_enabled_faults_mask(self, mask: int) -> None:
+    async def set_enabled_faults_mask(self, mask: int, timeout: float = 10.0) -> None:
         """Set the enabled faults mask.
 
         Parameters
         ----------
         mask : `int`
             Enabled faults mask.
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
         """
 
         await self.write_command_to_server(
             "setEnabledFaultsMask",
             message_details={"mask": int(mask)},
+            timeout=timeout,
         )
 
-    async def reset_enabled_faults_mask(self) -> None:
-        """Reset the enabled faults mask to default."""
-        await self.set_enabled_faults_mask(DEFAULT_ENABLED_FAULTS_MASK)
+    async def reset_enabled_faults_mask(self, timeout: float = 10.0) -> None:
+        """Reset the enabled faults mask to default.
 
-    async def set_configuration_file(self, file: str) -> None:
+        Parameters
+        ----------
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+        """
+        await self.set_enabled_faults_mask(DEFAULT_ENABLED_FAULTS_MASK, timeout=timeout)
+
+    async def set_configuration_file(self, file: str, timeout: float = 10.0) -> None:
         """Set the configuration file.
 
         Parameters
         ----------
         file : `str`
             Configuration file.
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
         """
 
         await self.write_command_to_server(
             "setConfigurationFile",
             message_details={"file": file},
+            timeout=timeout,
         )
+
+    async def apply_forces(
+        self,
+        force_axial: list[float],
+        force_tangent: list[float],
+        timeout: float = 10.0,
+    ) -> None:
+        """Apply the actuator forces.
+
+        Parameters
+        ----------
+        force_axial : `list`
+            72 axial actuator forces in Newton.
+        force_tangent : `list`
+            6 tangent actuator forces in Newton.
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server(
+            "applyForces",
+            message_details={"axial": force_axial, "tangent": force_tangent},
+            timeout=timeout,
+        )
+
+    async def position_mirror(
+        self,
+        x: float,
+        y: float,
+        z: float,
+        rx: float,
+        ry: float,
+        rz: float,
+        timeout: float = 10.0,
+    ) -> None:
+        """Position the mirror by the rigid body movement.
+
+        Parameters
+        ----------
+        x : `float`
+            Position x in um.
+        y : `float`
+            Position y in um.
+        z : `float`
+            Position z in um.
+        rx : `float`
+            Rotation x in arcsec.
+        ry : `float`
+            Rotation y in arcsec.
+        rz : `float`
+            Rotation z in arcsec.
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server(
+            "positionMirror",
+            message_details={
+                "x": x,
+                "y": y,
+                "z": z,
+                "xRot": rx,
+                "yRot": ry,
+                "zRot": rz,
+            },
+            timeout=timeout,
+        )
+
+    def select_inclination_source(
+        self,
+        use_external_elevation_angle: bool,
+        max_angle_difference: float | None = None,
+        enable_angle_comparison: bool | None = None,
+    ) -> None:
+        """Select the inclination source. This will affect the angle used to
+        do the look-up table (LUT) calculation.
+
+        Parameters
+        ----------
+        use_external_elevation_angle : `bool`
+            Use the external elevation angle (e.g. telescope mount assembly,
+            TMA) or not.
+        max_angle_difference : `float` or None, optional
+            Maximum angle difference between the internal and external values
+            in degree. If None, the default value is applied. (the default is
+            None)
+        enable_angle_comparison : `bool` or None, optional
+            Enable the comparison of angles or not. If the external angle is
+            used, the value should be True. (the default is None)
+        """
+
+        # Update the control parameters
+        self.control_parameters[
+            "use_external_elevation_angle"
+        ] = use_external_elevation_angle
+
+        if max_angle_difference is not None:
+            self.control_parameters["max_angle_difference"] = max_angle_difference
+
+        # When using the external elevation angle, need to make sure the
+        # comparison with the internal inclinometer to avoid the breaking of
+        # system.
+        if use_external_elevation_angle:
+            enable_angle_comparison = True
+
+        if enable_angle_comparison is not None:
+            self.control_parameters["enable_angle_comparison"] = enable_angle_comparison
+
+    async def set_temperature_offset(
+        self,
+        ring: list[float],
+        intake: list[float],
+        exhaust: list[float],
+        timeout: float = 10.0,
+    ) -> None:
+        """Set the temperature offset used in the look-up table (LUT)
+        calculation.
+
+        Parameters
+        ----------
+        ring : `list`
+            Ring temperature offset in degree C.
+        intake : `list`
+            Intake temperature offset in degree C.
+        exhaust : `list`
+            Exhaust temperature offset in degree C.
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server(
+            "setTemperatureOffset",
+            message_details={
+                "ring": ring,
+                "intake": intake,
+                "exhaust": exhaust,
+            },
+            timeout=timeout,
+        )
+
+    async def switch_force_balance_system(
+        self, status: bool, timeout: float = 10.0
+    ) -> None:
+        """Switch the force balance system.
+
+        Parameters
+        ----------
+        status : `bool`
+            True if turn on the force balance system. Otherwise, False.
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server(
+            "switchForceBalanceSystem",
+            message_details={"status": status},
+            timeout=timeout,
+        )
+
+    async def set_external_elevation_angle(self, angle: float) -> None:
+        """ ""Set the external elevation angle in degree.
+
+        Parameters
+        ----------
+        angle : `float`
+            Angle in degree.
+        """
+
+        if self.client_telemetry is not None:
+            await self.client_telemetry.write(
+                MsgType.Telemetry,
+                "elevation",
+                msg_details=dict(actualPosition=angle),
+                comp_name="MTMount",
+            )

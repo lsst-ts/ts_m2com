@@ -35,6 +35,9 @@ from ..constant import (
     NUM_ACTUATOR,
     NUM_HARDPOINTS_AXIAL,
     NUM_TANGENT_LINK,
+    NUM_TEMPERATURE_EXHAUST,
+    NUM_TEMPERATURE_INTAKE,
+    NUM_TEMPERATURE_RING,
 )
 from ..utility import check_limit_switches, read_yaml_file
 
@@ -159,9 +162,9 @@ class MockControlClosedLoop:
             temperature_init_low,
             temperature_init_high,
         ]
-        temperatures["intake"] = [temperature_init_low] * 2
-        temperatures["exhaust"] = [temperature_init_low] * 2
-        temperatures["ref"] = [temperature_ref] * 12
+        temperatures["intake"] = [temperature_init_low] * NUM_TEMPERATURE_INTAKE
+        temperatures["exhaust"] = [temperature_init_low] * NUM_TEMPERATURE_EXHAUST
+        temperatures["ref"] = [temperature_ref] * NUM_TEMPERATURE_RING
         temperatures["maxDiff"] = max_difference  # type: ignore
 
         return temperatures

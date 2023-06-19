@@ -479,6 +479,24 @@ class TestController(unittest.IsolatedAsyncioTestCase):
                 DEFAULT_ENABLED_FAULTS_MASK,
             )
 
+    def test_select_inclination_source(self) -> None:
+        controller = Controller()
+
+        max_angle_difference = 10
+
+        # Use the external angle
+        controller.select_inclination_source(
+            use_external_elevation_angle=True, max_angle_difference=max_angle_difference
+        )
+
+        # When using the external angle, the angle comparison should be
+        # enabled.
+        self.assertTrue(controller.control_parameters["use_external_elevation_angle"])
+        self.assertTrue(controller.control_parameters["enable_angle_comparison"])
+        self.assertEqual(
+            controller.control_parameters["max_angle_difference"], max_angle_difference
+        )
+
 
 if __name__ == "__main__":
     # Do the unit test

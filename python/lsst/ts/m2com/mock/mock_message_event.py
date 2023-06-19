@@ -25,6 +25,7 @@ import re
 from lsst.ts import salobj
 from lsst.ts.idl.enums import MTM2
 
+from ..constant import NUM_TEMPERATURE_EXHAUST, NUM_TEMPERATURE_INTAKE
 from ..enum import (
     ClosedLoopControlMode,
     DetailedState,
@@ -201,7 +202,7 @@ class MockMessageEvent:
                 self.writer, {"id": "inclinationTelemetrySource", "source": int(source)}
             )
 
-    async def write_temperature_offset(self, ring: list[int | float]) -> None:
+    async def write_temperature_offset(self, ring: list[float]) -> None:
         """Write the message: temperature offset in degree C.
 
         Parameters
@@ -219,8 +220,8 @@ class MockMessageEvent:
                 {
                     "id": "temperatureOffset",
                     "ring": ring,
-                    "intake": [0] * 2,
-                    "exhaust": [0] * 2,
+                    "intake": [0.0] * NUM_TEMPERATURE_INTAKE,
+                    "exhaust": [0.0] * NUM_TEMPERATURE_EXHAUST,
                 },
             )
 
