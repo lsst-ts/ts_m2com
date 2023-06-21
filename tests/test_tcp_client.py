@@ -22,12 +22,11 @@
 
 import asyncio
 import contextlib
-import json
 import logging
 import unittest
 
 from lsst.ts import tcpip
-from lsst.ts.m2com import MsgType, TcpClient, write_json_packet
+from lsst.ts.m2com import MsgType, TcpClient
 from lsst.ts.utils import index_generator
 
 # Read timeout in second
@@ -180,10 +179,8 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
             Received message.
         """
 
-        data_encode = await asyncio.wait_for(server.reader.read(n=1000), timeout)
-        data = data_encode.decode()
-
-        return json.loads(data)
+        data = await asyncio.wait_for(server.read_json(), timeout)
+        return data
 
     async def test_write_cmd_multiple(self) -> None:
         async with self.make_server() as server, self.make_client(server) as client:
@@ -273,7 +270,7 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
     async def test_put_read_msg_to_queue(self) -> None:
         async with self.make_server() as server, self.make_client(server) as client:
             input_msg = {"val": 1}
-            await write_json_packet(server.writer, input_msg)
+            await server.write_json(input_msg)
 
             # Sleep a short time to let the monitor loop have a chance to run
             await asyncio.sleep(0.01)
@@ -323,7 +320,7 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
         count_total = int(duration * frequency)
         sleep_time = 1 / frequency
         for count in range(count_total):
-            await write_json_packet(server.writer, input_msg)
+            await server.write_json(input_msg)
             await asyncio.sleep(sleep_time)
 
 
