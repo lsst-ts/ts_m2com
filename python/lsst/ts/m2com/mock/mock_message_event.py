@@ -187,19 +187,25 @@ class MockMessageEvent:
             )
 
     async def write_inclination_telemetry_source(
-        self, source: MTM2.InclinationTelemetrySource
+        self, is_external_source: bool
     ) -> None:
         """Write the message: inclination telemetry source.
 
         Parameters
         ----------
-        source : enum `MTM2.InclinationTelemetrySource`
-            Inclination telemetry source.
+        is_external_source : `bool`
+            Is the external inclination telemetry source or not.
         """
 
         if self.writer is not None:
+            inclination_source = (
+                MTM2.InclinationTelemetrySource.MTMOUNT
+                if is_external_source
+                else MTM2.InclinationTelemetrySource.ONBOARD
+            )
             await write_json_packet(
-                self.writer, {"id": "inclinationTelemetrySource", "source": int(source)}
+                self.writer,
+                {"id": "inclinationTelemetrySource", "source": int(inclination_source)},
             )
 
     async def write_temperature_offset(self, ring: list[float]) -> None:

@@ -25,7 +25,6 @@ from pathlib import Path
 
 import numpy as np
 import numpy.typing
-from lsst.ts.idl.enums import MTM2
 
 from ..constant import (
     MIRROR_WEIGHT_KG,
@@ -89,8 +88,11 @@ class MockModel:
         Closed-loop control.
     telemetry_interval : `float`
         Telemetry interval in second.
-    inclination_source : `MTM2.InclinationTelemetrySource`
-        Source of the inclination.
+    inclinometer_angle_external : `float`
+        External inclinometer angle in degree. This has the same coordinate
+        system of look-up table angle.
+    control_parameters : `dict`
+        Control parameters in the closed-loop controller (CLC).
     mirror_position : `dict`
         Mirror's position. The key is the axis (x, y, z, xRot, yRot, zRot) of
         mirror. The units are the micron and arcsec.
@@ -139,9 +141,15 @@ class MockModel:
 
         self.telemetry_interval = telemetry_interval
 
-        self.inclination_source: MTM2.InclinationTelemetrySource = (
-            MTM2.InclinationTelemetrySource.ONBOARD
+        self.inclinometer_angle_external = (
+            self.control_open_loop.correct_inclinometer_angle(inclinometer_angle)
         )
+
+        self.control_parameters = {
+            "use_external_elevation_angle": False,
+            "enable_angle_comparison": False,
+            "max_angle_difference": 2.0,
+        }
 
         self.mirror_position = self.get_default_mirror_position()
         self.mirror_position_offset = self.get_default_mirror_position()
@@ -205,16 +213,27 @@ class MockModel:
             yield value % 16
             value += 1
 
-    def set_inclinometer_angle(self, angle: float) -> None:
+    def set_inclinometer_angle(self, angle: float, is_external: bool = False) -> None:
         """Set the angle of inclinometer.
 
         Parameters
         ----------
         angle : `float`
             Inclinometer angle in degree.
+        is_external : `bool`, optional
+            Is the external inclinometer angle or not. (the default is False)
         """
 
-        self.control_open_loop.inclinometer_angle = angle
+        # Assign the angle based on the type
+        if is_external:
+            self.inclinometer_angle_external = angle
+        else:
+            self.control_open_loop.inclinometer_angle = angle
+
+        # Check the system needs to update the LUT force or not
+        update_lut_force = not is_external
+        if is_external and self.control_parameters["use_external_elevation_angle"]:
+            update_lut_force = True
 
         # In the real hardware, the hardpoint correction based on the look-up
         # table (LUT) should be udpated continuously. But this will make the
@@ -222,12 +241,17 @@ class MockModel:
         # simplified calculation in the
         # self.control_closed_loop.calc_look_up_forces(). Therefore, we only
         # update it when the "angle" is changed.
-        lut_angle = self.control_open_loop.correct_inclinometer_angle(angle)
-        self.control_closed_loop.calc_look_up_forces(lut_angle)
+        if update_lut_force:
+            lut_angle = (
+                angle
+                if is_external
+                else self.control_open_loop.correct_inclinometer_angle(angle)
+            )
+            self.control_closed_loop.calc_look_up_forces(lut_angle)
 
-        # The change of elevation angle means the hardpoints may need to update
-        # the force as well.
-        self.control_closed_loop.in_position_hardpoints = False
+            # The change of elevation angle means the hardpoints may need to
+            # update the force as well.
+            self.control_closed_loop.in_position_hardpoints = False
 
     def _set_default_measured_forces(self) -> None:
         """Set the default measured forces."""
@@ -457,11 +481,13 @@ class MockModel:
 
         self.error_handler.add_new_error(int(error_code))
 
-        self.script_engine.stop()
-        self.control_open_loop.stop()
+        # Some errors might be bypassed
+        if self.error_handler.exists_error():
+            self.script_engine.stop()
+            self.control_open_loop.stop()
 
-        self.switch_force_balance_system(False)
-        self.control_closed_loop.reset_force_offsets()
+            self.switch_force_balance_system(False)
+            self.control_closed_loop.reset_force_offsets()
 
     def switch_force_balance_system(self, status: bool) -> bool:
         """Switch the force balance system.
@@ -500,18 +526,6 @@ class MockModel:
     def clear_errors(self) -> None:
         """Clear the errors."""
         self.error_handler.clear()
-
-    def select_inclination_source(self, source: int) -> None:
-        """Select the inclination source.
-
-        Parameters
-        ----------
-        source : `int`
-            Inclination source based on the enum:
-            MTM2.InclinationTelemetrySource.
-        """
-
-        self.inclination_source = MTM2.InclinationTelemetrySource(int(source))
 
     def get_telemetry_data(self) -> dict:
         """Get the telemetry data.
@@ -583,7 +597,9 @@ class MockModel:
         telemetry_data["powerStatus"] = self._get_power_status()
         telemetry_data["powerStatusRaw"] = self._get_power_status()
 
-        telemetry_data["inclinometerAngleTma"] = self._simulate_zenith_angle()
+        telemetry_data["inclinometerAngleTma"] = {
+            "inclinometerRaw": self.inclinometer_angle_external
+        }
 
         telemetry_data["displacementSensors"] = self._get_displacement_sensors(
             mirror_position=position_ims
