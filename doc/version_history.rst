@@ -2,6 +2,16 @@
 Version History
 ===============
 
+v0.11.1
+-------
+
+* Fix the bug of external elevation angle, which should have the same coordinate system as the look-up table angle.
+The related error code is added.
+* Support the control parameters in **MockModel** class.
+* Fix the ``MockCommand.clear_errors()`` for GUI.
+* Fix the ``MockModel.fault()`` that the error codes might be bypassed.
+* Fix the deprecation warning in **test_tcp_client.py** to access the **reader** and **writer** of **BaseClientOrServer** in **ts_tcpip** module directly.
+
 v0.11.0
 -------
 
