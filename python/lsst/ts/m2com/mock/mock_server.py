@@ -33,7 +33,6 @@ from ..enum import (
     LimitSwitchType,
     MockErrorCode,
 )
-from ..utility import write_json_packet
 from .mock_command import MockCommand
 from .mock_message_event import MockMessageEvent
 from .mock_message_telemetry import MockMessageTelemetry
@@ -183,7 +182,7 @@ class MockServer:
         self._monitor_loop_task_command.cancel()
 
         if self.server_command.connected:
-            self._message_event = MockMessageEvent(self.server_command.writer)
+            self._message_event = MockMessageEvent(self.server_command)
 
             self._monitor_loop_task_command = asyncio.create_task(
                 self._monitor_message_command()
@@ -217,10 +216,6 @@ class MockServer:
 
                 await asyncio.sleep(self.PERIOD_TELEMETRY_IN_SECOND)
 
-                if self.server_command.reader.at_eof():
-                    self.log.info("Command reader at eof; stopping monitor loop.")
-                    break
-
                 await self._process_message_command()
 
                 await self._run_and_report_script_engine_status()
@@ -251,6 +246,8 @@ class MockServer:
                 # because the MTMount CSC is running as well.
                 if not self._is_csc:
                     self._check_error_inclinometer()
+
+            self.log.info("Command server disconnected; stopping monitor loop.")
 
         except ConnectionError:
             self.log.info("Command reader disconnected.")
@@ -376,12 +373,10 @@ class MockServer:
         """Process the incoming message from command server."""
 
         try:
-            msg_input = await asyncio.wait_for(
-                self.server_command.reader.readuntil(separator=tcpip.TERMINATOR),
+            msg = await asyncio.wait_for(
+                self.server_command.read_json(),
                 self.timeout_in_second,
             )
-
-            msg = self._decode_and_deserialize_json_message(msg_input)
 
             # Process the command
             name = msg["id"]
@@ -401,6 +396,7 @@ class MockServer:
                 if (command_name == "cmd_rebootController") and (
                     command_status == CommandStatus.Success
                 ):
+                    await asyncio.sleep(0.5)
                     await self.close()
 
             # Process the event
@@ -410,30 +406,11 @@ class MockServer:
         except asyncio.TimeoutError:
             await asyncio.sleep(self.timeout_in_second)
 
+        except json.JSONDecodeError:
+            self.log.exception("Error when decoding message in command server.")
+
         except asyncio.IncompleteReadError:
             raise
-
-    def _decode_and_deserialize_json_message(self, msg_encode: bytes | None) -> dict:
-        """Decode the incoming JSON message and return a dictionary.
-
-        Parameters
-        ----------
-        msg_encode : `bytes` or `None`
-            Encoded message.
-
-        Returns
-        -------
-        `dict`
-            Decoded messge. If the msg_encode is None or can not be decoded by
-            JSON, return an empty dictionary.
-        """
-
-        try:
-            return json.loads(msg_encode.decode()) if msg_encode is not None else dict()
-
-        except json.JSONDecodeError:
-            self.log.debug(f"Can not decode the message: {msg_encode!r}.")
-            return dict()
 
     def _is_command(self, message_name: str) -> bool:
         """Is the command or not.
@@ -462,7 +439,7 @@ class MockServer:
 
         id_ack = CommandStatus.Ack
         msg_ack = {"id": id_ack.name.lower(), "sequence_id": sequence_id}
-        await write_json_packet(self.server_command.writer, msg_ack)
+        await self.server_command.write_json(msg_ack)
 
     async def _process_command(self, message: dict) -> CommandStatus:
         """Process the command.
@@ -512,7 +489,7 @@ class MockServer:
             "id": command_status.name.lower(),
             "sequence_id": sequence_id,
         }
-        await write_json_packet(self.server_command.writer, msg_command_status)
+        await self.server_command.write_json(msg_command_status)
 
     def _is_event(self, message_name: str) -> bool:
         """Is the event or not.
@@ -660,7 +637,7 @@ class MockServer:
         self._monitor_loop_task_telemetry.cancel()
 
         if self.server_telemetry.connected:
-            self._message_telemetry = MockMessageTelemetry(self.server_telemetry.writer)
+            self._message_telemetry = MockMessageTelemetry(self.server_telemetry)
 
             self._monitor_loop_task_telemetry = asyncio.create_task(
                 self._monitor_message_telemetry()
@@ -674,11 +651,9 @@ class MockServer:
                 await self._write_message_telemetry()
                 await asyncio.sleep(self.PERIOD_TELEMETRY_IN_SECOND)
 
-                if self.server_telemetry.reader.at_eof():
-                    self.log.info("Telemetry reader at eof; stopping monitor loop.")
-                    break
-
                 await self._process_message_telemetry()
+
+            self.log.info("Telemetry server disconnected; stopping monitor loop.")
 
         except ConnectionError:
             self.log.info("Telemetry reader disconnected.")
@@ -761,11 +736,10 @@ class MockServer:
         """Read and process data from telemetry server."""
 
         try:
-            msg = await asyncio.wait_for(
-                self.server_telemetry.reader.readuntil(separator=tcpip.TERMINATOR),
+            msg_tel = await asyncio.wait_for(
+                self.server_telemetry.read_json(),
                 self.timeout_in_second,
             )
-            msg_tel = self._decode_and_deserialize_json_message(msg)
 
             # In the real M2 LabVIEW code, we will compare the string with the
             # lower case
@@ -778,6 +752,9 @@ class MockServer:
 
         except asyncio.TimeoutError:
             await asyncio.sleep(self.timeout_in_second)
+
+        except json.JSONDecodeError:
+            self.log.exception("Error when decoding message in telemetry server.")
 
         except asyncio.IncompleteReadError:
             raise

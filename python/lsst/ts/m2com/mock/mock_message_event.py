@@ -19,11 +19,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import asyncio
 import re
 
 from lsst.ts import salobj
 from lsst.ts.idl.enums import MTM2
+from lsst.ts.tcpip import OneClientServer
 
 from ..constant import NUM_TEMPERATURE_EXHAUST, NUM_TEMPERATURE_INTAKE
 from ..enum import (
@@ -33,7 +33,6 @@ from ..enum import (
     PowerSystemState,
     PowerType,
 )
-from ..utility import write_json_packet
 
 __all__ = ["MockMessageEvent"]
 
@@ -43,19 +42,19 @@ class MockMessageEvent:
 
     Parameters
     ----------
-    writer : `asyncio.StreamWriter` or None
-        Writer of the socket.
+    server : `tcpip.OneClientServer` or None
+        Command server.
 
     Attributes
     ----------
-    writer : `asyncio.StreamWriter` or None
-        Writer of the socket.
+    server : `tcpip.OneClientServer` or None
+        Command server.
     configuration_file : `str`
         Configuration file.
     """
 
-    def __init__(self, writer: asyncio.StreamWriter | None) -> None:
-        self.writer = writer
+    def __init__(self, server: OneClientServer | None) -> None:
+        self.server = server
 
         self.configuration_file = (
             "Configurable_File_Description_20180831T092556_surrogate_handling.csv"
@@ -70,9 +69,9 @@ class MockMessageEvent:
             M2 assembly is in position or not.
         """
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer, {"id": "m2AssemblyInPosition", "inPosition": in_position}
+        if self.server is not None:
+            await self.server.write_json(
+                {"id": "m2AssemblyInPosition", "inPosition": in_position}
             )
 
     async def write_cell_temperature_high_warning(self, hi_warning: bool) -> None:
@@ -84,9 +83,9 @@ class MockMessageEvent:
             Cell temperature is high or not.
         """
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer, {"id": "cellTemperatureHiWarning", "hiWarning": hi_warning}
+        if self.server is not None:
+            await self.server.write_json(
+                {"id": "cellTemperatureHiWarning", "hiWarning": hi_warning}
             )
 
     async def write_detailed_state(self, detailed_state: DetailedState) -> None:
@@ -98,10 +97,9 @@ class MockMessageEvent:
             M2 detailed state.
         """
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer,
-                {"id": "detailedState", "detailedState": int(detailed_state)},
+        if self.server is not None:
+            await self.server.write_json(
+                {"id": "detailedState", "detailedState": int(detailed_state)}
             )
 
     async def write_summary_state(self, summary_state: salobj.State) -> None:
@@ -113,9 +111,9 @@ class MockMessageEvent:
             M2 summary state.
         """
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer, {"id": "summaryState", "summaryState": int(summary_state)}
+        if self.server is not None:
+            await self.server.write_json(
+                {"id": "summaryState", "summaryState": int(summary_state)}
             )
 
     async def write_commandable_by_dds(self, state: bool) -> None:
@@ -127,10 +125,8 @@ class MockMessageEvent:
             Commandable by DDS or not.
         """
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer, {"id": "commandableByDDS", "state": state}
-            )
+        if self.server is not None:
+            await self.server.write_json({"id": "commandableByDDS", "state": state})
 
     async def write_interlock(self, state: bool) -> None:
         """Write the message: interlock.
@@ -141,8 +137,8 @@ class MockMessageEvent:
             Interlock is on or not.
         """
 
-        if self.writer is not None:
-            await write_json_packet(self.writer, {"id": "interlock", "state": state})
+        if self.server is not None:
+            await self.server.write_json({"id": "interlock", "state": state})
 
     async def write_tcp_ip_connected(self, is_connected: bool) -> None:
         """Write the message: TCP/IP connection is on or not.
@@ -153,9 +149,9 @@ class MockMessageEvent:
             TCP/IP connection is on or not.
         """
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer, {"id": "tcpIpConnected", "isConnected": is_connected}
+        if self.server is not None:
+            await self.server.write_json(
+                {"id": "tcpIpConnected", "isConnected": is_connected}
             )
 
     async def write_hardpoint_list(self, actuators: list[int]) -> None:
@@ -167,9 +163,9 @@ class MockMessageEvent:
             Hardpoint list.
         """
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer, {"id": "hardpointList", "actuators": actuators}
+        if self.server is not None:
+            await self.server.write_json(
+                {"id": "hardpointList", "actuators": actuators}
             )
 
     async def write_force_balance_system_status(self, status: bool) -> None:
@@ -181,9 +177,9 @@ class MockMessageEvent:
             Force balance system is on or not.
         """
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer, {"id": "forceBalanceSystemStatus", "status": status}
+        if self.server is not None:
+            await self.server.write_json(
+                {"id": "forceBalanceSystemStatus", "status": status}
             )
 
     async def write_inclination_telemetry_source(
@@ -197,14 +193,13 @@ class MockMessageEvent:
             Is the external inclination telemetry source or not.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             inclination_source = (
                 MTM2.InclinationTelemetrySource.MTMOUNT
                 if is_external_source
                 else MTM2.InclinationTelemetrySource.ONBOARD
             )
-            await write_json_packet(
-                self.writer,
+            await self.server.write_json(
                 {"id": "inclinationTelemetrySource", "source": int(inclination_source)},
             )
 
@@ -220,9 +215,8 @@ class MockMessageEvent:
         # TODO: Remove the 'intake' and 'exhaust' after updating the ts_xml.
         # This will happen after finishing the update of ts_mtm2_cell. No
         # timeline yet.
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer,
+        if self.server is not None:
+            await self.server.write_json(
                 {
                     "id": "temperatureOffset",
                     "ring": ring,
@@ -240,9 +234,9 @@ class MockMessageEvent:
             Percentage of the script execution.
         """
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer, {"id": "scriptExecutionStatus", "percentage": percentage}
+        if self.server is not None:
+            await self.server.write_json(
+                {"id": "scriptExecutionStatus", "percentage": percentage}
             )
 
     async def write_digital_output(self, digital_output: int) -> None:
@@ -254,9 +248,9 @@ class MockMessageEvent:
             Digital output. The bit value can follow the enum 'DigitalOutput'.
         """
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer, {"id": "digitalOutput", "value": digital_output}
+        if self.server is not None:
+            await self.server.write_json(
+                {"id": "digitalOutput", "value": digital_output}
             )
 
     async def write_digital_input(self, digital_input: int) -> None:
@@ -268,22 +262,19 @@ class MockMessageEvent:
             Digital input. The bit value can follow the enum 'DigitalInput'.
         """
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer, {"id": "digitalInput", "value": digital_input}
-            )
+        if self.server is not None:
+            await self.server.write_json({"id": "digitalInput", "value": digital_input})
 
     async def write_config(self) -> None:
         """Write the message: config."""
 
-        if self.writer is not None:
+        if self.server is not None:
             (
                 version,
                 control_parameters,
                 lut_parameters,
             ) = self._get_configuration_file_details()
-            await write_json_packet(
-                self.writer,
+            await self.server.write_json(
                 {
                     "id": "config",
                     "configuration": self.configuration_file,
@@ -349,10 +340,8 @@ class MockMessageEvent:
             Open-loop maximum limit is enabled or not.
         """
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer, {"id": "openLoopMaxLimit", "status": status}
-            )
+        if self.server is not None:
+            await self.server.write_json({"id": "openLoopMaxLimit", "status": status})
 
     async def write_limit_switch_status(
         self,
@@ -369,9 +358,8 @@ class MockMessageEvent:
             Triggered extended limit switch.
         """
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer,
+        if self.server is not None:
+            await self.server.write_json(
                 {
                     "id": "limitSwitchStatus",
                     "retract": limit_switch_retract,
@@ -394,9 +382,8 @@ class MockMessageEvent:
             Power system state.
         """
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer,
+        if self.server is not None:
+            await self.server.write_json(
                 {
                     "id": "powerSystemState",
                     "powerType": int(power_type),
@@ -414,9 +401,8 @@ class MockMessageEvent:
             Closed-loop control mode.
         """
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer,
+        if self.server is not None:
+            await self.server.write_json(
                 {
                     "id": "closedLoopControlMode",
                     "mode": int(mode),
@@ -436,9 +422,8 @@ class MockMessageEvent:
             Inner-loop control mode.
         """
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer,
+        if self.server is not None:
+            await self.server.write_json(
                 {
                     "id": "innerLoopControlMode",
                     "address": address,
@@ -455,9 +440,9 @@ class MockMessageEvent:
             Summary faults status.
         """
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer, {"id": "summaryFaultsStatus", "status": status}
+        if self.server is not None:
+            await self.server.write_json(
+                {"id": "summaryFaultsStatus", "status": status}
             )
 
     async def write_enabled_faults_mask(self, mask: int) -> None:
@@ -469,17 +454,14 @@ class MockMessageEvent:
             Enabled faults mask.
         """
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer, {"id": "enabledFaultsMask", "mask": mask}
-            )
+        if self.server is not None:
+            await self.server.write_json({"id": "enabledFaultsMask", "mask": mask})
 
     async def write_configuration_files(self) -> None:
         """Write the message: configuration files."""
 
-        if self.writer is not None:
-            await write_json_packet(
-                self.writer,
+        if self.server is not None:
+            await self.server.write_json(
                 {
                     "id": "configurationFiles",
                     "files": [

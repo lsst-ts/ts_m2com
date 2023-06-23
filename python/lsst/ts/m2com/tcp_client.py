@@ -25,16 +25,16 @@ import json
 import logging
 import typing
 
-from lsst.ts import tcpip
+from lsst.ts.tcpip import Client
 from lsst.ts.utils import index_generator, make_done_future
 
 from .enum import MsgType
-from .utility import check_queue_size, write_json_packet
+from .utility import check_queue_size
 
 __all__ = ["TcpClient"]
 
 
-class TcpClient:
+class TcpClient(Client):
     """TCP/IP client.
 
     Parameters
@@ -57,18 +57,8 @@ class TcpClient:
 
     Attributes
     ----------
-    host : `str`
-        Host address.
-    port : `int`
-        Port to connect.
-    name : `str`
-        Name of the tcp-client.
     log : `logging.Logger`
         A logger.
-    reader : `asyncio.StreamReader` or None
-        Reader of socker.
-    writer : `asyncio.StreamWriter` or None
-        Writer of the socket.
     timeout : `float`
         Read timeout in second.
     last_sequence_id : `int`
@@ -92,19 +82,19 @@ class TcpClient:
         maxsize_queue: int = 1000,
         name: str = "tcp-client",
     ) -> None:
-        # Connection information
-        self.host = host
-        self.port = int(port)
-        self.name = name
-
         # Set the logger
         if log is None:
             self.log = logging.getLogger(type(self).__name__)
         else:
             self.log = log.getChild(type(self).__name__)
 
-        self.reader: asyncio.StreamReader | None = None
-        self.writer: asyncio.StreamWriter | None = None
+        super().__init__(
+            host,
+            port,
+            self.log,
+            connect_callback=self._connect_state_changed_callback,
+            name=name,
+        )
 
         self.timeout = timeout_in_second
 
@@ -126,63 +116,42 @@ class TcpClient:
         self._timer_queue_full_task = make_done_future()
         self._timer_check_queue_size_task = make_done_future()
 
-    async def connect(
-        self, connect_retry_interval: float = 1.0, timeout: float = 10.0
-    ) -> None:
+    async def connect(self, timeout: float = 10.0) -> None:
         """Connect to the server.
 
         Parameters
         ----------
-        connect_retry_interval : `float`, optional
-            How long to wait before trying to reconnect when connection fails.
-            (default is 1.0)
         timeout : `float`, optional
-            Timeout in second. This value should be larger than the
-            connect_retry_interval. (default is 10.0)
-
-        Raises
-        ------
-        asyncio.TimeoutError
-            Connection timeout in the timeout period.
+            Timeout in second. (default is 10.0)
         """
 
         self.log.info("Try to open the connection.")
 
-        retry_times_max = timeout // connect_retry_interval
-        retry_times = 0
-        while not self.is_connected():
-            try:
-                self.reader, self.writer = await asyncio.open_connection(
-                    host=self.host, port=self.port
-                )
+        try:
+            await asyncio.wait_for(self.start_task, timeout=timeout)
 
-            except (ConnectionRefusedError, OSError):
-                await asyncio.sleep(connect_retry_interval)
-
-                retry_times += 1
-                if retry_times >= retry_times_max:
-                    raise asyncio.TimeoutError("Connection timeout.")
+        except Exception as error:
+            self.log.exception("Error happens in the connection request.")
+            raise error
 
         self.log.info("Connection is on.")
 
-        # Create the task to monitor the incoming message from server
-        self._monitor_loop_task = asyncio.create_task(self._monitor_msg())
+    async def _connect_state_changed_callback(self, client: Client) -> None:
+        """Called when the client connection state changes.
 
-    def is_connected(self) -> bool:
-        """Determines if the client is connected to the server.
+        Notes
+        -----
+        The 'client' is a reserved input from upstream.
 
-        Returns
-        -------
-        bool
-            True if is connected. Else, False.
+        Parameters
+        ----------
+        client : `tcpip.Client`
+            Client.
         """
+        self._monitor_loop_task.cancel()
 
-        return not (
-            self.reader is None
-            or self.writer is None
-            or self.reader.at_eof()
-            or self.writer.is_closing()
-        )
+        if self.connected:
+            self._monitor_loop_task = asyncio.create_task(self._monitor_msg())
 
     async def _monitor_msg(self) -> None:
         """Monitor the message."""
@@ -190,12 +159,12 @@ class TcpClient:
         self.log.info("Begin to monitor the incoming message.")
 
         try:
-            while self.is_connected():
+            while self.connected:
                 await self._put_read_msg_to_queue()
 
         except ConnectionError:
             self.log.info("Reader disconnected; closing client")
-            await self._basic_close()
+            await self.close()
 
         except asyncio.IncompleteReadError:
             self.log.exception("EOF is reached.")
@@ -205,31 +174,21 @@ class TcpClient:
     async def _put_read_msg_to_queue(self) -> None:
         """Put the read message to self.queue."""
 
-        # Workaround of the mypy checking
-        assert self.reader is not None
-
         try:
-            data = await asyncio.wait_for(
-                self.reader.readuntil(separator=tcpip.TERMINATOR),
-                self.timeout,
-            )
+            msg = await asyncio.wait_for(self.read_json(), self.timeout)
+            self.queue.put_nowait(msg)
 
-            if data is not None:
-                data_decode = data.decode()
-                msg = json.loads(data_decode)
-                self.queue.put_nowait(msg)
-
-                if self._timer_check_queue_size_task.done():
-                    if check_queue_size(self.queue, self.log, self.name):
-                        self._timer_check_queue_size_task = asyncio.create_task(
-                            asyncio.sleep(self.queue_full_log_interval)
-                        )
+            if self._timer_check_queue_size_task.done():
+                if check_queue_size(self.queue, self.log, self.name):
+                    self._timer_check_queue_size_task = asyncio.create_task(
+                        asyncio.sleep(self.queue_full_log_interval)
+                    )
 
         except asyncio.TimeoutError:
             await asyncio.sleep(self.timeout)
 
         except json.JSONDecodeError:
-            self.log.debug(f"Can not decode the message: {data_decode}.")
+            self.log.exception("Ignoring the received message.")
 
         except asyncio.QueueFull:
             self.queue_full_messages_lost += 1
@@ -243,27 +202,10 @@ class TcpClient:
                     asyncio.sleep(self.queue_full_log_interval)
                 )
 
-        except asyncio.IncompleteReadError:
+        except (asyncio.IncompleteReadError, ConnectionError):
             raise
 
-    async def _basic_close(self) -> None:
-        """Cancel the monitor loop and close the connection."""
-
-        # Cancel the task
-        self._monitor_loop_task.cancel()
-
-        if self.writer is not None:
-            # Ignore the TimeoutError (or others) from
-            # asyncio/selector_events.py. A related discussion is here:
-            # https://github.com/home-assistant/core/issues/10468
-            try:
-                await tcpip.close_stream_writer(self.writer)
-            except Exception:
-                self.log.exception("Error closing stream writer. Ignoring.")
-
-            self.writer = None
-
-    async def write(
+    async def write_message(
         self,
         msg_type: MsgType,
         msg_name: str,
@@ -294,7 +236,7 @@ class TcpClient:
             When the message type is not supported.
         """
 
-        if not self.is_connected():
+        if not self.connected:
             raise RuntimeError("Client not connected with tcp/ip server.")
 
         if msg_details is None:
@@ -320,10 +262,7 @@ class TcpClient:
         else:
             raise ValueError(f"The message type: {msg_type} is not supported.")
 
-        # Workaround of the mypy checking
-        assert self.writer is not None
-
-        await write_json_packet(self.writer, msg_details_with_header)
+        await self.write_json(msg_details_with_header)
 
     def _add_cmd_header(self, msg_name: str, msg_details: dict) -> dict:
         """Add the command header.
@@ -414,14 +353,8 @@ class TcpClient:
         Note: this function is safe to call even though there is no connection.
         """
 
-        self.log.info("Close the connection.")
+        # Cancel the task
+        if not self._monitor_loop_task.done():
+            self._monitor_loop_task.cancel()
 
-        # Write the EOF and close
-        if (self.writer is not None) and self.writer.can_write_eof():
-            self.writer.write_eof()
-
-        await self._basic_close()
-
-        # Set the reader and writer to be None
-        self.reader = None
-        self.writer = None
+        await super().close()
