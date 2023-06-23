@@ -201,7 +201,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             server
         ) as controller:
             await server.model.power_communication.power_on()
-            await controller.client_command.write(MsgType.Command, "enable")
+            await controller.client_command.write_message(MsgType.Command, "enable")
 
             # Wait a little time to collect the messages
             await asyncio.sleep(SLEEP_TIME_SHORT)
