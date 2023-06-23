@@ -15,6 +15,9 @@ MockServer *-- MockMessageTelemetry
 MockServer *-- MockMessageEvent
 MockServer *-- MockCommand
 
+MockMessageEvent *-- OneClientServer
+MockMessageTelemetry *-- OneClientServer
+
 MockCommand --> MockMessageEvent
 MockCommand --> MockModel
 
