@@ -641,27 +641,6 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             self.assertFalse(msg_open_loop_max_limit["status"])
 
-    async def test_cmd_select_inclination_source(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
-        ):
-            source = MTM2.InclinationTelemetrySource.MTMOUNT
-            await client_cmd.write(
-                MsgType.Command,
-                "selectInclinationSource",
-                msg_details={"source": int(source)},
-            )
-            await asyncio.sleep(0.5)
-
-            msg_inclination_src = get_queue_message_latest(
-                client_cmd.queue, "inclinationTelemetrySource"
-            )
-
-            self.assertEqual(msg_inclination_src["source"], int(source))
-
-            self.assertEqual(server.model.inclination_source, source)
-
     async def test_cmd_set_temperature_offset(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
@@ -715,10 +694,6 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            server.model.select_inclination_source(
-                MTM2.InclinationTelemetrySource.MTMOUNT
-            )
-
             elevation_angle = 30.0
             await client_tel.write(
                 MsgType.Telemetry,
@@ -729,9 +704,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             await asyncio.sleep(0.5)
 
-            self.assertEqual(
-                server.model.control_open_loop.inclinometer_angle, elevation_angle
-            )
+            self.assertEqual(server.model.inclinometer_angle_external, elevation_angle)
 
     async def test_telemetry_power_status(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
@@ -889,13 +862,12 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             await asyncio.sleep(0.5)
 
-            source = MTM2.InclinationTelemetrySource.MTMOUNT
-            self.assertEqual(server.model.inclination_source, source)
-
             msg_source = get_queue_message_latest(
                 client_cmd.queue, "inclinationTelemetrySource"
             )
-            self.assertEqual(msg_source["source"], int(source))
+            self.assertEqual(
+                msg_source["source"], MTM2.InclinationTelemetrySource.MTMOUNT.value
+            )
 
     async def test_cmd_set_enabled_faults_mask(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
@@ -934,6 +906,27 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             msg_config = get_queue_message_latest(client_cmd.queue, "config")
             self.assertEqual(msg_config["version"], "20180831T092326")
+
+    async def test_check_error_inclinometer(self) -> None:
+        async with self.make_server() as server, self.make_clients(server) as (
+            client_cmd,
+            client_tel,
+        ):
+            server._is_csc = False
+
+            server.model.inclinometer_angle_external = 30.0
+            server.model.control_parameters["enable_angle_comparison"] = True
+
+            await asyncio.sleep(1.0)
+
+            # Check the error code
+            msg_status = get_queue_message_latest(
+                client_cmd.queue, "summaryFaultsStatus"
+            )
+            self.assertEqual(
+                msg_status["status"],
+                2**33,
+            )
 
 
 if __name__ == "__main__":

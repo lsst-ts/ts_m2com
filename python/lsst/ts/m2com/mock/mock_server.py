@@ -24,7 +24,6 @@ import json
 import logging
 
 from lsst.ts import salobj, tcpip
-from lsst.ts.idl.enums import MTM2
 from lsst.ts.utils import make_done_future
 
 from ..enum import (
@@ -145,7 +144,6 @@ class MockServer:
             "cmd_resetForceOffsets": self._command.reset_force_offsets,
             "cmd_clearErrors": self._command.clear_errors,
             "cmd_switchForceBalanceSystem": self._command.switch_force_balance_system,
-            "cmd_selectInclinationSource": self._command.select_inclination_source,
             "cmd_setTemperatureOffset": self._command.set_temperature_offset,
             "cmd_switchCommandSource": self._command.switch_command_source,
             "cmd_runScript": self._command.run_script,
@@ -248,6 +246,12 @@ class MockServer:
                 # Check the force error
                 self._check_error_force()
 
+                # Check the inclinometer error. Do not check this for CSC
+                # simulation. Otherwise, the test stand will have the trouble
+                # because the MTMount CSC is running as well.
+                if not self._is_csc:
+                    self._check_error_inclinometer()
+
         except ConnectionError:
             self.log.info("Command reader disconnected.")
             self._monitor_loop_task_command.cancel()
@@ -280,9 +284,13 @@ class MockServer:
         await self._message_event.write_hardpoint_list(hardpoints)
 
         await self._message_event.write_interlock(False)
-        await self._message_event.write_inclination_telemetry_source(
-            self.model.inclination_source
+
+        # Workaround of the mypy checking
+        is_external_source = (
+            self.model.control_parameters["use_external_elevation_angle"] is True
         )
+
+        await self._message_event.write_inclination_telemetry_source(is_external_source)
 
         await self._message_event.write_temperature_offset(
             self.model.control_closed_loop.temperature["ref"],
@@ -618,6 +626,22 @@ class MockServer:
                     switch, LimitSwitchType.Extend
                 )
 
+    def _check_error_inclinometer(self) -> None:
+        """Check the inclinometer error and fault the system if needed."""
+
+        control_parameters = self.model.control_parameters
+        if control_parameters["enable_angle_comparison"]:
+            control_open_loop = self.model.control_open_loop
+            lut_angle = control_open_loop.correct_inclinometer_angle(
+                control_open_loop.inclinometer_angle
+            )
+
+            if (
+                abs(self.model.inclinometer_angle_external - lut_angle)
+                > control_parameters["max_angle_difference"]
+            ):
+                self.model.fault(MockErrorCode.InclinometerDifference)
+
     async def _connect_state_changed_callback_telemetry(
         self, server_telemetry: tcpip.OneClientServer
     ) -> None:
@@ -747,15 +771,10 @@ class MockServer:
             # lower case
             name = msg_tel["id"].lower()
             component = msg_tel["compName"].lower()
-            if (
-                (name == "tel_elevation")
-                and (component == "mtmount")
-                and (
-                    self.model.inclination_source
-                    == MTM2.InclinationTelemetrySource.MTMOUNT
+            if (name == "tel_elevation") and (component == "mtmount"):
+                self.model.set_inclinometer_angle(
+                    msg_tel["actualPosition"], is_external=True
                 )
-            ):
-                self.model.set_inclinometer_angle(msg_tel["actualPosition"])
 
         except asyncio.TimeoutError:
             await asyncio.sleep(self.timeout_in_second)

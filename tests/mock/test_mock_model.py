@@ -23,7 +23,6 @@ import unittest
 
 import numpy as np
 import numpy.typing
-from lsst.ts.idl.enums import MTM2
 from lsst.ts.m2com import (
     NUM_ACTUATOR,
     NUM_TANGENT_LINK,
@@ -94,10 +93,29 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         for value in mirror_position.values():
             self.assertEqual(value, 0)
 
-    def test_set_inclinometer_angle(self) -> None:
-        self.model.set_inclinometer_angle(120)
+    def test_set_inclinometer_angle_internal(self) -> None:
+        self.model.set_inclinometer_angle(120.0)
 
-        self.assertEqual(self.model.control_open_loop.inclinometer_angle, 120)
+        self.assertEqual(self.model.control_open_loop.inclinometer_angle, 120.0)
+        self.assertAlmostEqual(
+            self.model.control_closed_loop.axial_forces["hardpointCorrection"][0],
+            89.3292369,
+        )
+
+    def test_set_inclinometer_angle_external(self) -> None:
+        # There is no update of hardpoint correction
+        self.model.set_inclinometer_angle(59.06, is_external=True)
+
+        self.assertEqual(self.model.inclinometer_angle_external, 59.06)
+        self.assertAlmostEqual(
+            self.model.control_closed_loop.axial_forces["hardpointCorrection"][0],
+            27.8006293,
+        )
+
+        # There is the update of hardpoint correction
+        self.model.control_parameters["use_external_elevation_angle"] = True
+        self.model.set_inclinometer_angle(59.06, is_external=True)
+
         self.assertAlmostEqual(
             self.model.control_closed_loop.axial_forces["hardpointCorrection"][0],
             89.3292369,
@@ -209,17 +227,6 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         self.model.clear_errors()
 
         self.assertFalse(self.model.error_handler.exists_new_error())
-
-    def test_select_inclination_source(self) -> None:
-        self.assertEqual(
-            self.model.inclination_source, MTM2.InclinationTelemetrySource.ONBOARD
-        )
-
-        self.model.select_inclination_source(2)
-
-        self.assertEqual(
-            self.model.inclination_source, MTM2.InclinationTelemetrySource.MTMOUNT
-        )
 
     async def test_get_telemetry_data(self) -> None:
         # No power

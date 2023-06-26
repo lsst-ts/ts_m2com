@@ -225,4 +225,5 @@ class MockErrorCode(IntEnum):
     LostConnection = 6053
     LimitSwitchTriggeredClosedloop = 6056
     LimitSwitchTriggeredOpenloop = 6057
+    InclinometerDifference = 6060
     TangentLoadCellFault = 6088

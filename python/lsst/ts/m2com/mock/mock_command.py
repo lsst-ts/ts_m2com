@@ -22,7 +22,6 @@
 import asyncio
 
 from lsst.ts import salobj
-from lsst.ts.idl.enums import MTM2
 
 from ..enum import (
     ActuatorDisplacementUnit,
@@ -544,7 +543,10 @@ class MockCommand:
                 message, model, message_event
             )
         else:
-            model, command_status = await self.standby(message, model, message_event)
+            await message_event.write_summary_state(salobj.State.STANDBY)
+            await self._report_digital_input_and_ouput(model, message_event)
+
+            command_status = CommandStatus.Success
 
         return model, command_status
 
@@ -594,43 +596,6 @@ class MockCommand:
             model,
             CommandStatus.Success if command_success is True else CommandStatus.Fail,
         )
-
-    async def select_inclination_source(
-        self, message: dict, model: MockModel, message_event: MockMessageEvent
-    ) -> tuple[MockModel, CommandStatus]:
-        """Select the source of inclination.
-
-        Notes
-        -----
-        Remove this function after we use the ts_m2gui on summit. At that time,
-        the way to change the source of inclination is to modify the control
-        parameters of closed-loop controller (CLC).
-
-        Parameters
-        ----------
-        message : `dict`
-            Command message.
-        model : `MockModel`
-            Mock model to simulate the M2 hardware behavior.
-        message_event : `MockMessageEvent`
-            Instance of MockMessageEvent to write the event.
-
-        Returns
-        -------
-        model : `MockModel`
-            Mock model to simulate the M2 hardware behavior.
-        `CommandStatus`
-            Status of command execution.
-        """
-
-        source = int(message["source"])
-        model.inclination_source = MTM2.InclinationTelemetrySource(source)
-
-        await message_event.write_inclination_telemetry_source(
-            MTM2.InclinationTelemetrySource(source)
-        )
-
-        return model, CommandStatus.Success
 
     async def set_temperature_offset(
         self, message: dict, model: MockModel, message_event: MockMessageEvent
@@ -1285,13 +1250,16 @@ class MockCommand:
             Status of command execution.
         """
 
-        model.inclination_source = (
-            MTM2.InclinationTelemetrySource.MTMOUNT
-            if message["useExternalElevationAngle"]
-            else MTM2.InclinationTelemetrySource.ONBOARD
-        )
+        # Update the control parameters
+        control_parameters = model.control_parameters
 
-        await message_event.write_inclination_telemetry_source(model.inclination_source)
+        is_external_source = message["useExternalElevationAngle"]
+        control_parameters["use_external_elevation_angle"] = is_external_source
+        control_parameters["enable_angle_comparison"] = message["enableAngleComparison"]
+        control_parameters["max_angle_difference"] = message["maxAngleDifference"]
+
+        # Publish the event
+        await message_event.write_inclination_telemetry_source(is_external_source)
 
         return model, CommandStatus.Success
 
