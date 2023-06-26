@@ -2,7 +2,7 @@
 Version History
 ===============
 
-v0.11.1
+v0.12.0
 -------
 
 * Fix the bug of external elevation angle, which should have the same coordinate system as the look-up table angle.

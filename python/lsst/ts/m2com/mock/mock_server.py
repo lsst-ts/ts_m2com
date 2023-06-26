@@ -286,10 +286,9 @@ class MockServer:
         await self._message_event.write_interlock(False)
 
         # Workaround of the mypy checking
-        is_external_source = self.model.control_parameters[
-            "use_external_elevation_angle"
-        ]
-        assert type(is_external_source) is bool
+        is_external_source = (
+            self.model.control_parameters["use_external_elevation_angle"] is True
+        )
 
         await self._message_event.write_inclination_telemetry_source(is_external_source)
 
