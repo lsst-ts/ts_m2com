@@ -42,7 +42,7 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.host = tcpip.LOCALHOST_IPV4
+        cls.host = tcpip.DEFAULT_LOCALHOST
         cls.log = logging.getLogger()
         cls.times_previous_command = 3
 
@@ -51,11 +51,11 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
         """Instantiate a TCP/IP server for the test."""
 
         server = tcpip.OneClientServer(
-            host=self.host,
-            port=0,
-            name="test",
-            log=self.log,
+            self.host,
+            0,
+            self.log,
             connect_callback=None,
+            name="test",
         )
         await server.start_task
         try:
@@ -92,56 +92,32 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
         finally:
             await client.close()
 
-    async def test_connect_timeout(self) -> None:
-        client = TcpClient(self.host, 8888)
-
-        with self.assertRaises(asyncio.TimeoutError):
-            await client.connect(timeout=3.0)
-
     async def test_connect_timeout_wrong_host(self) -> None:
         client = TcpClient("127.0.0.2", 8888)
 
-        with self.assertRaises(asyncio.TimeoutError):
+        with self.assertRaises(ConnectionRefusedError):
             await client.connect(timeout=3.0)
 
     async def test_close(self) -> None:
-        client = TcpClient(tcpip.LOCALHOST_IPV4, 0)
+        client = TcpClient(tcpip.DEFAULT_LOCALHOST, 0)
         await client.close()
 
-    async def test_is_connected(self) -> None:
+    async def test_connected(self) -> None:
         async with self.make_server() as server, self.make_client(server) as client:
-            self.assertTrue(client.is_connected())
+            self.assertTrue(client.connected)
 
             await server.close_client()
 
             # Need to add a small time to close the client's connection totally
             await asyncio.sleep(0.1)
 
-            self.assertFalse(client.is_connected())
-
-    async def test_connect_multiple_times(self) -> None:
-        async with self.make_server() as server, self.make_client(server) as client:
-            self.assertTrue(client.is_connected())
-            self.assertTrue(server.connected)
-
-            # Need to add a small time to close the client's connection totally
-            await client.close()
-            await asyncio.sleep(0.1)
-
-            self.assertFalse(client.is_connected())
-            self.assertFalse(server.connected)
-
-            # Try to re-connect to server
-            await client.connect()
-
-            self.assertTrue(client.is_connected())
-            self.assertTrue(server.connected)
+            self.assertFalse(client.connected)
 
     async def test_write_no_connection(self) -> None:
         tcp_client = TcpClient(self.host, 0, log=self.log)
 
         with self.assertRaises(RuntimeError):
-            await tcp_client.write(MsgType.Event, "inPosition")
+            await tcp_client.write_message(MsgType.Event, "inPosition")
 
     async def test_write_cmd(self) -> None:
         async with self.make_server() as server, self.make_client(server) as client:
@@ -149,7 +125,9 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
 
             msg_name = "move"
             msg_details = {"x": 1, "y": 2, "z": 3}
-            await client.write(MsgType.Command, msg_name, msg_details=msg_details)
+            await client.write_message(
+                MsgType.Command, msg_name, msg_details=msg_details
+            )
 
             message = await self._read_msg_in_server(server, READ_TIMEOUT)
 
@@ -187,7 +165,9 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
             msg_name = "move"
             msg_details = {"x": 1, "y": 2, "z": 3}
             for count in range(3):
-                await client.write(MsgType.Command, msg_name, msg_details=msg_details)
+                await client.write_message(
+                    MsgType.Command, msg_name, msg_details=msg_details
+                )
 
                 message = await self._read_msg_in_server(server, READ_TIMEOUT)
 
@@ -198,7 +178,7 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
     async def test_write_cmd_no_details(self) -> None:
         async with self.make_server() as server, self.make_client(server) as client:
             msg_name = "enable"
-            await client.write(MsgType.Command, msg_name)
+            await client.write_message(MsgType.Command, msg_name)
 
             message = await self._read_msg_in_server(server, READ_TIMEOUT)
 
@@ -210,14 +190,16 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
             msg_name = "move"
             msg_details = {"id": "cmd_name"}
             with self.assertRaises(ValueError):
-                await client.write(MsgType.Command, msg_name, msg_details=msg_details)
+                await client.write_message(
+                    MsgType.Command, msg_name, msg_details=msg_details
+                )
 
     async def test_write_evt(self) -> None:
         async with self.make_server() as server, self.make_client(server) as client:
             msg_name = "inPosition"
             msg_details = {"status": True}
             comp_name = "MTMount"
-            await client.write(
+            await client.write_message(
                 MsgType.Event, msg_name, msg_details=msg_details, comp_name=comp_name
             )
 
@@ -231,7 +213,7 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_client(server) as client:
             msg_name = "inPosition"
             comp_name = "MTMount"
-            await client.write(MsgType.Event, msg_name, comp_name=comp_name)
+            await client.write_message(MsgType.Event, msg_name, comp_name=comp_name)
 
             message = await self._read_msg_in_server(server, READ_TIMEOUT)
 
@@ -243,7 +225,7 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
             msg_name = "elevation"
             msg_details = {"measured": 1.1}
             comp_name = "MTMount"
-            await client.write(
+            await client.write_message(
                 MsgType.Telemetry,
                 msg_name,
                 msg_details=msg_details,
@@ -260,7 +242,7 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_client(server) as client:
             msg_name = "inPosition"
             comp_name = "MTMount"
-            await client.write(MsgType.Telemetry, msg_name, comp_name=comp_name)
+            await client.write_message(MsgType.Telemetry, msg_name, comp_name=comp_name)
 
             message = await self._read_msg_in_server(server, READ_TIMEOUT)
 

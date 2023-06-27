@@ -1,4 +1,10 @@
 @startuml
+package "tcpip" #DDDDDD {
+  class Client
+}
+
+Client <|-- TcpClient
+
 Controller *-- ErrorHandler
 Controller "1" *-- "2" TcpClient
 Controller <|-- ControllerCell

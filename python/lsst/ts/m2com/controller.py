@@ -201,66 +201,84 @@ class Controller:
             Connection timeout in second. (default is 10.0)
         """
 
-        # Instantiate the TCP/IP clients
-        maxsize_queue = self.queue_event.maxsize
-        self.client_command = TcpClient(
-            host,
-            port_command,
-            timeout_in_second=self.timeout,
-            log=self.log,
-            sequence_generator=sequence_generator,
-            maxsize_queue=maxsize_queue,
-            name="command",
-        )
-        self.client_telemetry = TcpClient(
-            host,
-            port_telemetry,
-            timeout_in_second=self.timeout,
-            log=self.log,
-            maxsize_queue=maxsize_queue,
-            name="telemetry",
-        )
-
         # Create the tasks
         self._start_connection = True
 
-        self._task_connection = asyncio.create_task(self._connect(timeout))
+        self._task_connection = asyncio.create_task(
+            self._connect(
+                host,
+                port_command,
+                port_telemetry,
+                sequence_generator,
+                timeout,
+            )
+        )
         self._task_analyze_message = asyncio.create_task(self._analyze_message())
 
-    async def _connect(self, timeout: float) -> None:
+    async def _connect(
+        self,
+        host: str,
+        port_command: int,
+        port_telemetry: int,
+        sequence_generator: typing.Generator | None,
+        timeout: float,
+    ) -> None:
         """Connect to the servers.
 
         Parameters
         ----------
+        host : `str`
+            Host address.
+        port_command : `int`
+            IP port for the command server.
+        port_telemetry : `int`
+            IP port for the telemetry server.
+        sequence_generator : `generator` or `None`
+            Sequence generator.
         timeout : `float`
             Connection timeout in second.
         """
 
         self.log.info("Begin to connect the servers.")
 
-        # Workaround of the mypy checking
-        assert self.client_command is not None
-        assert self.client_telemetry is not None
-
         while self._start_connection:
             if self.are_clients_connected():
                 await asyncio.sleep(1)
             else:
+                # Always use the new instances to request new connections
+                maxsize_queue = self.queue_event.maxsize
+                self.client_command = TcpClient(
+                    host,
+                    port_command,
+                    timeout_in_second=self.timeout,
+                    log=self.log,
+                    sequence_generator=sequence_generator,
+                    maxsize_queue=maxsize_queue,
+                    name="command",
+                )
+                self.client_telemetry = TcpClient(
+                    host,
+                    port_telemetry,
+                    timeout_in_second=self.timeout,
+                    log=self.log,
+                    maxsize_queue=maxsize_queue,
+                    name="telemetry",
+                )
+
                 try:
                     await asyncio.gather(
                         self.client_command.connect(timeout=timeout),
                         self.client_telemetry.connect(timeout=timeout),
                     )
+                    self.log.info("Servers are connected.")
 
-                except asyncio.TimeoutError as error:
+                except Exception as error:
                     self.log.debug(
-                        "Timeouted when connecting to servers - "
+                        "Error when connecting to servers - "
                         f"{self.client_command.host}:{self.client_command.port} "
                         f"and/or {self.client_telemetry.host}:{self.client_telemetry.port}: {str(error)}"
                     )
                     await self.close()
-
-                self.log.info("Servers are connected.")
 
         self.log.info("Stop the connection with servers.")
 
@@ -563,8 +581,8 @@ class Controller:
         return (
             (self.client_command is not None)
             and (self.client_telemetry is not None)
-            and self.client_command.is_connected()
-            and self.client_telemetry.is_connected()
+            and self.client_command.connected
+            and self.client_telemetry.connected
         )
 
     async def close(self) -> None:
@@ -701,7 +719,7 @@ class Controller:
 
         # Send the command
         self.last_command_status = CommandStatus.Unknown
-        await self.client_command.write(
+        await self.client_command.write_message(
             MsgType.Command, message_name, msg_details=message_details
         )
 
@@ -1497,7 +1515,7 @@ class Controller:
         """
 
         if self.client_telemetry is not None:
-            await self.client_telemetry.write(
+            await self.client_telemetry.write_message(
                 MsgType.Telemetry,
                 "elevation",
                 msg_details=dict(actualPosition=angle),

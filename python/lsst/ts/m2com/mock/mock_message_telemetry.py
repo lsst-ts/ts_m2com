@@ -19,9 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import asyncio
-
-from ..utility import write_json_packet
+from lsst.ts.tcpip import OneClientServer
 
 __all__ = ["MockMessageTelemetry"]
 
@@ -31,17 +29,17 @@ class MockMessageTelemetry:
 
     Parameters
     ----------
-    writer : `asyncio.StreamWriter` or None
-        Writer of the socket.
+    server : `tcpip.OneClientServer` or None
+        Telemetry server.
 
     Attributes
     ----------
-    writer : `asyncio.StreamWriter`
-        Writer of the socket.
+    server : `tcpip.OneClientServer` or None
+        Telemetry server.
     """
 
-    def __init__(self, writer: asyncio.StreamWriter | None) -> None:
-        self.writer = writer
+    def __init__(self, server: OneClientServer | None) -> None:
+        self.server = server
 
     async def write_position(self, data: dict) -> None:
         """Write the message: M2 position by the actuator positions.
@@ -52,7 +50,7 @@ class MockMessageTelemetry:
             Data of M2 position.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             msg = {
                 "id": "position",
                 "x": data["x"],
@@ -62,7 +60,7 @@ class MockMessageTelemetry:
                 "yRot": data["yRot"],
                 "zRot": data["zRot"],
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)
 
     async def write_position_ims(self, data: dict) -> None:
         """Write the message: M2 position by the independent measurement system
@@ -74,7 +72,7 @@ class MockMessageTelemetry:
             Data of M2 position by IMS.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             msg = {
                 "id": "positionIMS",
                 "x": data["x"],
@@ -84,7 +82,7 @@ class MockMessageTelemetry:
                 "yRot": data["yRot"],
                 "zRot": data["zRot"],
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)
 
     async def write_axial_force(self, data: dict) -> None:
         """Write the message: axial force in Newton.
@@ -95,7 +93,7 @@ class MockMessageTelemetry:
             Data of axial force.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             msg = {
                 "id": "axialForce",
                 "lutGravity": list(data["lutGravity"]),
@@ -104,7 +102,7 @@ class MockMessageTelemetry:
                 "measured": list(data["measured"]),
                 "hardpointCorrection": list(data["hardpointCorrection"]),
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)
 
     async def write_tangent_force(self, data: dict) -> None:
         """Write the message: tangent force in Newton.
@@ -115,7 +113,7 @@ class MockMessageTelemetry:
             Data of axial force.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             msg = {
                 "id": "tangentForce",
                 "lutGravity": list(data["lutGravity"]),
@@ -124,7 +122,7 @@ class MockMessageTelemetry:
                 "measured": list(data["measured"]),
                 "hardpointCorrection": list(data["hardpointCorrection"]),
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)
 
     async def write_force_error_tangent(self, data: dict) -> None:
         """Write the message: tangent force error.
@@ -135,14 +133,14 @@ class MockMessageTelemetry:
             Data of tangent force error.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             msg = {
                 "id": "forceErrorTangent",
                 "force": data["force"],
                 "weight": data["weight"],
                 "sum": data["sum"],
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)
 
     async def write_temperature(self, data: dict) -> None:
         """Write the message: cell temperature in degree C.
@@ -153,14 +151,14 @@ class MockMessageTelemetry:
             Data of cell temperature.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             msg = {
                 "id": "temperature",
                 "ring": list(data["ring"]),
                 "intake": list(data["intake"]),
                 "exhaust": list(data["exhaust"]),
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)
 
     async def write_zenith_angle(self, data: dict) -> None:
         """Write the message: zenith angle in degree.
@@ -171,14 +169,14 @@ class MockMessageTelemetry:
             Data of zenith angle.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             msg = {
                 "id": "zenithAngle",
                 "measured": data["measured"],
                 "inclinometerRaw": data["inclinometerRaw"],
                 "inclinometerProcessed": data["inclinometerProcessed"],
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)
 
     async def write_inclinometer_angle_tma(self, data: dict) -> None:
         """Write the message: telescope mount assembly (TMA) inclinometer angle
@@ -190,12 +188,12 @@ class MockMessageTelemetry:
             Data of TMA angle.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             msg = {
                 "id": "inclinometerAngleTma",
                 "inclinometer": data["inclinometerRaw"],
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)
 
     async def write_axial_actuator_steps(self, data: dict) -> None:
         """Write the message: axial actuator steps.
@@ -206,12 +204,12 @@ class MockMessageTelemetry:
             Data of axial actuator steps.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             msg = {
                 "id": "axialActuatorSteps",
                 "steps": list(data["steps"]),
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)
 
     async def write_tangent_actuator_steps(self, data: dict) -> None:
         """Write the message: tangent actuator steps.
@@ -222,12 +220,12 @@ class MockMessageTelemetry:
             Data of tangent actuator steps.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             msg = {
                 "id": "tangentActuatorSteps",
                 "steps": list(data["steps"]),
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)
 
     async def write_axial_encoder_positions(self, data: dict) -> None:
         """Write the message: axial actuator encoder positions in micron.
@@ -238,7 +236,7 @@ class MockMessageTelemetry:
             Data of axial actuator encoder position in millimeter.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             # Change the unit from mm to um
             position = [value * 1e3 for value in list(data["position"])]
 
@@ -246,7 +244,7 @@ class MockMessageTelemetry:
                 "id": "axialEncoderPositions",
                 "position": position,
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)
 
     async def write_tangent_encoder_positions(self, data: dict) -> None:
         """Write the message: tangent actuator encoder positions in micron.
@@ -257,7 +255,7 @@ class MockMessageTelemetry:
             Data of tangent actuator encoder position in millimeter.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             # Change the unit from mm to um
             position = [value * 1e3 for value in list(data["position"])]
 
@@ -265,7 +263,7 @@ class MockMessageTelemetry:
                 "id": "tangentEncoderPositions",
                 "position": position,
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)
 
     async def write_ilc_data(self, data: dict) -> None:
         """Write the message: inner-loop controller (ILC) data.
@@ -276,12 +274,12 @@ class MockMessageTelemetry:
             Data of ILC status.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             msg = {
                 "id": "ilcData",
                 "status": list(data["status"]),
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)
 
     async def write_displacement_sensors(self, data: dict) -> None:
         """Write the message: raw measurements from displacement sensors.
@@ -292,13 +290,13 @@ class MockMessageTelemetry:
             Data of displacement sensors.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             msg = {
                 "id": "displacementSensors",
                 "thetaZ": list(data["thetaZ"]),
                 "deltaZ": list(data["deltaZ"]),
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)
 
     async def write_force_balance(self, data: dict) -> None:
         """Write the message: net forces and moments as commanded by the force
@@ -310,7 +308,7 @@ class MockMessageTelemetry:
             Data of force balance system.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             msg = {
                 "id": "forceBalance",
                 "fx": data["fx"],
@@ -320,7 +318,7 @@ class MockMessageTelemetry:
                 "my": data["my"],
                 "mz": data["mz"],
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)
 
     async def write_net_forces_total(self, data: dict) -> None:
         """Write the message: total actuator net forces in Newton.
@@ -331,14 +329,14 @@ class MockMessageTelemetry:
             Data of total actuator net forces.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             msg = {
                 "id": "netForcesTotal",
                 "fx": data["fx"],
                 "fy": data["fy"],
                 "fz": data["fz"],
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)
 
     async def write_net_moments_total(self, data: dict) -> None:
         """Write the message: total actuator net moments of force in
@@ -350,14 +348,14 @@ class MockMessageTelemetry:
             Data of total actuator net moments of force.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             msg = {
                 "id": "netMomentsTotal",
                 "mx": data["mx"],
                 "my": data["my"],
                 "mz": data["mz"],
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)
 
     async def write_power_status(self, data: dict) -> None:
         """Write the message: power status.
@@ -368,7 +366,7 @@ class MockMessageTelemetry:
             Data of power status.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             msg = {
                 "id": "powerStatus",
                 "motorVoltage": data["motorVoltage"],
@@ -376,7 +374,7 @@ class MockMessageTelemetry:
                 "commVoltage": data["commVoltage"],
                 "commCurrent": data["commCurrent"],
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)
 
     async def write_power_status_raw(self, data: dict) -> None:
         """Write the message: raw power status.
@@ -387,7 +385,7 @@ class MockMessageTelemetry:
             Data of raw power status.
         """
 
-        if self.writer is not None:
+        if self.server is not None:
             msg = {
                 "id": "powerStatusRaw",
                 "motorVoltage": data["motorVoltage"],
@@ -395,4 +393,4 @@ class MockMessageTelemetry:
                 "commVoltage": data["commVoltage"],
                 "commCurrent": data["commCurrent"],
             }
-            await write_json_packet(self.writer, msg)
+            await self.server.write_json(msg)

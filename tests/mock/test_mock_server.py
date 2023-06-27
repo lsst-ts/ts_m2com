@@ -228,7 +228,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            await client_cmd.write(MsgType.Command, "resetForceOffsets")
+            await client_cmd.write_message(MsgType.Command, "resetForceOffsets")
             await asyncio.sleep(0.5)
 
             msg_ack = get_queue_message_latest(client_cmd.queue, "ack")
@@ -240,7 +240,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            await client_cmd.write(MsgType.Command, "resetForceOffsets")
+            await client_cmd.write_message(MsgType.Command, "resetForceOffsets")
             await asyncio.sleep(0.5)
 
             msg_success = get_queue_message_latest(client_cmd.queue, "success")
@@ -252,7 +252,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            await client_cmd.write(MsgType.Command, "unknown")
+            await client_cmd.write_message(MsgType.Command, "unknown")
             await asyncio.sleep(0.5)
 
             msg_noack = get_queue_message_latest(client_cmd.queue, "noack")
@@ -278,7 +278,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            await client_cmd.write(MsgType.Command, "enable")
+            await client_cmd.write_message(MsgType.Command, "enable")
             await asyncio.sleep(0.5)
 
             # The above short sleep time will not get the acknowledgement of
@@ -293,7 +293,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_tel,
         ):
             # Command should fail because there is no communication power
-            await client_cmd.write(MsgType.Command, "enable")
+            await client_cmd.write_message(MsgType.Command, "enable")
 
             await asyncio.sleep(8)
 
@@ -307,7 +307,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
         ):
             await server.model.power_communication.power_on()
 
-            await client_cmd.write(MsgType.Command, "enable")
+            await client_cmd.write_message(MsgType.Command, "enable")
             await asyncio.sleep(8)
 
             # Get the success of command because of sleeping time in enabled
@@ -348,7 +348,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await server.model.power_motor.power_on()
             server.model.control_closed_loop.is_running = True
 
-            await client_cmd.write(MsgType.Command, "disable")
+            await client_cmd.write_message(MsgType.Command, "disable")
             await asyncio.sleep(3)
 
             msg_fb = get_queue_message_latest(
@@ -381,7 +381,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            await client_cmd.write(MsgType.Command, "standby")
+            await client_cmd.write_message(MsgType.Command, "standby")
             await asyncio.sleep(3)
 
             msg_success = get_queue_message_latest(
@@ -404,7 +404,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            await client_cmd.write(MsgType.Command, "standby")
+            await client_cmd.write_message(MsgType.Command, "standby")
             await asyncio.sleep(3)
 
             msg_state = get_queue_message_latest(client_cmd.queue, "summaryState")
@@ -416,7 +416,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            await client_cmd.write(MsgType.Command, "start")
+            await client_cmd.write_message(MsgType.Command, "start")
             await asyncio.sleep(5)
 
             msg_success = get_queue_message_latest(
@@ -441,7 +441,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            await client_cmd.write(MsgType.Command, "enterControl")
+            await client_cmd.write_message(MsgType.Command, "enterControl")
             await asyncio.sleep(0.5)
 
             msg_success = get_queue_message_latest(
@@ -464,7 +464,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            await client_cmd.write(MsgType.Command, "exitControl")
+            await client_cmd.write_message(MsgType.Command, "exitControl")
             await asyncio.sleep(0.5)
 
             msg_detailed_state = get_queue_message_latest(
@@ -492,7 +492,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             force_axial = [1] * (NUM_ACTUATOR - NUM_TANGENT_LINK)
             force_tangent = [2] * NUM_TANGENT_LINK
 
-            await client_cmd.write(
+            await client_cmd.write_message(
                 MsgType.Command,
                 "applyForces",
                 msg_details={"axial": force_axial, "tangent": force_tangent},
@@ -519,7 +519,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 [(axis, 1.0) for axis in ("x", "y", "z", "xRot", "yRot", "zRot")]
             )
 
-            await client_cmd.write(
+            await client_cmd.write_message(
                 MsgType.Command,
                 "positionMirror",
                 msg_details=mirror_position_set_point,
@@ -549,7 +549,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 NUM_TANGENT_LINK
             )
 
-            await client_cmd.write(MsgType.Command, "resetForceOffsets")
+            await client_cmd.write_message(MsgType.Command, "resetForceOffsets")
             await asyncio.sleep(0.5)
 
             self.assertEqual(
@@ -584,7 +584,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
 
             # Clear the error
-            await client_cmd.write(MsgType.Command, "clearErrors")
+            await client_cmd.write_message(MsgType.Command, "clearErrors")
             await asyncio.sleep(3)
 
             self.assertFalse(server.model.error_handler.exists_error())
@@ -597,7 +597,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            await client_cmd.write(
+            await client_cmd.write_message(
                 MsgType.Command,
                 "switchForceBalanceSystem",
                 msg_details={"status": True},
@@ -622,7 +622,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_tel,
         ):
             await server.model.power_motor.power_on()
-            await client_cmd.write(
+            await client_cmd.write_message(
                 MsgType.Command,
                 "switchForceBalanceSystem",
                 msg_details={"status": True},
@@ -649,7 +649,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             ring = [11.0] * NUM_TEMPERATURE_RING
             intake = [11.0] * NUM_TEMPERATURE_INTAKE
             exhaust = [11.0] * NUM_TEMPERATURE_EXHAUST
-            await client_cmd.write(
+            await client_cmd.write_message(
                 MsgType.Command,
                 "setTemperatureOffset",
                 msg_details={"ring": ring, "intake": intake, "exhaust": exhaust},
@@ -695,7 +695,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_tel,
         ):
             elevation_angle = 30.0
-            await client_tel.write(
+            await client_tel.write_message(
                 MsgType.Telemetry,
                 "elevation",
                 msg_details={"actualPosition": elevation_angle},
@@ -721,8 +721,8 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertLess(abs(msg_power_status["commCurrent"]), 1)
 
             # Enter the Disabled state
-            await client_cmd.write(MsgType.Command, "enterControl")
-            await client_cmd.write(MsgType.Command, "start")
+            await client_cmd.write_message(MsgType.Command, "enterControl")
+            await client_cmd.write_message(MsgType.Command, "start")
 
             # Check the communication is on in Disabled state
             await asyncio.sleep(1)
@@ -734,7 +734,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertGreater(msg_power_status["commCurrent"], 5)
 
             # Enter the Enabled state
-            await client_cmd.write(MsgType.Command, "enable")
+            await client_cmd.write_message(MsgType.Command, "enable")
             await asyncio.sleep(8)
 
             # Check the motor is on in Enabled state
@@ -751,7 +751,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_tel,
         ):
             inPosition = True
-            await client_cmd.write(
+            await client_cmd.write_message(
                 MsgType.Event,
                 "mountInPosition",
                 msg_details={"inPosition": inPosition},
@@ -767,7 +767,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            await client_cmd.write(
+            await client_cmd.write_message(
                 MsgType.Command,
                 "power",
                 msg_details={"powerType": int(PowerType.Motor), "status": True},
@@ -801,7 +801,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            await client_cmd.write(
+            await client_cmd.write_message(
                 MsgType.Command,
                 "power",
                 msg_details={
@@ -833,7 +833,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            await client_cmd.write(MsgType.Command, "loadConfiguration")
+            await client_cmd.write_message(MsgType.Command, "loadConfiguration")
 
             await asyncio.sleep(0.5)
 
@@ -848,7 +848,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_cmd,
             client_tel,
         ):
-            await client_cmd.write(
+            await client_cmd.write_message(
                 MsgType.Command,
                 "setControlParameters",
                 msg_details={
@@ -875,7 +875,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_tel,
         ):
             mask = 8
-            await client_cmd.write(
+            await client_cmd.write_message(
                 MsgType.Command,
                 "setEnabledFaultsMask",
                 msg_details={"mask": mask},
@@ -894,7 +894,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             client_tel,
         ):
             file = "Configurable_File_Description_20180831T092326_M2_handling.csv"
-            await client_cmd.write(
+            await client_cmd.write_message(
                 MsgType.Command,
                 "setConfigurationFile",
                 msg_details={"file": file},

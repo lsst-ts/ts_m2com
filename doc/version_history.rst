@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.0.0
+-------
+
+* Adapt the **ts_tcpip** v1.2.0.
+
 v0.12.0
 -------
 
