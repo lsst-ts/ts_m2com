@@ -34,8 +34,12 @@ from .constant import (
     NUM_INNER_LOOP_CONTROLLER,
 )
 from .enum import (
+    ActuatorDisplacementUnit,
     ClosedLoopControlMode,
+    CommandActuator,
+    CommandScript,
     CommandStatus,
+    DigitalOutputStatus,
     InnerLoopControlMode,
     MsgType,
     PowerSystemState,
@@ -1520,4 +1524,219 @@ class Controller:
                 "elevation",
                 msg_details=dict(actualPosition=angle),
                 comp_name="MTMount",
+            )
+
+    async def enable_open_loop_max_limit(
+        self, status: bool, timeout: float = 10.0
+    ) -> None:
+        """Enable the maximum limit in open-loop control.
+
+        Parameters
+        ----------
+        status : `bool`
+            Enable the maximum limit or not.
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+
+        Raises
+        ------
+        `RuntimeError`
+            If in the closed-loop control.
+        """
+
+        closed_loop = ClosedLoopControlMode.ClosedLoop
+        if self.closed_loop_control_mode != closed_loop:
+            await self.write_command_to_server(
+                "enableOpenLoopMaxLimit",
+                message_details={"status": status},
+                timeout=timeout,
+            )
+        else:
+            raise RuntimeError(
+                f"Failed to enable the maximum limit. Forbidden in {closed_loop!r}."
+            )
+
+    async def save_position(self, timeout: float = 10.0) -> None:
+        """Save the rigid body position.
+
+        Parameters
+        ----------
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server("saveMirrorPosition", timeout=timeout)
+
+    async def set_home(self, timeout: float = 10.0) -> None:
+        """Set the home position.
+
+        Parameters
+        ----------
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server("setMirrorHome", timeout=timeout)
+
+    async def reboot_controller(self, timeout: float = 10.0) -> None:
+        """Reboot the cell controller.
+
+        Parameters
+        ----------
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+        """
+
+        try:
+            await self.write_command_to_server("rebootController", timeout=timeout)
+        # If the controller reboots, it can not reply the command is executed
+        # successfully. Therefore, bypass the RuntimeError here.
+        except RuntimeError:
+            pass
+
+    async def switch_command_source(
+        self, is_remote: bool, timeout: float = 10.0
+    ) -> None:
+        """Switch the command source.
+
+        Parameters
+        ----------
+        is_remote : `bool`
+            Remote commandable SAL component (CSC) is the commander or not.
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server(
+            "switchCommandSource",
+            message_details={"isRemote": is_remote},
+            timeout=timeout,
+        )
+
+    async def set_bit_digital_status(
+        self,
+        idx: int,
+        status: DigitalOutputStatus,
+        timeout: float = 10.0,
+    ) -> None:
+        """Set the bit value of digital status.
+
+        Parameters
+        ----------
+        idx : `int`
+            Bit index that begins from 0, which should be >= 0.
+        status : enum `DigitalOutputStatus`
+            Digital output status.
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server(
+            "switchDigitalOutput",
+            message_details={"bit": 2**idx, "status": int(status)},
+            timeout=timeout,
+        )
+
+    async def reset_breakers(
+        self, power_type: PowerType, timeout: float = 10.0
+    ) -> None:
+        """Reset the breakers.
+
+        Parameters
+        ----------
+        power_type : enum `PowerType`
+            Power type.
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server(
+            "resetBreakers", message_details={"powerType": power_type}, timeout=timeout
+        )
+
+    async def command_script(
+        self,
+        command: CommandScript,
+        script_name: str | None = None,
+        timeout: float = 10.0,
+    ) -> None:
+        """Run the script command.
+
+        Parameters
+        ----------
+        command : enum `CommandScript`
+            Script command.
+        script_name : `str` or None, optional
+            Name of the script. (the default is None)
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+        """
+
+        message_details = {"scriptCommand": command}
+        if script_name is not None:
+            message_details["scriptName"] = script_name  # type: ignore[assignment]
+
+        await self.write_command_to_server(
+            "runScript",
+            message_details=message_details,
+            timeout=timeout,
+        )
+
+    async def command_actuator(
+        self,
+        command: CommandActuator,
+        actuators: list[int] | None = None,
+        target_displacement: float | int = 0,
+        unit: ActuatorDisplacementUnit = ActuatorDisplacementUnit.Millimeter,
+        timeout: float = 10.0,
+    ) -> None:
+        """Run the actuator command.
+
+        Parameters
+        ----------
+        command : enum `CommandActuator`
+            Actuator command.
+        actuators : `list [int]` or None, optional
+            Selected actuators to do the movement. If the empty list [] is
+            passed, the function will raise the RuntimeError. (the default is
+            None)
+        target_displacement : `float` or `int`, optional
+            Target displacement of the actuators. (the default is 0)
+        unit : enum `ActuatorDisplacementUnit`, optional
+            Displacement unit. (the default is
+            ActuatorDisplacementUnit.Millimeter)
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+
+        Raises
+        ------
+        `RuntimeError`
+            No actuator is selected.
+        `RuntimeError`
+            Not in the open-loop control.
+        """
+
+        if (actuators is not None) and (len(actuators) == 0):
+            raise RuntimeError("No actuator is selected.")
+
+        if unit == ActuatorDisplacementUnit.Step:
+            target_displacement = int(target_displacement)
+
+        open_loop = ClosedLoopControlMode.OpenLoop
+        if self.closed_loop_control_mode == open_loop:
+            message_details = {"actuatorCommand": command}
+            if actuators is not None:
+                message_details["actuators"] = actuators  # type: ignore[assignment]
+                message_details["displacement"] = target_displacement  # type: ignore[assignment]
+                message_details["unit"] = unit  # type: ignore[assignment]
+
+            await self.write_command_to_server(
+                "moveActuators",
+                message_details=message_details,
+                timeout=timeout,
+            )
+
+        else:
+            raise RuntimeError(
+                f"Failed to command the actuator. Only allow in {open_loop!r}."
             )
