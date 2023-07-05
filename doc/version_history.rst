@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.0.1
+------
+
+* Migrate the functions from **ts_m2gui**.
+
 v1.0.0
 -------
 
