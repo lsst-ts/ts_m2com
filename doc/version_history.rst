@@ -2,6 +2,14 @@
 Version History
 ===============
 
+v1.1.1
+------
+
+* Fix the typo of enum: **DigitalInput**.
+* Add the constant: **OUTLIER_INCLINOMETER_RAW**.
+* Fix the bug of ``Controller.set_ilc_to_enabled()`` for the unknown state.
+* Add some auxiliary functions to **Controller** class.
+
 v1.1.0
 ------
 

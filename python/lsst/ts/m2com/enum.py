@@ -182,7 +182,7 @@ class DigitalInput(BitEnum):
     J3_W14_2_CommunicationPowerBreaker = auto()
     SpareInput_29 = auto()
     SpareInput_30 = auto()
-    InterlockPowerReplay = auto()
+    InterlockPowerRelay = auto()
 
 
 class LimitSwitchType(IntEnum):
