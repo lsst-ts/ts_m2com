@@ -30,6 +30,7 @@ from lsst.ts import salobj, tcpip
 from lsst.ts.m2com import (
     DEFAULT_ENABLED_FAULTS_MASK,
     ClosedLoopControlMode,
+    CommandActuator,
     CommandStatus,
     Controller,
     InnerLoopControlMode,
@@ -496,6 +497,24 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             controller.control_parameters["max_angle_difference"], max_angle_difference
         )
+
+    async def test_enable_open_loop_max_limit_exception(self) -> None:
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+            controller.closed_loop_control_mode = ClosedLoopControlMode.ClosedLoop
+            with self.assertRaises(RuntimeError):
+                await controller.enable_open_loop_max_limit(True)
+
+    async def test_command_actuator_exception(self) -> None:
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+            with self.assertRaises(RuntimeError):
+                await controller.command_actuator(CommandActuator.Start, actuators=[])
+
+            with self.assertRaises(RuntimeError):
+                await controller.command_actuator(CommandActuator.Stop)
 
 
 if __name__ == "__main__":
