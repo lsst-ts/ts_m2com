@@ -1592,7 +1592,7 @@ class Controller:
         # If the controller reboots, it can not reply the command is executed
         # successfully. Therefore, bypass the RuntimeError here.
         except RuntimeError:
-            pass
+            self.log.exception("Bypassing RuntimeError after rebooting the controller.")
 
     async def switch_command_source(
         self, is_remote: bool, timeout: float = 10.0
