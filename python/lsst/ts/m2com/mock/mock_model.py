@@ -308,7 +308,7 @@ class MockModel:
             DigitalInput.J2_W13_2_CommunicationPowerBreaker,
             DigitalInput.J3_W14_1_CommunicationPowerBreaker,
             DigitalInput.J3_W14_2_CommunicationPowerBreaker,
-            DigitalInput.InterlockPowerReplay,
+            DigitalInput.InterlockPowerRelay,
         )
 
     @property
@@ -336,7 +336,7 @@ class MockModel:
             DigitalInput.J3_W11_1_MotorPowerBreaker,
             DigitalInput.J3_W11_2_MotorPowerBreaker,
             DigitalInput.J3_W11_3_MotorPowerBreaker,
-            DigitalInput.InterlockPowerReplay,
+            DigitalInput.InterlockPowerRelay,
         )
 
     def configure(self, config_dir: Path, lut_path: str) -> None:

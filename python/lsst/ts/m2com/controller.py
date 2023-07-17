@@ -141,9 +141,9 @@ class Controller:
         }
 
         self.closed_loop_control_mode = ClosedLoopControlMode.Idle
-        self.ilc_modes = np.array(
-            [InnerLoopControlMode.Unknown] * NUM_INNER_LOOP_CONTROLLER
-        )
+
+        self.ilc_modes = np.array([])
+        self.set_ilc_modes_to_unknown()
 
         self.control_parameters = {
             "enable_lut_temperature": True,
@@ -180,6 +180,24 @@ class Controller:
         error_handler.read_error_list_file(get_config_dir() / filename)
 
         return error_handler
+
+    def set_ilc_modes_to_unknown(self) -> None:
+        """Set the inner-loop controller (ILC) modes to unknown."""
+
+        self.ilc_modes = np.array(
+            [InnerLoopControlMode.Unknown] * NUM_INNER_LOOP_CONTROLLER
+        )
+
+    def are_ilc_modes_enabled(self) -> bool:
+        """All the inner-loop controller (ILC) modes are enabled or not.
+
+        Returns
+        -------
+        `bool`
+            True if all ILC modes are enabled. Otherwise, False.
+        """
+
+        return np.all(self.ilc_modes == InnerLoopControlMode.Enabled)
 
     def start(
         self,
@@ -802,7 +820,7 @@ class Controller:
         power_type: PowerType,
         status: bool,
         expected_state: PowerSystemState | None = None,
-        timeout: float = 20.0,
+        timeout: float = 30.0,
     ) -> None:
         """Power on/off the motor/communication system.
 
@@ -816,7 +834,7 @@ class Controller:
             Expected state of the power system. This is used in the unit test
             only. Put None in general. (the default is None)
         timeout : `float`, optional
-            Timeout in second. (the default is 20.0)
+            Timeout in second. (the default is 30.0)
 
         Raises
         ------
@@ -986,7 +1004,7 @@ class Controller:
         return self.closed_loop_control_mode == expected_mode
 
     async def set_ilc_to_enabled(
-        self, retry_times: int = 3, timeout: float = 10.0
+        self, retry_times: int = 3, timeout: float = 20.0
     ) -> None:
         """Set the inner-loop control (ILC) mode to Enabled.
 
@@ -1008,7 +1026,7 @@ class Controller:
         retry_times : `int`, optional
             Retry times. (the default is 3)
         timeout : `float`, optional
-            Timeout in second. (the default is 10.0)
+            Timeout in second. (the default is 20.0)
 
         Raises
         ------
@@ -1026,7 +1044,7 @@ class Controller:
         # Transition the ILCs to Enabled state
         addresses_nan = list()
         all_modes_are_received = False
-        all_modes_are_clear = False
+        all_modes_are_clear = True
         all_modes_are_enabled = False
         for idx in range(1 + retry_times):
             # Try to get all the ILC modes first. If not, continue to the next
@@ -1044,14 +1062,21 @@ class Controller:
                 if not all_modes_are_received:
                     continue
 
-            # Break the for-loop if any ILC has the unknown state
+            # For the unknown state, try to get the state again
             addresses_unknown = np.where(
                 self.ilc_modes == InnerLoopControlMode.Unknown
             )[0].tolist()
+            if len(addresses_unknown) != 0:
+                await self.write_command_to_server(
+                    "getInnerLoopControlMode",
+                    message_details={"addresses": addresses_unknown},
+                )
+                all_modes_are_clear = await self._check_expected_value(
+                    self._callback_check_ilc_mode_unknown, timeout=timeout
+                )
 
-            all_modes_are_clear = len(addresses_unknown) == 0
-            if not all_modes_are_clear:
-                break
+                if not all_modes_are_clear:
+                    continue
 
             # Do the state transition step by step. Note the state transitions
             # between the actuator ILC and sensor ILC are different.
@@ -1131,6 +1156,9 @@ class Controller:
             )
 
         if not all_modes_are_clear:
+            addresses_unknown = np.where(
+                self.ilc_modes == InnerLoopControlMode.Unknown
+            )[0].tolist()
             modbus_ids_unknown = [address + 1 for address in addresses_unknown]
             raise RuntimeError(
                 f"Following ILCs have the unknown states: {addresses_unknown}. "
@@ -1138,6 +1166,9 @@ class Controller:
             )
 
         if not all_modes_are_enabled:
+            addresses_not_enabled = np.where(
+                self.ilc_modes != InnerLoopControlMode.Enabled
+            )[0].tolist()
             for address in addresses_not_enabled:
                 self.log.debug(
                     f"ILC {address} is {InnerLoopControlMode(self.ilc_modes[address])!r} "
@@ -1160,6 +1191,19 @@ class Controller:
         """
 
         indexes = np.where(np.isnan(self.ilc_modes))[0]
+        return len(indexes) == 0
+
+    def _callback_check_ilc_mode_unknown(self) -> bool:
+        """Callback function to check the inner-loop control (ILC) mode is
+        unknown or not.
+
+        Return
+        ------
+        `bool`
+            True if all ILC modes are known. Otherwise, False.
+        """
+
+        indexes = np.where(self.ilc_modes == InnerLoopControlMode.Unknown)[0]
         return len(indexes) == 0
 
     async def _set_ilc_mode(

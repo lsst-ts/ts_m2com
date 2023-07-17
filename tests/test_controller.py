@@ -26,9 +26,11 @@ import sys
 import unittest
 from pathlib import Path
 
+import numpy as np
 from lsst.ts import salobj, tcpip
 from lsst.ts.m2com import (
     DEFAULT_ENABLED_FAULTS_MASK,
+    NUM_INNER_LOOP_CONTROLLER,
     ClosedLoopControlMode,
     CommandActuator,
     CommandStatus,
@@ -116,6 +118,23 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(controller.client_command)
         self.assertIsNone(controller.client_telemetry)
         self.assertEqual(controller.last_command_status, CommandStatus.Unknown)
+
+    def test_set_ilc_modes_to_unknown(self) -> None:
+        controller = Controller()
+        controller.ilc_modes[0] = InnerLoopControlMode.Enabled
+
+        controller.set_ilc_modes_to_unknown()
+
+        self.assertEqual(controller.ilc_modes[0], InnerLoopControlMode.Unknown)
+
+    def test_are_ilc_modes_enabled(self) -> None:
+        controller = Controller()
+        self.assertFalse(controller.are_ilc_modes_enabled())
+
+        controller.ilc_modes = np.array(
+            [InnerLoopControlMode.Enabled] * NUM_INNER_LOOP_CONTROLLER
+        )
+        self.assertTrue(controller.are_ilc_modes_enabled())
 
     async def test_close(self) -> None:
         controller = Controller()
