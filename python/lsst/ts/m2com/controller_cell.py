@@ -272,10 +272,14 @@ class ControllerCell(Controller):
                 message = ""
 
             # Process the event
-            if is_coroutine_function:
-                await process_event(*args, message=message, **kwargs)  # type: ignore[operator]
-            else:
-                process_event(*args, message=message, **kwargs)  # type: ignore[operator]
+            try:
+                if is_coroutine_function:
+                    await process_event(*args, message=message, **kwargs)  # type: ignore[operator]
+                else:
+                    process_event(*args, message=message, **kwargs)  # type: ignore[operator]
+
+            except Exception as error:
+                self.log.debug(f"Error in processing the event: {message}. {error!r}.")
 
             await asyncio.sleep(self.timeout)
 
@@ -378,10 +382,16 @@ class ControllerCell(Controller):
                 message = self.client_telemetry.queue.get_nowait()
 
                 # Process the telemetry
-                if is_coroutine_function:
-                    await process_telemetry(*args, message=message, **kwargs)  # type: ignore[operator]
-                else:
-                    process_telemetry(*args, message=message, **kwargs)  # type: ignore[operator]
+                try:
+                    if is_coroutine_function:
+                        await process_telemetry(*args, message=message, **kwargs)  # type: ignore[operator]
+                    else:
+                        process_telemetry(*args, message=message, **kwargs)  # type: ignore[operator]
+
+                except Exception as error:
+                    self.log.debug(
+                        f"Error in processing the telemetry: {message}. {error!r}."
+                    )
 
                 # Evaluate the telemetry rate
                 messages_consumed += 1
