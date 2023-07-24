@@ -2,6 +2,13 @@
 Version History
 ===============
 
+v1.1.2
+------
+
+* Move the ``TabAlarmWarn._calc_enabled_faults_mask()`` in **ts_m2gui** to ``ErrorHandler.calc_enabled_faults_mask()``.
+* Add the try-catch loop when processing the event and telemetry.
+* Fix the event of interlock.
+
 v1.1.1
 ------
 

@@ -187,6 +187,9 @@ class TestErrorHandler(unittest.TestCase):
         self.assertEqual(self.error_handler._errors_reported, {6051, 6055})
         self.assertEqual(self.error_handler._warnings_reported, {6057, 6059})
 
+    def test_calc_enabled_faults_mask(self) -> None:
+        self.assertTrue(self.error_handler.calc_enabled_faults_mask({6051, 6055}, 8), 0)
+
 
 if __name__ == "__main__":
     # Do the unit test

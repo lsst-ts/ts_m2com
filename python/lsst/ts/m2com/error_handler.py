@@ -358,3 +358,33 @@ class ErrorHandler:
 
         errors_and_warnings = self._errors_reported.union(self._warnings_reported)
         return self.get_summary_faults_status_from_codes(list(errors_and_warnings))
+
+    def calc_enabled_faults_mask(
+        self, codes: set, original_mask: int
+    ) -> tuple[int, list]:
+        """Calculate the new enabled faults mask.
+
+        Parameters
+        ----------
+        codes : `set`
+            Error codes to bypass.
+        original_mask : `int`
+            Original enabled faults mask.
+
+        Returns
+        -------
+        `int`
+            New enabled faults mask.
+        bits : `list`
+            Bypassed bits.
+        """
+
+        bits = list()
+        for code in codes:
+            bits.append(self.get_bit_from_code(code))
+
+        bit_sum = 0
+        for bit in bits:
+            bit_sum += 2**bit
+
+        return (original_mask | bit_sum) - bit_sum, bits

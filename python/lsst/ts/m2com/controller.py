@@ -642,9 +642,7 @@ class Controller:
         }
 
         self.closed_loop_control_mode = ClosedLoopControlMode.Idle
-        self.ilc_modes = np.array(
-            [InnerLoopControlMode.Unknown] * NUM_INNER_LOOP_CONTROLLER
-        )
+        self.set_ilc_modes_to_unknown()
 
     def assert_controller_state(
         self, command_name: str, allowed_curr_states: list[salobj.State]
@@ -675,7 +673,9 @@ class Controller:
                 f"{command_name} command is not allowed in controller's state {curr_state!r}."
             )
 
-    async def clear_errors(self, bypass_state_checking: bool = False) -> None:
+    async def clear_errors(
+        self, bypass_state_checking: bool = False, timeout: float = 10.0
+    ) -> None:
         """Clear the errors.
 
         Notes
@@ -688,6 +688,8 @@ class Controller:
         ----------
         bypass_state_checking : `bool`, optional
             Bypass the state checking or not. (the default is False.)
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
         """
 
         self.error_handler.clear()
@@ -701,7 +703,9 @@ class Controller:
             )
 
         await self.write_command_to_server(
-            "clearErrors", controller_state_expected=controller_state_expected
+            "clearErrors",
+            controller_state_expected=controller_state_expected,
+            timeout=timeout,
         )
 
     async def write_command_to_server(

@@ -30,6 +30,7 @@ from ..enum import (
     CommandScript,
     CommandStatus,
     DetailedState,
+    DigitalInput,
     DigitalOutput,
     DigitalOutputStatus,
     InnerLoopControlMode,
@@ -196,19 +197,30 @@ class MockCommand:
 
         self._digital_output = model.get_digital_output()
         await message_event.write_digital_output(self._digital_output)
-        await self.report_interlock(message_event)
+        await self.report_interlock(model, message_event)
 
-    async def report_interlock(self, message_event: MockMessageEvent) -> None:
+    async def report_interlock(
+        self, model: MockModel, message_event: MockMessageEvent
+    ) -> None:
         """Report the interlock status.
 
         Parameters
         ----------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
         message_event : MockMessageEvent
             Instance of MockMessageEvent to write the event.
         """
-        await message_event.write_interlock(
-            bool(self._digital_output & DigitalOutput.InterlockEnable.value)
+
+        is_enterlock_enabled = bool(
+            self._digital_output & DigitalOutput.InterlockEnable.value
         )
+        is_interlock_power_relay_on = bool(
+            model.get_digital_input() & DigitalInput.InterlockPowerRelay.value
+        )
+
+        is_interlock_engaged = (not is_enterlock_enabled) or is_interlock_power_relay_on
+        await message_event.write_interlock(is_interlock_engaged)
 
     async def disable(
         self, message: dict, model: MockModel, message_event: MockMessageEvent
@@ -806,7 +818,7 @@ class MockCommand:
                 )
 
             await message_event.write_digital_output(digital_output_reset)
-            await self.report_interlock(message_event)
+            await self.report_interlock(model, message_event)
 
             await message_event.write_digital_input(digital_input_reset)
             await message_event.write_power_system_state(
@@ -819,7 +831,7 @@ class MockCommand:
             await asyncio.sleep(self.SLEEP_TIME_NORMAL)
 
             await message_event.write_digital_output(digital_output_default)
-            await self.report_interlock(message_event)
+            await self.report_interlock(model, message_event)
 
             await message_event.write_power_system_state(
                 power_type, power_system.is_power_on(), power_system.state
@@ -978,7 +990,7 @@ class MockCommand:
             self._digital_output, bit, status
         )
         await message_event.write_digital_output(self._digital_output)
-        await self.report_interlock(message_event)
+        await self.report_interlock(model, message_event)
 
         # Turn on/off the power based on the bit value
         if self._digital_output & DigitalOutput.CommunicationPower.value:
