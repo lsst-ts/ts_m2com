@@ -29,14 +29,10 @@ __all__ = [
     "CommandScript",
     "CommandActuator",
     "ActuatorDisplacementUnit",
-    "PowerType",
-    "PowerSystemState",
     "DigitalOutput",
     "DigitalOutputStatus",
     "DigitalInput",
     "LimitSwitchType",
-    "ClosedLoopControlMode",
-    "InnerLoopControlMode",
     "MockErrorCode",
 ]
 
@@ -108,24 +104,6 @@ class ActuatorDisplacementUnit(IntEnum):
     Step = auto()
 
 
-class PowerType(IntEnum):
-    """Type of the power."""
-
-    Motor = 1
-    Communication = auto()
-
-
-class PowerSystemState(IntEnum):
-    """State of the power system. This is copied from the ts_mtm2_cell."""
-
-    Init = 1
-    PoweredOff = auto()
-    PoweringOn = auto()
-    ResettingBreakers = auto()
-    PoweredOn = auto()
-    PoweringOff = auto()
-
-
 class DigitalOutput(BitEnum):
     """Bit of digital output."""
 
@@ -190,28 +168,6 @@ class LimitSwitchType(IntEnum):
 
     Retract = 1
     Extend = auto()
-
-
-class ClosedLoopControlMode(IntEnum):
-    """Closed loop control mode. This is copied from the ts_mtm2_cell."""
-
-    Idle = 1
-    TelemetryOnly = auto()
-    OpenLoop = auto()
-    ClosedLoop = auto()
-
-
-class InnerLoopControlMode(IntEnum):
-    """Inner-loop control mode. This is copied from the ts_mtm2_cell."""
-
-    Standby = 1
-    Disabled = auto()
-    Enabled = auto()
-    FirmwareUpdate = auto()
-    Fault = auto()
-    ClearFaults = auto()
-    NoChange = auto()
-    Unknown = auto()
 
 
 class MockErrorCode(IntEnum):

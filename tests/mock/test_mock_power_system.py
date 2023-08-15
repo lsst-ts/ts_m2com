@@ -21,7 +21,8 @@
 
 import unittest
 
-from lsst.ts.m2com import MockPowerSystem, PowerSystemState
+from lsst.ts.idl.enums import MTM2
+from lsst.ts.m2com import MockPowerSystem
 
 
 class TestMockPowerSystem(unittest.IsolatedAsyncioTestCase):
@@ -31,43 +32,43 @@ class TestMockPowerSystem(unittest.IsolatedAsyncioTestCase):
         self.power_system = MockPowerSystem(1, 2)
 
     def test_init(self) -> None:
-        self.assertEqual(self.power_system.state, PowerSystemState.Init)
+        self.assertEqual(self.power_system.state, MTM2.PowerSystemState.Init)
 
     async def test_power_on(self) -> None:
         await self.power_system.power_on()
 
         self.assertTrue(self.power_system._is_power_on)
-        self.assertEqual(self.power_system.state, PowerSystemState.PoweringOn)
+        self.assertEqual(self.power_system.state, MTM2.PowerSystemState.PoweringOn)
 
     async def test_wait_power_fully_on(self) -> None:
         # No update
         await self.power_system.wait_power_fully_on()
-        self.assertEqual(self.power_system.state, PowerSystemState.Init)
+        self.assertEqual(self.power_system.state, MTM2.PowerSystemState.Init)
 
         # State is updated
         await self.power_system.power_on()
         await self.power_system.wait_power_fully_on()
 
-        self.assertEqual(self.power_system.state, PowerSystemState.PoweredOn)
+        self.assertEqual(self.power_system.state, MTM2.PowerSystemState.PoweredOn)
 
     async def test_power_off(self) -> None:
         await self.power_system.power_on()
         await self.power_system.power_off()
 
         self.assertFalse(self.power_system._is_power_on)
-        self.assertEqual(self.power_system.state, PowerSystemState.PoweringOff)
+        self.assertEqual(self.power_system.state, MTM2.PowerSystemState.PoweringOff)
 
     async def test_wait_power_fully_off(self) -> None:
         # No update
         await self.power_system.wait_power_fully_off()
-        self.assertEqual(self.power_system.state, PowerSystemState.Init)
+        self.assertEqual(self.power_system.state, MTM2.PowerSystemState.Init)
 
         # State is updated
         await self.power_system.power_on()
         await self.power_system.power_off()
         await self.power_system.wait_power_fully_off()
 
-        self.assertEqual(self.power_system.state, PowerSystemState.PoweredOff)
+        self.assertEqual(self.power_system.state, MTM2.PowerSystemState.PoweredOff)
 
     async def test_is_power_on(self) -> None:
         self.assertFalse(self.power_system.is_power_on())

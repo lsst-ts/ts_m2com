@@ -28,20 +28,17 @@ from pathlib import Path
 
 import numpy as np
 from lsst.ts import salobj, tcpip
+from lsst.ts.idl.enums import MTM2
 from lsst.ts.m2com import (
     DEFAULT_ENABLED_FAULTS_MASK,
     NUM_INNER_LOOP_CONTROLLER,
-    ClosedLoopControlMode,
     CommandActuator,
     CommandStatus,
     Controller,
-    InnerLoopControlMode,
     MockErrorCode,
     MockModel,
     MockServer,
     MsgType,
-    PowerSystemState,
-    PowerType,
     get_config_dir,
 )
 
@@ -121,18 +118,18 @@ class TestController(unittest.IsolatedAsyncioTestCase):
 
     def test_set_ilc_modes_to_unknown(self) -> None:
         controller = Controller()
-        controller.ilc_modes[0] = InnerLoopControlMode.Enabled
+        controller.ilc_modes[0] = MTM2.InnerLoopControlMode.Enabled
 
         controller.set_ilc_modes_to_unknown()
 
-        self.assertEqual(controller.ilc_modes[0], InnerLoopControlMode.Unknown)
+        self.assertEqual(controller.ilc_modes[0], MTM2.InnerLoopControlMode.Unknown)
 
     def test_are_ilc_modes_enabled(self) -> None:
         controller = Controller()
         self.assertFalse(controller.are_ilc_modes_enabled())
 
         controller.ilc_modes = np.array(
-            [InnerLoopControlMode.Enabled] * NUM_INNER_LOOP_CONTROLLER
+            [MTM2.InnerLoopControlMode.Enabled] * NUM_INNER_LOOP_CONTROLLER
         )
         self.assertTrue(controller.are_ilc_modes_enabled())
 
@@ -339,30 +336,30 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             server
         ) as controller:
             # Power on
-            await controller.power(PowerType.Communication, True)
+            await controller.power(MTM2.PowerType.Communication, True)
 
             self.assertEqual(
                 controller.power_system_status["communication_power_state"],
-                PowerSystemState.PoweredOn,
+                MTM2.PowerSystemState.PoweredOn,
             )
 
             # Power off
-            await controller.power(PowerType.Communication, False)
+            await controller.power(MTM2.PowerType.Communication, False)
 
             self.assertEqual(
                 controller.power_system_status["communication_power_state"],
-                PowerSystemState.PoweredOff,
+                MTM2.PowerSystemState.PoweredOff,
             )
 
     async def test_power_motor(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-            await controller.power(PowerType.Motor, True)
+            await controller.power(MTM2.PowerType.Motor, True)
 
             self.assertEqual(
                 controller.power_system_status["motor_power_state"],
-                PowerSystemState.PoweredOn,
+                MTM2.PowerSystemState.PoweredOn,
             )
 
     async def test_power_wrong_expected_state(self) -> None:
@@ -371,9 +368,9 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         ) as controller:
             with self.assertRaises(RuntimeError):
                 await controller.power(
-                    PowerType.Motor,
+                    MTM2.PowerType.Motor,
                     True,
-                    expected_state=PowerSystemState.ResettingBreakers,
+                    expected_state=MTM2.PowerSystemState.ResettingBreakers,
                 )
 
     async def test_reset_force_offsets(self) -> None:
@@ -397,11 +394,12 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             server
         ) as controller:
             await controller.set_closed_loop_control_mode(
-                ClosedLoopControlMode.TelemetryOnly
+                MTM2.ClosedLoopControlMode.TelemetryOnly
             )
 
             self.assertEqual(
-                controller.closed_loop_control_mode, ClosedLoopControlMode.TelemetryOnly
+                controller.closed_loop_control_mode,
+                MTM2.ClosedLoopControlMode.TelemetryOnly,
             )
 
     async def test_set_ilc_to_enabled_fail_no_power(self) -> None:
@@ -430,7 +428,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
 
             # Put some ILCs to Disabled state
             for idx in range(3):
-                server.model.list_ilc[idx].set_mode(InnerLoopControlMode.Disabled)
+                server.model.list_ilc[idx].set_mode(MTM2.InnerLoopControlMode.Disabled)
 
             await controller.set_ilc_to_enabled()
 
@@ -438,7 +436,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
 
     def _assert_ilc_enabled(self, model: MockModel) -> None:
         for ilc in model.list_ilc:
-            self.assertEqual(ilc.mode, InnerLoopControlMode.Enabled)
+            self.assertEqual(ilc.mode, MTM2.InnerLoopControlMode.Enabled)
 
     async def test_set_ilc_to_enabled_from_fault(self) -> None:
         async with self.make_server() as server, self.make_controller(
@@ -448,13 +446,15 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             await server.model.power_motor.power_on()
 
             # Put all ILCs to Fault state first
-            self._change_ilc_mode(server.model, InnerLoopControlMode.Fault)
+            self._change_ilc_mode(server.model, MTM2.InnerLoopControlMode.Fault)
 
             await controller.set_ilc_to_enabled()
 
             self._assert_ilc_enabled(server.model)
 
-    def _change_ilc_mode(self, model: MockModel, mode: InnerLoopControlMode) -> None:
+    def _change_ilc_mode(
+        self, model: MockModel, mode: MTM2.InnerLoopControlMode
+    ) -> None:
         for ilc in model.list_ilc:
             ilc.mode = mode
 
@@ -466,7 +466,9 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             await server.model.power_motor.power_on()
 
             # Put all ILCs to FirmwareUpdate state first
-            self._change_ilc_mode(server.model, InnerLoopControlMode.FirmwareUpdate)
+            self._change_ilc_mode(
+                server.model, MTM2.InnerLoopControlMode.FirmwareUpdate
+            )
 
             await controller.set_ilc_to_enabled()
 
@@ -480,7 +482,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             await server.model.power_motor.power_on()
 
             # Put all ILCs to Unknown state first
-            self._change_ilc_mode(server.model, InnerLoopControlMode.Unknown)
+            self._change_ilc_mode(server.model, MTM2.InnerLoopControlMode.Unknown)
 
             with self.assertRaises(RuntimeError):
                 await controller.set_ilc_to_enabled()
@@ -521,7 +523,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-            controller.closed_loop_control_mode = ClosedLoopControlMode.ClosedLoop
+            controller.closed_loop_control_mode = MTM2.ClosedLoopControlMode.ClosedLoop
             with self.assertRaises(RuntimeError):
                 await controller.enable_open_loop_max_limit(True)
 

@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.1.3
+------
+
+* Use the enums in **ts_idl** and remove the duplication in **enum.py**.
+
 v1.1.2
 ------
 

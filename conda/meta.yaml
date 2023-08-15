@@ -46,7 +46,7 @@ requirements:
     - scipy
     - pandas
     - ts-salobj
-    - ts-idl
+    - ts-idl {{ idl_version }}
     - ts-simactuators
     - ts-tcpip
     - ts-utils

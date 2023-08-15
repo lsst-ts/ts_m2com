@@ -26,13 +26,7 @@ from lsst.ts.idl.enums import MTM2
 from lsst.ts.tcpip import OneClientServer
 
 from ..constant import NUM_TEMPERATURE_EXHAUST, NUM_TEMPERATURE_INTAKE
-from ..enum import (
-    ClosedLoopControlMode,
-    DetailedState,
-    InnerLoopControlMode,
-    PowerSystemState,
-    PowerType,
-)
+from ..enum import DetailedState
 
 __all__ = ["MockMessageEvent"]
 
@@ -368,17 +362,20 @@ class MockMessageEvent:
             )
 
     async def write_power_system_state(
-        self, power_type: PowerType, status: bool, power_system_state: PowerSystemState
+        self,
+        power_type: MTM2.PowerType,
+        status: bool,
+        power_system_state: MTM2.PowerSystemState,
     ) -> None:
         """Write the message: power system state.
 
         Parameters
         ----------
-        power_type : enum `PowerType`
+        power_type : enum `MTM2.PowerType`
             Power type.
         status : `bool`
             Power status is on or not.
-        power_system_state : enum `PowerSystemState`
+        power_system_state : enum `MTM2.PowerSystemState`
             Power system state.
         """
 
@@ -392,12 +389,14 @@ class MockMessageEvent:
                 },
             )
 
-    async def write_closed_loop_control_mode(self, mode: ClosedLoopControlMode) -> None:
+    async def write_closed_loop_control_mode(
+        self, mode: MTM2.ClosedLoopControlMode
+    ) -> None:
         """Write the message: closed-loop control mode.
 
         Parameters
         ----------
-        mode : enum `ClosedLoopControlMode`
+        mode : enum `MTM2.ClosedLoopControlMode`
             Closed-loop control mode.
         """
 
@@ -410,7 +409,7 @@ class MockMessageEvent:
             )
 
     async def write_inner_loop_control_mode(
-        self, address: int, mode: InnerLoopControlMode
+        self, address: int, mode: MTM2.InnerLoopControlMode
     ) -> None:
         """Write the message: inner-loop control mode.
 
@@ -418,7 +417,7 @@ class MockMessageEvent:
         ----------
         address : `int`
             0-based address.
-        mode : enum `InnerLoopControlMode`
+        mode : enum `MTM2.InnerLoopControlMode`
             Inner-loop control mode.
         """
 

@@ -24,15 +24,10 @@ import json
 import logging
 
 from lsst.ts import salobj, tcpip
+from lsst.ts.idl.enums import MTM2
 from lsst.ts.utils import make_done_future
 
-from ..enum import (
-    ClosedLoopControlMode,
-    CommandStatus,
-    DetailedState,
-    LimitSwitchType,
-    MockErrorCode,
-)
+from ..enum import CommandStatus, DetailedState, LimitSwitchType, MockErrorCode
 from .mock_command import MockCommand
 from .mock_message_event import MockMessageEvent
 from .mock_message_telemetry import MockMessageTelemetry
@@ -314,7 +309,7 @@ class MockServer:
         await self._message_event.write_config()
 
         await self._message_event.write_closed_loop_control_mode(
-            ClosedLoopControlMode.Idle
+            MTM2.ClosedLoopControlMode.Idle
         )
 
         await self._message_event.write_enabled_faults_mask(
