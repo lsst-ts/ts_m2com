@@ -667,6 +667,9 @@ class MockServer:
 
         telemetry_data = self.model.get_telemetry_data()
 
+        await self._message_telemetry.write_power_status_raw(
+            telemetry_data["powerStatusRaw"]
+        )
         await self._message_telemetry.write_power_status(telemetry_data["powerStatus"])
         await self._message_telemetry.write_displacement_sensors(
             telemetry_data["displacementSensors"]
@@ -712,20 +715,12 @@ class MockServer:
             await self._message_telemetry.write_tangent_actuator_steps(
                 telemetry_data["tangentActuatorSteps"]
             )
-
-        # Specific telemetry for EUI
-        if not self._is_csc:
-            await self._message_telemetry.write_power_status_raw(
-                telemetry_data["powerStatusRaw"]
+            await self._message_telemetry.write_force_error_tangent(
+                telemetry_data["forceErrorTangent"]
             )
-
-            if self.model.power_motor.is_power_on():
-                await self._message_telemetry.write_force_error_tangent(
-                    telemetry_data["forceErrorTangent"]
-                )
-                await self._message_telemetry.write_inclinometer_angle_tma(
-                    telemetry_data["inclinometerAngleTma"]
-                )
+            await self._message_telemetry.write_inclinometer_angle_tma(
+                telemetry_data["inclinometerAngleTma"]
+            )
 
     async def _process_message_telemetry(self) -> None:
         """Read and process data from telemetry server."""
