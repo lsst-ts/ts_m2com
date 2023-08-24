@@ -25,6 +25,7 @@ from pathlib import Path
 
 import numpy as np
 import numpy.typing
+from lsst.ts.idl.enums import MTM2
 
 from ..constant import (
     MIRROR_WEIGHT_KG,
@@ -36,14 +37,7 @@ from ..constant import (
     TANGENT_LINK_THETA_Z_MOMENT,
     TANGENT_LINK_TOTAL_WEIGHT_ERROR,
 )
-from ..enum import (
-    DigitalInput,
-    DigitalOutput,
-    DigitalOutputStatus,
-    InnerLoopControlMode,
-    MockErrorCode,
-    PowerType,
-)
+from ..enum import DigitalInput, DigitalOutput, DigitalOutputStatus, MockErrorCode
 from ..utility import read_yaml_file
 from .mock_control_closed_loop import MockControlClosedLoop
 from .mock_control_open_loop import MockControlOpenLoop
@@ -1048,12 +1042,12 @@ class MockModel:
 
         return result
 
-    def reset_breakers(self, power_type: PowerType) -> bool:
+    def reset_breakers(self, power_type: MTM2.PowerType) -> bool:
         """Reset the breakers.
 
         Parameters
         ----------
-        power_type : `PowerType`
+        power_type : `MTM2.PowerType`
             Power type.
 
         Returns
@@ -1064,10 +1058,10 @@ class MockModel:
 
         result = False
 
-        if (power_type == PowerType.Motor) and self.power_motor.is_power_on():
+        if (power_type == MTM2.PowerType.Motor) and self.power_motor.is_power_on():
             result = True
         elif (
-            power_type == PowerType.Communication
+            power_type == MTM2.PowerType.Communication
         ) and self.power_communication.is_power_on():
             result = True
 
@@ -1155,21 +1149,23 @@ class MockModel:
         else:
             raise RuntimeError(f"Not supported status: {status!r}.")
 
-    def set_mode_ilc(self, addresses: list[int], mode: InnerLoopControlMode) -> None:
+    def set_mode_ilc(
+        self, addresses: list[int], mode: MTM2.InnerLoopControlMode
+    ) -> None:
         """Set the mode of inner-loop controller (ILC).
 
         Parameters
         ----------
         addresses : `list [int]`
             0-based addresses.
-        mode : enum `InnerLoopControlMode`
+        mode : enum `MTM2.InnerLoopControlMode`
             ILC mode.
         """
 
         for address in addresses:
             self.list_ilc[address].set_mode(mode)
 
-    def get_mode_ilc(self, addresses: list[int]) -> list[InnerLoopControlMode]:
+    def get_mode_ilc(self, addresses: list[int]) -> list[MTM2.InnerLoopControlMode]:
         """Get the mode of inner-loop controller (ILC).
 
         Parameters
@@ -1179,7 +1175,7 @@ class MockModel:
 
         Returns
         -------
-        list_mode : `list [InnerLoopControlMode]`
+        list_mode : `list [MTM2.InnerLoopControlMode]`
             List of the ILC mode.
         """
 

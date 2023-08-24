@@ -23,6 +23,7 @@ import unittest
 
 import numpy as np
 import numpy.typing
+from lsst.ts.idl.enums import MTM2
 from lsst.ts.m2com import (
     NUM_ACTUATOR,
     NUM_TANGENT_LINK,
@@ -34,10 +35,8 @@ from lsst.ts.m2com import (
     TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
     DigitalOutput,
     DigitalOutputStatus,
-    InnerLoopControlMode,
     MockErrorCode,
     MockModel,
-    PowerType,
     get_config_dir,
 )
 
@@ -493,17 +492,17 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
 
     async def test_reset_breakers(self) -> None:
         # These should fail
-        self.assertFalse(self.model.reset_breakers(PowerType.Motor))
-        self.assertFalse(self.model.reset_breakers(PowerType.Communication))
+        self.assertFalse(self.model.reset_breakers(MTM2.PowerType.Motor))
+        self.assertFalse(self.model.reset_breakers(MTM2.PowerType.Communication))
         self.assertFalse(self.model.reset_breakers(3))
 
         # Reset the breakers of communication
         await self.model.power_communication.power_on()
-        self.assertTrue(self.model.reset_breakers(PowerType.Communication))
+        self.assertTrue(self.model.reset_breakers(MTM2.PowerType.Communication))
 
         # Reset the breakers of motor
         await self.model.power_motor.power_on()
-        self.assertTrue(self.model.reset_breakers(PowerType.Motor))
+        self.assertTrue(self.model.reset_breakers(MTM2.PowerType.Motor))
 
     async def test_get_digital_output(self) -> None:
         self.assertEqual(self.model.get_digital_output(), TEST_DIGITAL_OUTPUT_NO_POWER)
@@ -587,14 +586,16 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
 
         # There is the data
         list_mode = self.model.get_mode_ilc([2])
-        self.assertEqual(list_mode[0], InnerLoopControlMode.Standby)
+        self.assertEqual(list_mode[0], MTM2.InnerLoopControlMode.Standby)
 
     def test_set_mode_ilc(self) -> None:
         addresses = [1, 2]
-        self.model.set_mode_ilc(addresses, InnerLoopControlMode.Enabled)
+        self.model.set_mode_ilc(addresses, MTM2.InnerLoopControlMode.Enabled)
 
         list_mode = self.model.get_mode_ilc(addresses)
-        self.assertEqual(list_mode, [InnerLoopControlMode.Enabled] * len(addresses))
+        self.assertEqual(
+            list_mode, [MTM2.InnerLoopControlMode.Enabled] * len(addresses)
+        )
 
 
 if __name__ == "__main__":

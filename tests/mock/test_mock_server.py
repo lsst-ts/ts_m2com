@@ -42,13 +42,10 @@ from lsst.ts.m2com import (
     TEST_DIGITAL_OUTPUT_NO_POWER,
     TEST_DIGITAL_OUTPUT_POWER_COMM,
     TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
-    ClosedLoopControlMode,
     DetailedState,
     MockErrorCode,
     MockServer,
     MsgType,
-    PowerSystemState,
-    PowerType,
     TcpClient,
     collect_queue_messages,
     get_config_dir,
@@ -213,7 +210,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             msg_clc_mode = client_cmd.queue.get_nowait()
             self.assertEqual(msg_clc_mode["id"], "closedLoopControlMode")
-            self.assertEqual(msg_clc_mode["mode"], ClosedLoopControlMode.Idle)
+            self.assertEqual(msg_clc_mode["mode"], MTM2.ClosedLoopControlMode.Idle)
 
             msg_mask = client_cmd.queue.get_nowait()
             self.assertEqual(msg_mask["id"], "enabledFaultsMask")
@@ -770,7 +767,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             await client_cmd.write_message(
                 MsgType.Command,
                 "power",
-                msg_details={"powerType": int(PowerType.Motor), "status": True},
+                msg_details={"powerType": int(MTM2.PowerType.Motor), "status": True},
             )
 
             await asyncio.sleep(5)
@@ -781,14 +778,14 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(len(msg_power_system_state), 2)
             self.assertEqual(
-                msg_power_system_state[0]["powerType"], PowerType.Motor.value
+                msg_power_system_state[0]["powerType"], MTM2.PowerType.Motor.value
             )
             self.assertTrue(msg_power_system_state[0]["status"])
             self.assertEqual(
-                msg_power_system_state[0]["state"], PowerSystemState.PoweringOn
+                msg_power_system_state[0]["state"], MTM2.PowerSystemState.PoweringOn
             )
             self.assertEqual(
-                msg_power_system_state[1]["state"], PowerSystemState.PoweredOn
+                msg_power_system_state[1]["state"], MTM2.PowerSystemState.PoweredOn
             )
 
             msg_summary_faults_status = get_queue_message_latest(
@@ -805,7 +802,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 MsgType.Command,
                 "power",
                 msg_details={
-                    "powerType": int(PowerType.Communication),
+                    "powerType": int(MTM2.PowerType.Communication),
                     "status": False,
                 },
             )
@@ -818,14 +815,15 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(len(msg_power_system_state), 2)
             self.assertEqual(
-                msg_power_system_state[0]["powerType"], PowerType.Communication.value
+                msg_power_system_state[0]["powerType"],
+                MTM2.PowerType.Communication.value,
             )
             self.assertFalse(msg_power_system_state[0]["status"])
             self.assertEqual(
-                msg_power_system_state[0]["state"], PowerSystemState.PoweringOff
+                msg_power_system_state[0]["state"], MTM2.PowerSystemState.PoweringOff
             )
             self.assertEqual(
-                msg_power_system_state[1]["state"], PowerSystemState.PoweredOff
+                msg_power_system_state[1]["state"], MTM2.PowerSystemState.PoweredOff
             )
 
     async def test_cmd_load_configuration(self) -> None:

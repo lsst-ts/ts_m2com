@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from ..enum import InnerLoopControlMode
+from lsst.ts.idl.enums import MTM2
 
 __all__ = ["MockInnerLoopController"]
 
@@ -29,14 +29,14 @@ class MockInnerLoopController:
 
     Attributes
     ----------
-    mode : enum `InnerLoopControlMode`
+    mode : enum `MTM2.InnerLoopControlMode`
         mode of ILC.
     """
 
     def __init__(self) -> None:
-        self.mode = InnerLoopControlMode.Standby
+        self.mode = MTM2.InnerLoopControlMode.Standby
 
-    def set_mode(self, mode: InnerLoopControlMode) -> None:
+    def set_mode(self, mode: MTM2.InnerLoopControlMode) -> None:
         """Set the mode.
 
         Notes
@@ -46,15 +46,18 @@ class MockInnerLoopController:
 
         Parameters
         ----------
-        mode : enum `InnerLoopControlMode`
+        mode : enum `MTM2.InnerLoopControlMode`
             Inner-loop control mode.
         """
 
-        if mode in (InnerLoopControlMode.NoChange, InnerLoopControlMode.Unknown):
+        if mode in (
+            MTM2.InnerLoopControlMode.NoChange,
+            MTM2.InnerLoopControlMode.Unknown,
+        ):
             return
 
-        elif mode == InnerLoopControlMode.ClearFaults:
-            self.mode = InnerLoopControlMode.Standby
+        elif mode == MTM2.InnerLoopControlMode.ClearFaults:
+            self.mode = MTM2.InnerLoopControlMode.Standby
 
         else:
             self.mode = mode

@@ -24,15 +24,10 @@ import json
 import logging
 
 from lsst.ts import salobj, tcpip
+from lsst.ts.idl.enums import MTM2
 from lsst.ts.utils import make_done_future
 
-from ..enum import (
-    ClosedLoopControlMode,
-    CommandStatus,
-    DetailedState,
-    LimitSwitchType,
-    MockErrorCode,
-)
+from ..enum import CommandStatus, DetailedState, LimitSwitchType, MockErrorCode
 from .mock_command import MockCommand
 from .mock_message_event import MockMessageEvent
 from .mock_message_telemetry import MockMessageTelemetry
@@ -314,7 +309,7 @@ class MockServer:
         await self._message_event.write_config()
 
         await self._message_event.write_closed_loop_control_mode(
-            ClosedLoopControlMode.Idle
+            MTM2.ClosedLoopControlMode.Idle
         )
 
         await self._message_event.write_enabled_faults_mask(
@@ -672,6 +667,9 @@ class MockServer:
 
         telemetry_data = self.model.get_telemetry_data()
 
+        await self._message_telemetry.write_power_status_raw(
+            telemetry_data["powerStatusRaw"]
+        )
         await self._message_telemetry.write_power_status(telemetry_data["powerStatus"])
         await self._message_telemetry.write_displacement_sensors(
             telemetry_data["displacementSensors"]
@@ -717,20 +715,12 @@ class MockServer:
             await self._message_telemetry.write_tangent_actuator_steps(
                 telemetry_data["tangentActuatorSteps"]
             )
-
-        # Specific telemetry for EUI
-        if not self._is_csc:
-            await self._message_telemetry.write_power_status_raw(
-                telemetry_data["powerStatusRaw"]
+            await self._message_telemetry.write_force_error_tangent(
+                telemetry_data["forceErrorTangent"]
             )
-
-            if self.model.power_motor.is_power_on():
-                await self._message_telemetry.write_force_error_tangent(
-                    telemetry_data["forceErrorTangent"]
-                )
-                await self._message_telemetry.write_inclinometer_angle_tma(
-                    telemetry_data["inclinometerAngleTma"]
-                )
+            await self._message_telemetry.write_inclinometer_angle_tma(
+                telemetry_data["inclinometerAngleTma"]
+            )
 
     async def _process_message_telemetry(self) -> None:
         """Read and process data from telemetry server."""

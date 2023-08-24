@@ -28,6 +28,7 @@ from pathlib import Path
 
 import numpy as np
 from lsst.ts import salobj, tcpip
+from lsst.ts.idl.enums import MTM2
 from lsst.ts.m2com import (
     NUM_ACTUATOR,
     TEST_DIGITAL_OUTPUT_POWER_COMM,
@@ -41,7 +42,6 @@ from lsst.ts.m2com import (
     DigitalOutputStatus,
     MockErrorCode,
     MockServer,
-    PowerType,
     collect_queue_messages,
     get_config_dir,
     get_queue_message_latest,
@@ -492,7 +492,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await server.model.power_communication.power_on()
             await controller.write_command_to_server(
                 "resetBreakers",
-                message_details={"powerType": PowerType.Communication},
+                message_details={"powerType": MTM2.PowerType.Communication},
             )
 
             messages = collect_queue_messages(controller.queue_event, "digitalOutput")
@@ -512,7 +512,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await server.model.power_motor.power_on()
             await controller.write_command_to_server(
                 "resetBreakers",
-                message_details={"powerType": PowerType.Motor},
+                message_details={"powerType": MTM2.PowerType.Motor},
             )
 
             messages = collect_queue_messages(controller.queue_event, "digitalOutput")

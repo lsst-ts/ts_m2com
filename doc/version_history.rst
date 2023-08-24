@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v1.1.3
+------
+
+* Use the enums in **ts_idl** and remove the duplication in **enum.py**.
+* Publish the same telemetry for CSC and EUI.
+
 v1.1.2
 ------
 

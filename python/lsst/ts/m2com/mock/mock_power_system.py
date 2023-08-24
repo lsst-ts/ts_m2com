@@ -22,8 +22,7 @@
 import asyncio
 
 import numpy as np
-
-from ..enum import PowerSystemState
+from lsst.ts.idl.enums import MTM2
 
 __all__ = ["MockPowerSystem"]
 
@@ -40,7 +39,7 @@ class MockPowerSystem:
 
     Attributes
     ----------
-    state : enum `PowerSystemState`
+    state : enum `MTM2.PowerSystemState`
         State of the power system.
     """
 
@@ -52,7 +51,7 @@ class MockPowerSystem:
         # Power is on or not
         self._is_power_on = False
 
-        self.state = PowerSystemState.Init
+        self.state = MTM2.PowerSystemState.Init
 
         # Default voltage and current when the power is on
         self._default_voltage = default_voltage
@@ -64,14 +63,14 @@ class MockPowerSystem:
         self._is_power_on = True
 
         await asyncio.sleep(self.SLEEP_TIME_SHORT)
-        self.state = PowerSystemState.PoweringOn
+        self.state = MTM2.PowerSystemState.PoweringOn
 
     async def wait_power_fully_on(self) -> None:
         """Wait the power to be fully on."""
 
-        if self.state == PowerSystemState.PoweringOn:
+        if self.state == MTM2.PowerSystemState.PoweringOn:
             await asyncio.sleep(self.SLEEP_TIME_LONG)
-            self.state = PowerSystemState.PoweredOn
+            self.state = MTM2.PowerSystemState.PoweredOn
 
     async def power_off(self) -> None:
         """Power off."""
@@ -79,14 +78,14 @@ class MockPowerSystem:
         self._is_power_on = False
 
         await asyncio.sleep(self.SLEEP_TIME_SHORT)
-        self.state = PowerSystemState.PoweringOff
+        self.state = MTM2.PowerSystemState.PoweringOff
 
     async def wait_power_fully_off(self) -> None:
         """Wait the power to be fully off."""
 
-        if self.state == PowerSystemState.PoweringOff:
+        if self.state == MTM2.PowerSystemState.PoweringOff:
             await asyncio.sleep(self.SLEEP_TIME_SHORT)
-            self.state = PowerSystemState.PoweredOff
+            self.state = MTM2.PowerSystemState.PoweredOff
 
     def is_power_on(self) -> bool:
         """Power is on or not.
@@ -97,9 +96,9 @@ class MockPowerSystem:
             True if the power is on. Otherwise, False.
         """
         return self._is_power_on and self.state in (
-            PowerSystemState.PoweringOn,
-            PowerSystemState.ResettingBreakers,
-            PowerSystemState.PoweredOn,
+            MTM2.PowerSystemState.PoweringOn,
+            MTM2.PowerSystemState.ResettingBreakers,
+            MTM2.PowerSystemState.PoweredOn,
         )
 
     def get_power(self, rms: float = 0.05) -> tuple[float, float]:

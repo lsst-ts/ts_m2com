@@ -21,7 +21,8 @@
 
 import unittest
 
-from lsst.ts.m2com import InnerLoopControlMode, MockInnerLoopController
+from lsst.ts.idl.enums import MTM2
+from lsst.ts.m2com import MockInnerLoopController
 
 
 class TestMockInnerLoopController(unittest.TestCase):
@@ -31,14 +32,20 @@ class TestMockInnerLoopController(unittest.TestCase):
         self.inner_loop_controller = MockInnerLoopController()
 
     def test_set_mode(self) -> None:
-        self.inner_loop_controller.set_mode(InnerLoopControlMode.Fault)
-        self.assertEqual(self.inner_loop_controller.mode, InnerLoopControlMode.Fault)
+        self.inner_loop_controller.set_mode(MTM2.InnerLoopControlMode.Fault)
+        self.assertEqual(
+            self.inner_loop_controller.mode, MTM2.InnerLoopControlMode.Fault
+        )
 
-        self.inner_loop_controller.set_mode(InnerLoopControlMode.ClearFaults)
-        self.assertEqual(self.inner_loop_controller.mode, InnerLoopControlMode.Standby)
+        self.inner_loop_controller.set_mode(MTM2.InnerLoopControlMode.ClearFaults)
+        self.assertEqual(
+            self.inner_loop_controller.mode, MTM2.InnerLoopControlMode.Standby
+        )
 
-        self.inner_loop_controller.set_mode(InnerLoopControlMode.NoChange)
-        self.assertEqual(self.inner_loop_controller.mode, InnerLoopControlMode.Standby)
+        self.inner_loop_controller.set_mode(MTM2.InnerLoopControlMode.NoChange)
+        self.assertEqual(
+            self.inner_loop_controller.mode, MTM2.InnerLoopControlMode.Standby
+        )
 
 
 if __name__ == "__main__":

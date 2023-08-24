@@ -22,10 +22,10 @@
 import asyncio
 
 from lsst.ts import salobj
+from lsst.ts.idl.enums import MTM2
 
 from ..enum import (
     ActuatorDisplacementUnit,
-    ClosedLoopControlMode,
     CommandActuator,
     CommandScript,
     CommandStatus,
@@ -33,10 +33,7 @@ from ..enum import (
     DigitalInput,
     DigitalOutput,
     DigitalOutputStatus,
-    InnerLoopControlMode,
     MockErrorCode,
-    PowerSystemState,
-    PowerType,
 )
 from .mock_message_event import MockMessageEvent
 from .mock_model import MockModel
@@ -90,7 +87,9 @@ class MockCommand:
         if not model.power_communication.is_power_on():
             return model, CommandStatus.Fail
 
-        await self._power_on_fully(PowerType.Motor, model.power_motor, message_event)
+        await self._power_on_fully(
+            MTM2.PowerType.Motor, model.power_motor, message_event
+        )
 
         # Only turn on the force balance system when the CSC is the commander.
         # Need to unify the behaviors of CSC and EUI after the cell controller
@@ -101,7 +100,7 @@ class MockCommand:
 
             if not command_success:
                 await self._power_off_fully(
-                    PowerType.Motor, model.power_motor, message_event
+                    MTM2.PowerType.Motor, model.power_motor, message_event
                 )
 
             await message_event.write_m2_assembly_in_position(False)
@@ -125,7 +124,7 @@ class MockCommand:
 
     async def _power_on_fully(
         self,
-        power_type: PowerType,
+        power_type: MTM2.PowerType,
         power_system: MockPowerSystem,
         message_event: MockMessageEvent,
     ) -> None:
@@ -133,7 +132,7 @@ class MockCommand:
 
         Parameters
         ----------
-        power_type : enum `PowerType`
+        power_type : enum `MTM2.PowerType`
             Power type.
         power_system : `MockPowerSystem`
             Power system.
@@ -153,7 +152,7 @@ class MockCommand:
 
     async def _power_off_fully(
         self,
-        power_type: PowerType,
+        power_type: MTM2.PowerType,
         power_system: MockPowerSystem,
         message_event: MockMessageEvent,
     ) -> None:
@@ -161,7 +160,7 @@ class MockCommand:
 
         Parameters
         ----------
-        power_type : enum `PowerType`
+        power_type : enum `MTM2.PowerType`
             Power type.
         power_system : `MockPowerSystem`
             Power system.
@@ -245,7 +244,9 @@ class MockCommand:
         """
 
         model.switch_force_balance_system(False)
-        await self._power_off_fully(PowerType.Motor, model.power_motor, message_event)
+        await self._power_off_fully(
+            MTM2.PowerType.Motor, model.power_motor, message_event
+        )
 
         await message_event.write_force_balance_system_status(
             model.control_closed_loop.is_running
@@ -283,9 +284,11 @@ class MockCommand:
             Status of command execution.
         """
 
-        await self._power_off_fully(PowerType.Motor, model.power_motor, message_event)
         await self._power_off_fully(
-            PowerType.Communication, model.power_communication, message_event
+            MTM2.PowerType.Motor, model.power_motor, message_event
+        )
+        await self._power_off_fully(
+            MTM2.PowerType.Communication, model.power_communication, message_event
         )
 
         await message_event.write_summary_state(salobj.State.STANDBY)
@@ -317,7 +320,7 @@ class MockCommand:
         """
 
         await self._power_on_fully(
-            PowerType.Communication, model.power_communication, message_event
+            MTM2.PowerType.Communication, model.power_communication, message_event
         )
 
         await message_event.write_summary_state(salobj.State.DISABLED)
@@ -390,10 +393,10 @@ class MockCommand:
 
         if self._is_csc:
             await self._power_off_fully(
-                PowerType.Motor, model.power_motor, message_event
+                MTM2.PowerType.Motor, model.power_motor, message_event
             )
             await self._power_off_fully(
-                PowerType.Communication, model.power_communication, message_event
+                MTM2.PowerType.Communication, model.power_communication, message_event
             )
 
             # Sleep time is to simulate some internal inspection of
@@ -597,11 +600,11 @@ class MockCommand:
         # Publish the closed-loop control mode
         if model.control_closed_loop.is_running:
             await message_event.write_closed_loop_control_mode(
-                ClosedLoopControlMode.ClosedLoop
+                MTM2.ClosedLoopControlMode.ClosedLoop
             )
         else:
             await message_event.write_closed_loop_control_mode(
-                ClosedLoopControlMode.OpenLoop
+                MTM2.ClosedLoopControlMode.OpenLoop
             )
 
         return (
@@ -784,7 +787,7 @@ class MockCommand:
         """
 
         try:
-            power_type = PowerType(message["powerType"])
+            power_type = MTM2.PowerType(message["powerType"])
         except ValueError:
             return model, CommandStatus.Fail
 
@@ -793,7 +796,7 @@ class MockCommand:
         digital_input_default = model.get_digital_input()
         power_system = (
             model.power_motor
-            if power_type == PowerType.Motor
+            if power_type == MTM2.PowerType.Motor
             else model.power_communication
         )
 
@@ -805,13 +808,13 @@ class MockCommand:
             digital_output_reset = digital_output_default
             digital_input_reset = digital_input_default
 
-            if power_type == PowerType.Motor:
+            if power_type == MTM2.PowerType.Motor:
                 digital_output_reset -= DigitalOutput.ResetMotorBreakers.value
                 digital_input_reset += sum(
                     [item.value for item in model.digital_input_motor]
                 )
 
-            elif power_type == PowerType.Communication:
+            elif power_type == MTM2.PowerType.Communication:
                 digital_output_reset -= DigitalOutput.ResetCommunicationBreakers.value
                 digital_input_reset += sum(
                     [item.value for item in model.digital_input_communication]
@@ -824,7 +827,7 @@ class MockCommand:
             await message_event.write_power_system_state(
                 power_type,
                 power_system.is_power_on(),
-                PowerSystemState.ResettingBreakers,
+                MTM2.PowerSystemState.ResettingBreakers,
             )
 
             # Sleep a short time to simulate the reset process
@@ -995,20 +998,20 @@ class MockCommand:
         # Turn on/off the power based on the bit value
         if self._digital_output & DigitalOutput.CommunicationPower.value:
             await self._power_on_fully(
-                PowerType.Communication, model.power_communication, message_event
+                MTM2.PowerType.Communication, model.power_communication, message_event
             )
         else:
             await self._power_off_fully(
-                PowerType.Communication, model.power_communication, message_event
+                MTM2.PowerType.Communication, model.power_communication, message_event
             )
 
         if self._digital_output & DigitalOutput.MotorPower.value:
             await self._power_on_fully(
-                PowerType.Motor, model.power_motor, message_event
+                MTM2.PowerType.Motor, model.power_motor, message_event
             )
         else:
             await self._power_off_fully(
-                PowerType.Motor, model.power_motor, message_event
+                MTM2.PowerType.Motor, model.power_motor, message_event
             )
 
         return model, CommandStatus.Success
@@ -1037,13 +1040,13 @@ class MockCommand:
 
         # Get the power type
         try:
-            power_type = PowerType(message["powerType"])
+            power_type = MTM2.PowerType(message["powerType"])
         except ValueError:
             return model, CommandStatus.Fail
 
         power_system = (
             model.power_motor
-            if power_type == PowerType.Motor
+            if power_type == MTM2.PowerType.Motor
             else model.power_communication
         )
 
@@ -1126,7 +1129,7 @@ class MockCommand:
 
         # Get the mode
         try:
-            mode = ClosedLoopControlMode(message["mode"])
+            mode = MTM2.ClosedLoopControlMode(message["mode"])
         except ValueError:
             return model, CommandStatus.Fail
 
@@ -1163,7 +1166,7 @@ class MockCommand:
         # Note the addresses are 0-based
         try:
             addresses = message["addresses"]
-            mode = InnerLoopControlMode(message["mode"])
+            mode = MTM2.InnerLoopControlMode(message["mode"])
 
             model.set_mode_ilc(addresses, mode)
         except (IndexError, ValueError):
