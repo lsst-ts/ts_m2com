@@ -30,7 +30,7 @@ The badges above navigate to the GitHub repository for the common code and Jira 
 Dependencies
 ============
 
-* `ts_salobj <https://github.com/lsst-ts/ts_salobj>`_
+* `ts_xml <https://github.com/lsst-ts/ts_xml>`_
 * `ts_tcpip <https://github.com/lsst-ts/ts_tcpip>`_
 * `ts_utils <https://github.com/lsst-ts/ts_utils>`_
 * `ts_config_mttcs <https://github.com/lsst-ts/ts_config_mttcs>`_
