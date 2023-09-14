@@ -25,9 +25,8 @@ import time
 import typing
 
 import numpy as np
-from lsst.ts import salobj
-from lsst.ts.idl.enums import MTM2
 from lsst.ts.utils import make_done_future
+from lsst.ts.xml.enums import MTM2
 
 from .constant import (
     DEFAULT_ENABLED_FAULTS_MASK,
@@ -62,11 +61,6 @@ class Controller:
         default is 0.05)
     maxsize_queue : `int`, optional
         Maximum size of queue. (the default is 1000)
-    is_csc : `bool`, optional
-        Is called by the commandable SAL component (CSC) or not. This is a
-        temporary option to separate the CSC and engineering user interface
-        (EUI). This will be removed in the future after the state machines in
-        the cell controller are unified to a single one. (the default is True)
 
     Attributes
     ----------
@@ -84,11 +78,6 @@ class Controller:
         Last command status.
     timeout : `float`
         Time limit for reading data from the TCP/IP interface (sec).
-    is_csc : `bool`
-        Is CSC or not. Remove this after the state machines in cell controller
-        are unified.
-    controller_state : enum `salobj.State`
-        Controller's state.
     power_system_status : `dict`
         Power system status in the cell controller.
     closed_loop_control_mode : enum `MTM2.ClosedLoopControlMode`
@@ -104,7 +93,6 @@ class Controller:
         log: logging.Logger | None = None,
         timeout_in_second: float = 0.05,
         maxsize_queue: int = 1000,
-        is_csc: bool = True,
     ) -> None:
         # Set the logger
         if log is None:
@@ -122,13 +110,6 @@ class Controller:
         self.last_command_status = CommandStatus.Unknown
 
         self.timeout = timeout_in_second
-
-        self.is_csc = is_csc
-
-        # In EUI, there is no OFFLINE state.
-        self.controller_state = (
-            salobj.State.OFFLINE if self.is_csc else salobj.State.STANDBY
-        )
 
         self.power_system_status = {
             "motor_power_is_on": False,
@@ -338,10 +319,6 @@ class Controller:
             self.last_command_status = self._get_command_status(message)
             return
 
-        # Update the controller state
-        if self._is_controller_state(message):
-            self.controller_state = salobj.State(message["summaryState"])
-
         # Check and update the power status
         self._update_power_status(message)
 
@@ -360,9 +337,6 @@ class Controller:
         # Put the event message into the queue for CSC/GUI to publish
         self.queue_event.put_nowait(message)
         check_queue_size(self.queue_event, self.log)
-
-        # Put the controller state to Fault if there is the error
-        self._check_and_fault_controller()
 
     def _is_command_status(self, message: dict) -> bool:
         """Is the command status or not.
@@ -440,22 +414,6 @@ class Controller:
             return CommandStatus.NoAck
         else:
             return CommandStatus.Unknown
-
-    def _is_controller_state(self, message: dict) -> bool:
-        """Is the controller's state or not.
-
-        Parameters
-        ----------
-        message : `dict`
-            Incoming message.
-
-        Returns
-        -------
-        `bool`
-            True if the message is the controller's state. Else, False.
-        """
-
-        return message["id"] == "summaryState"
 
     def _update_power_status(self, message: dict) -> None:
         """Check and update the power status.
@@ -574,21 +532,6 @@ class Controller:
             for code in codes:
                 self.queue_event.put_nowait({"id": "errorCode", "errorCode": code})
 
-    def _check_and_fault_controller(self) -> None:
-        """Check the system condition and fault the controller if needed.
-
-        Notes
-        -----
-        Remove this function after we fully test the ts_m2gui on summit. This
-        function is just to maintain the ts_m2gui and ts_mtm2 compatibility at
-        the moment.
-        """
-
-        if self.error_handler.exists_error() and (
-            self.controller_state != salobj.State.FAULT
-        ):
-            self.controller_state = salobj.State.FAULT
-
     def are_clients_connected(self) -> bool:
         """The command and telemetry sockets are connected or not.
 
@@ -626,11 +569,6 @@ class Controller:
 
         self.last_command_status = CommandStatus.Unknown
 
-        # In EUI, there is no OFFLINE state.
-        self.controller_state = (
-            salobj.State.OFFLINE if self.is_csc else salobj.State.STANDBY
-        )
-
         self.power_system_status = {
             "motor_power_is_on": False,
             "motor_power_state": MTM2.PowerSystemState.Init,
@@ -641,76 +579,24 @@ class Controller:
         self.closed_loop_control_mode = MTM2.ClosedLoopControlMode.Idle
         self.set_ilc_modes_to_unknown()
 
-    def assert_controller_state(
-        self, command_name: str, allowed_curr_states: list[salobj.State]
-    ) -> None:
-        """Assert the current controller's state is allowed to do the command
-        or not.
-
-        Parameters
-        ----------
-        command_name : `str`
-            Command name.
-        allowed_curr_states : `list [salobj.State]`
-            Allowed current states.
-
-        Raises
-        ------
-        `ValueError`
-            When the command is not allowed in current controller's state.
-        """
-
-        # Make sure the data type of allowed_curr_states is list
-        if not isinstance(allowed_curr_states, list):
-            allowed_curr_states = [allowed_curr_states]
-
-        curr_state = self.controller_state
-        if curr_state not in allowed_curr_states:
-            raise ValueError(
-                f"{command_name} command is not allowed in controller's state {curr_state!r}."
-            )
-
-    async def clear_errors(
-        self, bypass_state_checking: bool = False, timeout: float = 10.0
-    ) -> None:
+    async def clear_errors(self, timeout: float = 10.0) -> None:
         """Clear the errors.
 
-        Notes
-        -----
-        Remove the 'bypass_state_checking' after we fully test the ts_m2gui on
-        summit. This function is just to maintain the ts_m2gui and ts_mtm2
-        compatibility at the moment.
-
         Parameters
         ----------
-        bypass_state_checking : `bool`, optional
-            Bypass the state checking or not. (the default is False.)
         timeout : `float`, optional
             Timeout of command in second. (the default is 10.0)
         """
 
         self.error_handler.clear()
 
-        if bypass_state_checking:
-            controller_state_expected = None
-        else:
-            # In EUI, there is no OFFLINE state.
-            controller_state_expected = (
-                salobj.State.OFFLINE if self.is_csc else salobj.State.STANDBY
-            )
-
-        await self.write_command_to_server(
-            "clearErrors",
-            controller_state_expected=controller_state_expected,
-            timeout=timeout,
-        )
+        await self.write_command_to_server("clearErrors", timeout=timeout)
 
     async def write_command_to_server(
         self,
         message_name: str,
         message_details: dict | None = None,
         timeout: float = 10.0,
-        controller_state_expected: salobj.State | None = None,
     ) -> None:
         """Write the command (message_name) to server.
 
@@ -722,9 +608,6 @@ class Controller:
             Message details. (the default is None)
         timeout : `float`, optional
             Timeout of command in second. (the default is 10.0)
-        controller_state_expected : enum `salobj.State` or None, optional
-            Expected controller's state. This is only used for the commands
-            related to the state transition. (the default is None)
 
         Raises
         ------
@@ -746,19 +629,12 @@ class Controller:
             MsgType.Command, message_name, msg_details=message_details
         )
 
-        is_successful = await self._check_command_status(
-            message_name, timeout, controller_state_expected=controller_state_expected
-        )
+        is_successful = await self._check_command_status(message_name, timeout)
 
         if not is_successful:
             raise RuntimeError(f"{message_name} command failed.")
 
-    async def _check_command_status(
-        self,
-        command_name: str,
-        timeout: float,
-        controller_state_expected: salobj.State | None = None,
-    ) -> bool:
+    async def _check_command_status(self, command_name: str, timeout: float) -> bool:
         """Check the command status from the controller.
 
         Parameters
@@ -767,9 +643,6 @@ class Controller:
             Command name.
         timeout : `float`
             Timeout of command acknowledgement in second.
-        controller_state_expected : enum `salobj.State` or None, optional
-            Expected controller's state. This is only used for the commands
-            related to the state transition. (the default is None)
 
         Returns
         -------
@@ -784,32 +657,12 @@ class Controller:
             last_command_status = self.last_command_status
 
             if last_command_status == CommandStatus.Success:
-                if controller_state_expected is None:
-                    return True
-                else:
-                    # Wait some time to let the event loop have the time to
-                    # analyze the messages
-                    await asyncio.sleep(time_wait_command_status_update)
+                return True
 
-                    # Check the controller's state is expected or not
-                    if self.controller_state == controller_state_expected:
-                        return True
-
-            # If false, return immediately
             elif last_command_status in (CommandStatus.Fail, CommandStatus.NoAck):
                 return False
 
             await asyncio.sleep(time_wait_command_status_update)
-
-        # Log the condition that the state transition is successful, but no
-        # result received
-        if (controller_state_expected is not None) and (
-            self.controller_state == controller_state_expected
-        ):
-            self.log.debug(
-                f"Controller's state is expected for {command_name}. But no result received."
-            )
-            return True
 
         if last_command_status == CommandStatus.Ack:
             self.log.debug(f"Only get the acknowledgement of {command_name}.")

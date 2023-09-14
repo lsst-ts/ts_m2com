@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from lsst.ts.idl.enums import MTM2
+from lsst.ts.xml.enums import MTM2
 
 __all__ = ["MockInnerLoopController"]
 

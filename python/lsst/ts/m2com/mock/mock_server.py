@@ -23,11 +23,11 @@ import asyncio
 import json
 import logging
 
-from lsst.ts import salobj, tcpip
-from lsst.ts.idl.enums import MTM2
+from lsst.ts import tcpip
 from lsst.ts.utils import make_done_future
+from lsst.ts.xml.enums import MTM2
 
-from ..enum import CommandStatus, DetailedState, LimitSwitchType, MockErrorCode
+from ..enum import CommandStatus, LimitSwitchType, MockErrorCode
 from .mock_command import MockCommand
 from .mock_message_event import MockMessageEvent
 from .mock_message_telemetry import MockMessageTelemetry
@@ -125,14 +125,8 @@ class MockServer:
 
         self._is_csc = is_csc
 
-        self._command = MockCommand(is_csc=self._is_csc)
+        self._command = MockCommand()
         self._command_response = {
-            "cmd_enable": self._command.enable,
-            "cmd_disable": self._command.disable,
-            "cmd_standby": self._command.standby,
-            "cmd_start": self._command.start,
-            "cmd_enterControl": self._command.enter_control,
-            "cmd_exitControl": self._command.exit_control,
             "cmd_applyForces": self._command.apply_forces,
             "cmd_positionMirror": self._command.position_mirror,
             "cmd_resetForceOffsets": self._command.reset_force_offsets,
@@ -288,17 +282,6 @@ class MockServer:
             self.model.control_closed_loop.temperature["ref"],
         )
 
-        # This is only for the state machine of CSC
-        # Sleep time is to simulate some internal inspection of
-        # real system
-        if self._is_csc:
-            await self._message_event.write_detailed_state(DetailedState.PublishOnly)
-            await asyncio.sleep(0.01)
-            await self._message_event.write_detailed_state(DetailedState.Available)
-
-        summary_state = salobj.State.OFFLINE if self._is_csc else salobj.State.STANDBY
-        await self._message_event.write_summary_state(summary_state)
-
         # Send the digital input and output
         digital_input = self.model.get_digital_input()
         await self._message_event.write_digital_input(digital_input)
@@ -333,7 +316,6 @@ class MockServer:
         # Report the error code and related events
         error_handler = self.model.error_handler
         if error_handler.exists_new_error():
-            await self._message_event.write_summary_state(salobj.State.FAULT)
             await self._message_event.write_force_balance_system_status(
                 self.model.control_closed_loop.is_running
             )
@@ -765,10 +747,7 @@ class MockServer:
             self.server_command.start_task, self.server_telemetry.start_task
         )
 
-        # Remove "if not self._is_csc" after we get ride of the ts_mtm2 on
-        # summit. At this moment, only simulate this event for the ts_m2gui.
-        if not self._is_csc:
-            self.model.error_handler.add_new_error(MockErrorCode.LostConnection.value)
+        self.model.error_handler.add_new_error(MockErrorCode.LostConnection.value)
 
     async def close(self) -> None:
         """Cancel the tasks and close the connections.

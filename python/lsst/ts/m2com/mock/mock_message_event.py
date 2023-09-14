@@ -21,12 +21,10 @@
 
 import re
 
-from lsst.ts import salobj
-from lsst.ts.idl.enums import MTM2
 from lsst.ts.tcpip import OneClientServer
+from lsst.ts.xml.enums import MTM2
 
 from ..constant import NUM_TEMPERATURE_EXHAUST, NUM_TEMPERATURE_INTAKE
-from ..enum import DetailedState
 
 __all__ = ["MockMessageEvent"]
 
@@ -80,34 +78,6 @@ class MockMessageEvent:
         if self.server is not None:
             await self.server.write_json(
                 {"id": "cellTemperatureHiWarning", "hiWarning": hi_warning}
-            )
-
-    async def write_detailed_state(self, detailed_state: DetailedState) -> None:
-        """Write the message: detailed state.
-
-        Parameters
-        ----------
-        detailed_state : enum `DetailedState`
-            M2 detailed state.
-        """
-
-        if self.server is not None:
-            await self.server.write_json(
-                {"id": "detailedState", "detailedState": int(detailed_state)}
-            )
-
-    async def write_summary_state(self, summary_state: salobj.State) -> None:
-        """Write the message: summary state.
-
-        Parameters
-        ----------
-        summary_state : enum `lsst.ts.salobj.State`
-            M2 summary state.
-        """
-
-        if self.server is not None:
-            await self.server.write_json(
-                {"id": "summaryState", "summaryState": int(summary_state)}
             )
 
     async def write_commandable_by_dds(self, state: bool) -> None:

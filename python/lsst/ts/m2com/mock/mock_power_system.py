@@ -22,7 +22,7 @@
 import asyncio
 
 import numpy as np
-from lsst.ts.idl.enums import MTM2
+from lsst.ts.xml.enums import MTM2
 
 __all__ = ["MockPowerSystem"]
 

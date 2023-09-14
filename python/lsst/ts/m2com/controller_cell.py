@@ -49,10 +49,8 @@ class ControllerCell(Controller):
     maxsize_queue : `int`, optional
         Maximum size of queue. (the default is 1000)
     is_csc : `bool`, optional
-        Is called by the commandable SAL component (CSC) or not. This is a
-        temporary option to separate the CSC and engineering user interface
-        (EUI). This will be removed in the future after the state machines in
-        the cell controller are unified to a single one. (the default is True)
+        Is called by the commandable SAL component (CSC) or not. (the default
+        is True)
     host : `str` or None, optional
         Host address. (the default is None)
     port_command : `int` or None, optional
@@ -100,8 +98,9 @@ class ControllerCell(Controller):
             log=log,
             timeout_in_second=timeout_in_second,
             maxsize_queue=maxsize_queue,
-            is_csc=is_csc,
         )
+
+        self._is_csc = is_csc
 
         self.host = host
         self.port_command = port_command
@@ -150,7 +149,7 @@ class ControllerCell(Controller):
             port_command=0,
             port_telemetry=0,
             log=self.log,
-            is_csc=self.is_csc,
+            is_csc=self._is_csc,
         )
         self.mock_server.model.configure(config_dir, lut_path)
         await self.mock_server.start()
