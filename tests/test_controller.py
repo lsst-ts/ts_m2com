@@ -27,8 +27,7 @@ import unittest
 from pathlib import Path
 
 import numpy as np
-from lsst.ts import salobj, tcpip
-from lsst.ts.idl.enums import MTM2
+from lsst.ts import tcpip
 from lsst.ts.m2com import (
     DEFAULT_ENABLED_FAULTS_MASK,
     NUM_INNER_LOOP_CONTROLLER,
@@ -41,6 +40,7 @@ from lsst.ts.m2com import (
     MsgType,
     get_config_dir,
 )
+from lsst.ts.xml.enums import MTM2
 
 SLEEP_TIME_SHORT = 2
 
@@ -81,6 +81,9 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         try:
             yield server
         finally:
+            # Let the clients close the connection first
+            await asyncio.sleep(3)
+
             await server.close()
 
     @contextlib.asynccontextmanager
@@ -105,6 +108,9 @@ class TestController(unittest.IsolatedAsyncioTestCase):
 
         # Wait a little time to construct the connection
         await asyncio.sleep(SLEEP_TIME_SHORT)
+
+        # Clear the disconnection error
+        await controller.clear_errors()
 
         try:
             yield controller
@@ -199,26 +205,16 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertGreaterEqual(controller.queue_event.qsize(), 11)
 
-    async def test_controller_state(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
-            # Wait a little time to collect the event messages
-            await asyncio.sleep(SLEEP_TIME_SHORT)
-            self.assertEqual(controller.controller_state, salobj.State.OFFLINE)
-
-            # Check to get the Fault state
-            server.model.fault(MockErrorCode.LimitSwitchTriggeredClosedloop)
-            await asyncio.sleep(SLEEP_TIME_SHORT)
-
-            self.assertEqual(controller.controller_state, salobj.State.FAULT)
-
     async def test_last_command_status_ack_success(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
             await server.model.power_communication.power_on()
-            await controller.client_command.write_message(MsgType.Command, "enable")
+            await controller.client_command.write_message(
+                MsgType.Command,
+                "power",
+                msg_details={"powerType": MTM2.PowerType.Motor, "status": True},
+            )
 
             # Wait a little time to collect the messages
             await asyncio.sleep(SLEEP_TIME_SHORT)
@@ -228,35 +224,12 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(7)
             self.assertEqual(controller.last_command_status, CommandStatus.Success)
 
-    async def test_write_command_to_server_success(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
-            await controller.write_command_to_server(
-                "enterControl", controller_state_expected=salobj.State.STANDBY
-            )
-
-            self.assertEqual(controller.controller_state, salobj.State.STANDBY)
-
-    async def test_write_command_to_server_wrong_expectation(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
-            with self.assertRaises(RuntimeError):
-                await controller.write_command_to_server(
-                    "enterControl", controller_state_expected=salobj.State.ENABLED
-                )
-
     async def test_write_command_to_server_short_timeout(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
             with self.assertRaises(RuntimeError):
-                await controller.write_command_to_server(
-                    "enable",
-                    timeout=2.0,
-                    controller_state_expected=salobj.State.ENABLED,
-                )
+                await controller.set_ilc_to_enabled(retry_times=0, timeout=1.0)
 
     async def test_write_command_to_server_fail(self) -> None:
         async with self.make_server() as server, self.make_controller(
@@ -297,39 +270,12 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             # Fake the error
             server.model.fault(MockErrorCode.LimitSwitchTriggeredClosedloop)
             await asyncio.sleep(SLEEP_TIME_SHORT)
-            self.assertEqual(controller.controller_state, salobj.State.FAULT)
 
             # Clear the error
             await controller.clear_errors()
 
-            # Check the controller's state
+            # Error is cleared
             self.assertFalse(server.model.error_handler.exists_error())
-            self.assertEqual(controller.controller_state, salobj.State.OFFLINE)
-
-    def test_is_controller_state(self) -> None:
-        controller = Controller()
-
-        # Is controller's state
-        message = {"id": "summaryState", "summaryState": 1}
-        self.assertTrue(controller._is_controller_state(message))
-
-        # Isn't controller's state
-        message = {"id": "temp", "temp": 1}
-        self.assertFalse(controller._is_controller_state(message))
-
-    def test_assert_controller_state(self) -> None:
-        controller = Controller()
-
-        # Allowed state
-        controller.assert_controller_state("enterControl", [salobj.State.OFFLINE])
-
-        # Disallowed state
-        self.assertRaises(
-            ValueError,
-            controller.assert_controller_state,
-            "enterControl",
-            [salobj.State.ENABLED],
-        )
 
     async def test_power_communication(self) -> None:
         async with self.make_server() as server, self.make_controller(

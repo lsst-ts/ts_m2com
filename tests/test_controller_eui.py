@@ -27,8 +27,7 @@ import unittest
 from pathlib import Path
 
 import numpy as np
-from lsst.ts import salobj, tcpip
-from lsst.ts.idl.enums import MTM2
+from lsst.ts import tcpip
 from lsst.ts.m2com import (
     NUM_ACTUATOR,
     TEST_DIGITAL_OUTPUT_POWER_COMM,
@@ -40,12 +39,12 @@ from lsst.ts.m2com import (
     Controller,
     DigitalOutput,
     DigitalOutputStatus,
-    MockErrorCode,
     MockServer,
     collect_queue_messages,
     get_config_dir,
     get_queue_message_latest,
 )
+from lsst.ts.xml.enums import MTM2
 
 SLEEP_TIME_SHORT = 1
 
@@ -91,6 +90,9 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         try:
             yield server
         finally:
+            # Let the clients close the connection first
+            await asyncio.sleep(3)
+
             await server.close()
 
     @contextlib.asynccontextmanager
@@ -106,7 +108,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             Mock server.
         """
 
-        controller = Controller(log=self.log, is_csc=False)
+        controller = Controller(log=self.log)
         controller.start(
             server.server_command.host,
             server.server_command.port,
@@ -116,51 +118,13 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         # Wait a little time to construct the connection
         await asyncio.sleep(2)
 
+        # Clear the disconnection error
+        await controller.clear_errors()
+
         try:
             yield controller
         finally:
             await controller.close()
-
-    async def test_init(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
-            self.assertFalse(controller.is_csc)
-
-            await asyncio.sleep(SLEEP_TIME_SHORT)
-
-            # This fault comes from the simulated disconnection error
-            self.assertEqual(controller.controller_state, salobj.State.FAULT)
-
-    async def test_clear_errors(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
-            # Fake the error
-            server.model.fault(MockErrorCode.LimitSwitchTriggeredClosedloop)
-            await asyncio.sleep(SLEEP_TIME_SHORT)
-            self.assertEqual(controller.controller_state, salobj.State.FAULT)
-
-            # Clear the error
-            await controller.clear_errors()
-
-            # Check the controller's state
-            self.assertFalse(server.model.error_handler.exists_error())
-            self.assertEqual(controller.controller_state, salobj.State.STANDBY)
-
-    async def test_enter_control(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
-            with self.assertRaises(RuntimeError):
-                await controller.write_command_to_server("enterControl")
-
-    async def test_exit_control(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
-            with self.assertRaises(RuntimeError):
-                await controller.write_command_to_server("exitControl")
 
     async def test_switch_command_source(self) -> None:
         async with self.make_server() as server, self.make_controller(
@@ -416,11 +380,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
 
             self.assertTrue(server.model.error_handler.exists_error())
             self.assertFalse(server.model.control_open_loop.is_running)
-
-            message_summary_state = get_queue_message_latest(
-                controller.queue_event, "summaryState", flush=False
-            )
-            self.assertEqual(message_summary_state["summaryState"], salobj.State.FAULT)
 
             message_limit_switch_status = get_queue_message_latest(
                 controller.queue_event, "limitSwitchStatus", flush=False

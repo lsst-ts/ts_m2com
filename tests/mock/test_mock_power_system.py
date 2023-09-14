@@ -21,8 +21,8 @@
 
 import unittest
 
-from lsst.ts.idl.enums import MTM2
 from lsst.ts.m2com import MockPowerSystem
+from lsst.ts.xml.enums import MTM2
 
 
 class TestMockPowerSystem(unittest.IsolatedAsyncioTestCase):

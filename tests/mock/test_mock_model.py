@@ -23,7 +23,6 @@ import unittest
 
 import numpy as np
 import numpy.typing
-from lsst.ts.idl.enums import MTM2
 from lsst.ts.m2com import (
     NUM_ACTUATOR,
     NUM_TANGENT_LINK,
@@ -39,6 +38,7 @@ from lsst.ts.m2com import (
     MockModel,
     get_config_dir,
 )
+from lsst.ts.xml.enums import MTM2
 
 
 class TestMockModel(unittest.IsolatedAsyncioTestCase):
