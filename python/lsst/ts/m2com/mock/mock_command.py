@@ -21,15 +21,13 @@
 
 import asyncio
 
-from lsst.ts import salobj
-from lsst.ts.idl.enums import MTM2
+from lsst.ts.xml.enums import MTM2
 
 from ..enum import (
     ActuatorDisplacementUnit,
     CommandActuator,
     CommandScript,
     CommandStatus,
-    DetailedState,
     DigitalInput,
     DigitalOutput,
     DigitalOutputStatus,
@@ -43,84 +41,13 @@ __all__ = ["MockCommand"]
 
 
 class MockCommand:
-    """Mock command to simulate the execution of command in real hardware.
-
-    Parameters
-    ----------
-    is_csc : `bool`, optional
-        Is called by the commandable SAL component (CSC) or not. (the default
-        is True)
-    """
+    """Mock command to simulate the execution of command in real hardware."""
 
     SLEEP_TIME_SHORT = 0.01
     SLEEP_TIME_NORMAL = 5
 
-    def __init__(self, is_csc: bool = True) -> None:
-        # Is CSC or not.
-        self._is_csc = is_csc
-
+    def __init__(self) -> None:
         self._digital_output = 0
-
-    async def enable(
-        self, message: dict, model: MockModel, message_event: MockMessageEvent
-    ) -> tuple[MockModel, CommandStatus]:
-        """Enable the system.
-
-        Parameters
-        ----------
-        message : `dict`
-            Command message.
-        model : `MockModel`
-            Mock model to simulate the M2 hardware behavior.
-        message_event : `MockMessageEvent`
-            Instance of MockMessageEvent to write the event.
-
-        Returns
-        -------
-        model : `MockModel`
-            Mock model to simulate the M2 hardware behavior.
-        `CommandStatus`
-            Status of command execution.
-        """
-
-        # If there is no communication power, fail the command.
-        if not model.power_communication.is_power_on():
-            return model, CommandStatus.Fail
-
-        await self._power_on_fully(
-            MTM2.PowerType.Motor, model.power_motor, message_event
-        )
-
-        # Only turn on the force balance system when the CSC is the commander.
-        # Need to unify the behaviors of CSC and EUI after the cell controller
-        # in cRIO is fixed (there are two state machines at this moment).
-        command_success = True
-        if self._is_csc:
-            command_success = model.switch_force_balance_system(True)
-
-            if not command_success:
-                await self._power_off_fully(
-                    MTM2.PowerType.Motor, model.power_motor, message_event
-                )
-
-            await message_event.write_m2_assembly_in_position(False)
-
-        await message_event.write_force_balance_system_status(
-            model.control_closed_loop.is_running
-        )
-
-        await message_event.write_open_loop_max_limit(
-            model.control_open_loop.open_loop_max_limit_is_enabled
-        )
-
-        if command_success:
-            await message_event.write_summary_state(salobj.State.ENABLED)
-            await self._report_digital_input_and_ouput(model, message_event)
-
-        return (
-            model,
-            CommandStatus.Success if command_success is True else CommandStatus.Fail,
-        )
 
     async def _power_on_fully(
         self,
@@ -220,200 +147,6 @@ class MockCommand:
 
         is_interlock_engaged = (not is_enterlock_enabled) or is_interlock_power_relay_on
         await message_event.write_interlock(is_interlock_engaged)
-
-    async def disable(
-        self, message: dict, model: MockModel, message_event: MockMessageEvent
-    ) -> tuple[MockModel, CommandStatus]:
-        """Disable the system.
-
-        Parameters
-        ----------
-        message : `dict`
-            Command message.
-        model : `MockModel`
-            Mock model to simulate the M2 hardware behavior.
-        message_event : `MockMessageEvent`
-            Instance of MockMessageEvent to write the event.
-
-        Returns
-        -------
-        model : `MockModel`
-            Mock model to simulate the M2 hardware behavior.
-        `CommandStatus`
-            Status of command execution.
-        """
-
-        model.switch_force_balance_system(False)
-        await self._power_off_fully(
-            MTM2.PowerType.Motor, model.power_motor, message_event
-        )
-
-        await message_event.write_force_balance_system_status(
-            model.control_closed_loop.is_running
-        )
-
-        await message_event.write_summary_state(salobj.State.DISABLED)
-
-        await self._report_digital_input_and_ouput(model, message_event)
-
-        await message_event.write_open_loop_max_limit(
-            model.control_open_loop.open_loop_max_limit_is_enabled
-        )
-
-        return model, CommandStatus.Success
-
-    async def standby(
-        self, message: dict, model: MockModel, message_event: MockMessageEvent
-    ) -> tuple[MockModel, CommandStatus]:
-        """Standby the system.
-
-        Parameters
-        ----------
-        message : `dict`
-            Command message.
-        model : `MockModel`
-            Mock model to simulate the M2 hardware behavior.
-        message_event : `MockMessageEvent`
-            Instance of MockMessageEvent to write the event.
-
-        Returns
-        -------
-        model : `MockModel`
-            Mock model to simulate the M2 hardware behavior.
-        `CommandStatus`
-            Status of command execution.
-        """
-
-        await self._power_off_fully(
-            MTM2.PowerType.Motor, model.power_motor, message_event
-        )
-        await self._power_off_fully(
-            MTM2.PowerType.Communication, model.power_communication, message_event
-        )
-
-        await message_event.write_summary_state(salobj.State.STANDBY)
-
-        await self._report_digital_input_and_ouput(model, message_event)
-
-        return model, CommandStatus.Success
-
-    async def start(
-        self, message: dict, model: MockModel, message_event: MockMessageEvent
-    ) -> tuple[MockModel, CommandStatus]:
-        """Start the system.
-
-        Parameters
-        ----------
-        message : `dict`
-            Command message.
-        model : `MockModel`
-            Mock model to simulate the M2 hardware behavior.
-        message_event : `MockMessageEvent`
-            Instance of MockMessageEvent to write the event.
-
-        Returns
-        -------
-        model : `MockModel`
-            Mock model to simulate the M2 hardware behavior.
-        `CommandStatus`
-            Status of command execution.
-        """
-
-        await self._power_on_fully(
-            MTM2.PowerType.Communication, model.power_communication, message_event
-        )
-
-        await message_event.write_summary_state(salobj.State.DISABLED)
-
-        await self._report_digital_input_and_ouput(model, message_event)
-
-        return model, CommandStatus.Success
-
-    async def enter_control(
-        self, message: dict, model: MockModel, message_event: MockMessageEvent
-    ) -> tuple[MockModel, CommandStatus]:
-        """Enter the control.
-
-        This is only supported for the commandable SAL component (CSC). In the
-        future, this command will be removed after the state machines in cell
-        controller are unified to a single one.
-
-        Parameters
-        ----------
-        message : `dict`
-            Command message.
-        model : `MockModel`
-            Mock model to simulate the M2 hardware behavior.
-        message_event : `MockMessageEvent`
-            Instance of MockMessageEvent to write the event.
-
-        Returns
-        -------
-        model : `MockModel`
-            Mock model to simulate the M2 hardware behavior.
-        `CommandStatus`
-            Status of command execution.
-        """
-
-        if self._is_csc:
-            await message_event.write_summary_state(salobj.State.STANDBY)
-
-            await self._report_digital_input_and_ouput(model, message_event)
-
-            return model, CommandStatus.Success
-
-        else:
-            return model, CommandStatus.Fail
-
-    async def exit_control(
-        self, message: dict, model: MockModel, message_event: MockMessageEvent
-    ) -> tuple[MockModel, CommandStatus]:
-        """Exit the control.
-
-        This is only supported for the commandable SAL component (CSC). In the
-        future, this command will be removed after the state machines in cell
-        controller are unified to a single one.
-
-        Parameters
-        ----------
-        message : `dict`
-            Command message.
-        model : `MockModel`
-            Mock model to simulate the M2 hardware behavior.
-        message_event : `MockMessageEvent`
-            Instance of MockMessageEvent to write the event.
-
-        Returns
-        -------
-        model : `MockModel`
-            Mock model to simulate the M2 hardware behavior.
-        `CommandStatus`
-            Status of command execution.
-        """
-
-        if self._is_csc:
-            await self._power_off_fully(
-                MTM2.PowerType.Motor, model.power_motor, message_event
-            )
-            await self._power_off_fully(
-                MTM2.PowerType.Communication, model.power_communication, message_event
-            )
-
-            # Sleep time is to simulate some internal inspection of
-            # real system
-            await asyncio.sleep(self.SLEEP_TIME_SHORT)
-            await message_event.write_detailed_state(DetailedState.PublishOnly)
-            await asyncio.sleep(self.SLEEP_TIME_SHORT)
-            await message_event.write_detailed_state(DetailedState.Available)
-
-            await message_event.write_summary_state(salobj.State.OFFLINE)
-
-            await self._report_digital_input_and_ouput(model, message_event)
-
-            return model, CommandStatus.Success
-
-        else:
-            return model, CommandStatus.Fail
 
     async def apply_forces(
         self, message: dict, model: MockModel, message_event: MockMessageEvent
@@ -552,18 +285,9 @@ class MockCommand:
         model.clear_errors()
         await message_event.write_summary_faults_status(0)
 
-        # In EUI, there is no OFFLINE state.
-        if self._is_csc:
-            model, command_status = await self.exit_control(
-                message, model, message_event
-            )
-        else:
-            await message_event.write_summary_state(salobj.State.STANDBY)
-            await self._report_digital_input_and_ouput(model, message_event)
+        await self._report_digital_input_and_ouput(model, message_event)
 
-            command_status = CommandStatus.Success
-
-        return model, command_status
+        return model, CommandStatus.Success
 
     async def switch_force_balance_system(
         self, message: dict, model: MockModel, message_event: MockMessageEvent

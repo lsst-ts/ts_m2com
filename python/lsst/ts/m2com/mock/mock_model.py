@@ -25,7 +25,7 @@ from pathlib import Path
 
 import numpy as np
 import numpy.typing
-from lsst.ts.idl.enums import MTM2
+from lsst.ts.xml.enums import MTM2
 
 from ..constant import (
     MIRROR_WEIGHT_KG,

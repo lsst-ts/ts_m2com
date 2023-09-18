@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v1.1.4
+------
+
+* Remove the legacy code.
+* Use the enums in **ts_xml** instead of **ts_idl**.
+
 v1.1.3
 ------
 

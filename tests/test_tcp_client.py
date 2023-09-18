@@ -61,6 +61,9 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
         try:
             yield server
         finally:
+            # Let the client close the connection first
+            await asyncio.sleep(3)
+
             await server.close()
 
     @contextlib.asynccontextmanager

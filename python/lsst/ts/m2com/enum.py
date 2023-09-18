@@ -25,7 +25,6 @@ from enum import Enum, IntEnum, auto
 __all__ = [
     "MsgType",
     "CommandStatus",
-    "DetailedState",
     "CommandScript",
     "CommandActuator",
     "ActuatorDisplacementUnit",
@@ -68,13 +67,6 @@ class CommandStatus(IntEnum):
     Ack = auto()
     NoAck = auto()
     Unknown = auto()
-
-
-class DetailedState(IntEnum):
-    """Detailed substates of the Offline state."""
-
-    PublishOnly = 1
-    Available = auto()
 
 
 class CommandScript(IntEnum):
