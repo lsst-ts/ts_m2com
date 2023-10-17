@@ -5,8 +5,8 @@ This configuration only affects single-package Sphinx documentation builds.
 
 from os import getenv
 
-import lsst.ts.m2com
-from documenteer.conf.pipelinespkg import *
+import lsst.ts.m2com  # type: ignore # noqa
+from documenteer.conf.pipelinespkg import *  # type: ignore # noqa
 
 project = "ts_m2com"
 html_theme_options["logotext"] = project  # type: ignore # noqa
