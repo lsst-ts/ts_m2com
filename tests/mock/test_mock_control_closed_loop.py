@@ -46,25 +46,35 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
         self.control_closed_loop.set_hardpoint_compensation()
 
+        filepath_stiffness = filepath_lut / "stiff_matrix_surrogate.yaml"
+        self.control_closed_loop.load_file_stiffness(filepath_stiffness)
+
+        self.control_closed_loop.set_kinetic_decoupling_matrix()
+
     def test_init(self) -> None:
         self.assertEqual(len(self.control_closed_loop.temperature), 5)
         self.assertEqual(len(self.control_closed_loop._lut), 10)
         self.assertEqual(len(self.control_closed_loop._cell_geom), 3)
         self.assertEqual(self.control_closed_loop._hd_comp.shape, (72, 6))
 
-    def test_calc_hp_comp_matrix_exception(self) -> None:
+        self.assertEqual(self.control_closed_loop._stiffness.shape, (78, 78))
+        self.assertEqual(self.control_closed_loop._kdc.shape, (72, 72))
+
+    def test_check_hardpoints(self) -> None:
+        # Good hardpoints
+        self.control_closed_loop.check_hardpoints([5, 15, 25], [72, 74, 76])
+
+        # Bad hardpoints
         self.assertRaises(
             ValueError,
-            MockControlClosedLoop.calc_hp_comp_matrix,
-            self.control_closed_loop.get_actuator_location_axial(),
+            self.control_closed_loop.check_hardpoints,
             [5, 15, 24],
             [72, 74, 76],
         )
 
         self.assertRaises(
             ValueError,
-            MockControlClosedLoop.calc_hp_comp_matrix,
-            self.control_closed_loop.get_actuator_location_axial(),
+            self.control_closed_loop.check_hardpoints,
             [5, 15, 25],
             [72, 73, 74],
         )
@@ -92,6 +102,74 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertAlmostEqual(hd_comp_tangent[2, 0], -1 / 3)
         self.assertAlmostEqual(hd_comp_tangent[2, 1], 2 / 3)
         self.assertAlmostEqual(hd_comp_tangent[2, 2], 2 / 3)
+
+    def test_calc_kinetic_decoupling_matrix(self) -> None:
+        kdc = MockControlClosedLoop.calc_kinetic_decoupling_matrix(
+            self.control_closed_loop.get_actuator_location_axial(),
+            [5, 15, 25],
+            [73, 75, 77],
+            self.control_closed_loop._stiffness,
+        )
+
+        self.assertAlmostEqual(kdc[0, 0], -21.7403059)
+        self.assertAlmostEqual(kdc[0, 1], -5.03360965)
+        self.assertAlmostEqual(kdc[0, 2], -3.38452371)
+        self.assertAlmostEqual(kdc[71, 69], -0.06759257)
+        self.assertAlmostEqual(kdc[71, 70], -0.05124909)
+        self.assertAlmostEqual(kdc[71, 71], 6.2396548)
+
+    def test_calc_cmd_prefilter_params(self) -> None:
+        gain, coefficients = MockControlClosedLoop.calc_cmd_prefilter_params()
+
+        self.assertEqual(gain, 1.0)
+        np.testing.assert_array_equal(coefficients, [0.0] * 32)
+
+    def test_transfer_function_to_biquadratic_filter(self) -> None:
+        (
+            gain,
+            coefficients,
+        ) = MockControlClosedLoop.transfer_function_to_biquadratic_filter(
+            [[0.5, 0.8, 0.9, 0.95]], [1.0, 2.0, 3.0, 4.0], num_stage=2
+        )
+
+        self.assertEqual(gain, 0.5)
+        np.testing.assert_array_almost_equal(
+            coefficients,
+            [1.650629, 0.0, 1.32422, 0.0, 0.349371, 2.423318, 0.27578, 1.434807],
+        )
+
+    def test_calc_cmd_delay_filter_params(self) -> None:
+        # Surrogate
+        np.testing.assert_array_almost_equal(
+            MockControlClosedLoop.calc_cmd_delay_filter_params(is_mirror=False),
+            [0.0, 0.0, 0.968, 0.032, 0.0, 0.0],
+        )
+        np.testing.assert_array_equal(
+            MockControlClosedLoop.calc_cmd_delay_filter_params(
+                is_mirror=False, bypass_delay=True
+            ),
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        )
+
+        # Mirror
+        np.testing.assert_array_almost_equal(
+            MockControlClosedLoop.calc_cmd_delay_filter_params(is_mirror=True),
+            [0.0, 0.014, 0.986, 0.0, 0.0, 0.0],
+        )
+
+    def test_calc_force_control_filter_params(self) -> None:
+        # Surrogate
+        gain, coefficients = MockControlClosedLoop.calc_force_control_filter_params(
+            is_mirror=False
+        )
+
+        self.assertAlmostEqual(gain, 0.33872249)
+        np.testing.assert_array_almost_equal(coefficients, [0.0] * 32)
+
+        # Mirror
+        gain, _ = MockControlClosedLoop.calc_force_control_filter_params(is_mirror=True)
+
+        self.assertEqual(gain, 0.3291319251)
 
     def test_select_axial_hardpoints(self) -> None:
         self.assertEqual(
