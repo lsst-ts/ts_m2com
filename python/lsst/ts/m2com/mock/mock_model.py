@@ -347,19 +347,23 @@ class MockModel:
         path_lut = config_dir / lut_path
         self.control_closed_loop.load_file_lut(path_lut)
 
-        path_cell_geom = config_dir / lut_path / "cell_geom.yaml"
+        path_cell_geom = path_lut / "cell_geom.yaml"
         self.control_closed_loop.load_file_cell_geometry(path_cell_geom)
 
-        path_disp_ims = config_dir / lut_path / "disp_ims.yaml"
+        path_disp_ims = path_lut / "disp_ims.yaml"
         self._disp_ims = read_yaml_file(path_disp_ims)
 
+        path_stiffness = path_lut / "stiff_matrix_surrogate.yaml"
+        self.control_closed_loop.load_file_stiffness(path_stiffness)
+
         # Read the static transfer matrix
-        path_static_transfer_matrix = config_dir / lut_path / "StaticTransferMatrix.csv"
+        path_static_transfer_matrix = path_lut / "StaticTransferMatrix.csv"
         self.control_open_loop.read_file_static_transfer_matrix(
             path_static_transfer_matrix
         )
 
         self.control_closed_loop.set_hardpoint_compensation()
+        self.control_closed_loop.set_kinetic_decoupling_matrix()
 
         # By doing this, we can calculate the forces of look-up table.
         self.set_inclinometer_angle(self.control_open_loop.inclinometer_angle)

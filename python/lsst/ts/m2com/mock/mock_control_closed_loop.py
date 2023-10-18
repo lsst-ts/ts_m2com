@@ -26,6 +26,7 @@ from pathlib import Path
 import numpy as np
 import numpy.typing
 import pandas as pd
+from scipy import signal
 from scipy.linalg import block_diag
 from scipy.spatial import KDTree
 
@@ -121,6 +122,12 @@ class MockControlClosedLoop:
         # Hardpoint compensation matrix
         self._hd_comp = np.array([])
 
+        # Stiffness matrix to reflect the force change of actuator's movement
+        self._stiffness = np.array([])
+
+        # Kinetic decoupling matrix
+        self._kdc = np.array([])
+
     @staticmethod
     def _get_temperatures(
         temperature_init_low: float = 24.49,
@@ -168,6 +175,49 @@ class MockControlClosedLoop:
         temperatures["maxDiff"] = max_difference  # type: ignore
 
         return temperatures
+
+    def check_hardpoints(
+        self,
+        hardpoints_axial: list[int],
+        hardpoints_tangent: list[int],
+    ) -> None:
+        """Check the selected hardpoints are good or not.
+
+        Parameters
+        ----------
+        hardpoints_axial : `list`
+            Three axial hardpoints. The order is from low to high,
+            e.g. [5, 15, 25].
+        hardpoints_tangent : `list`
+            Three tangential hardpoints. This can only be [72, 74, 76] or
+            [73, 75, 77]. The order is from low to high.
+
+        Raises
+        ------
+        `ValueError`
+            If the axial hardpoints are bad.
+        `ValueError`
+            If the tangential hardpoints are wrong.
+        """
+
+        # Axial hardpoints
+
+        # Check the hardpoints by comparing with the expectation
+        if (
+            MockControlClosedLoop.select_axial_hardpoints(
+                self.get_actuator_location_axial(), hardpoints_axial[0]
+            )
+            != hardpoints_axial
+        ):
+            raise ValueError("Bad selection of axial hardpoints.")
+
+        # Tangent hardpoints
+        option_one = [72, 74, 76]
+        option_two = [73, 75, 77]
+        if hardpoints_tangent not in (option_one, option_two):
+            raise ValueError(
+                f"Tangential hardpoints can only be {option_one} or {option_two}."
+            )
 
     def simulate_temperature_and_update(
         self,
@@ -369,6 +419,18 @@ class MockControlClosedLoop:
         """
         return self._cell_geom["radiusActTangent"]
 
+    def load_file_stiffness(self, filepath: Path) -> None:
+        """Load the file of stiffness matrix.
+
+        Parameters
+        ----------
+        filepath : `pathlib.PosixPath`
+            File path of stiffness matrix.
+        """
+
+        data = read_yaml_file(filepath)
+        self._stiffness = np.array(data["stiff"])
+
     def set_hardpoint_compensation(self) -> None:
         """Set the hardpoint compensation matrix."""
 
@@ -409,7 +471,7 @@ class MockControlClosedLoop:
 
         Parameters
         ----------
-        location_axial_actuator : `list [list]`
+        location_axial_actuator : `list`
             Location of the axial actuators: (x, y). This should be a 72 x 2
             matrix.
         hardpoints_axial : `list`
@@ -425,37 +487,20 @@ class MockControlClosedLoop:
             Axial hardpoint compensation matrix.
         hd_comp_tangent : `numpy.ndarray`
             Tangential hardpoint compensation matrix.
-
-        Raises
-        ------
-        `ValueError`
-            If the axial hardpoints are bad.
-        `ValueError`
-            If the tangential hardpoints are wrong.
         """
 
         # Axial hardpoints
-
-        # Check the hardpoints by comparing with the expectation
-        if (
-            MockControlClosedLoop.select_axial_hardpoints(
-                location_axial_actuator, hardpoints_axial[0]
-            )
-            != hardpoints_axial
-        ):
-            raise ValueError("Bad selection of axial hardpoints.")
-
-        num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
-        active_actuators_axial = [
-            idx for idx in range(num_axial_actuators) if idx not in hardpoints_axial
-        ]
-
         location_axial_actuator_array = np.array(location_axial_actuator)
         matrix_hp = np.append(
             location_axial_actuator_array[hardpoints_axial, :],
             np.ones((NUM_HARDPOINTS_AXIAL, 1)),
             axis=1,
         )
+
+        active_actuators_axial = MockControlClosedLoop.get_active_actuators(
+            hardpoints_axial, hardpoints_tangent
+        )[0]
+        num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
         matrix_nhp = np.append(
             location_axial_actuator_array[active_actuators_axial, :],
             np.ones((num_axial_actuators - NUM_HARDPOINTS_AXIAL, 1)),
@@ -475,17 +520,421 @@ class MockControlClosedLoop:
             hd_comp_tangent = np.array(
                 [[2 / 3, -1 / 3, 2 / 3], [2 / 3, 2 / 3, -1 / 3], [-1 / 3, 2 / 3, 2 / 3]]
             )
+
+        return hd_comp_axial, hd_comp_tangent
+
+    @staticmethod
+    def get_active_actuators(
+        hardpoints_axial: list[int],
+        hardpoints_tangent: list[int],
+    ) -> tuple[list[int], list[int]]:
+        """Get the active actuators.
+
+        Parameters
+        ----------
+        hardpoints_axial : `list`
+            Three axial hardpoints. The order is from low to high,
+            e.g. [5, 15, 25].
+        hardpoints_tangent : `list`
+            Three tangential hardpoints. This can only be [72, 74, 76] or
+            [73, 75, 77]. The order is from low to high.
+
+        Returns
+        -------
+        active_actuators_axial : `list`
+            Axial active actuators.
+        active_actuators_tangent : `list`
+            Tangential active actuators.
+
+        Raises
+        ------
+        `ValueError`
+            If the tangential hardpoints are wrong.
+        """
+
+        # Axial hardpoints
+        num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
+        active_actuators_axial = [
+            idx for idx in range(num_axial_actuators) if idx not in hardpoints_axial
+        ]
+
+        # Tangent hardpoints
+        option_one = [72, 74, 76]
+        option_two = [73, 75, 77]
+
+        if hardpoints_tangent == option_one:
+            active_actuators_tangent = option_two
+        elif hardpoints_tangent == option_two:
+            active_actuators_tangent = option_one
         else:
             raise ValueError(
                 f"Tangential hardpoints can only be {option_one} or {option_two}."
             )
 
-        return hd_comp_axial, hd_comp_tangent
+        return active_actuators_axial, active_actuators_tangent
+
+    def set_kinetic_decoupling_matrix(self) -> None:
+        """Set the kinetic decoupling matrix."""
+
+        # There are 3 axial actuators to be hardpoints
+        self._kdc = MockControlClosedLoop.calc_kinetic_decoupling_matrix(
+            self.get_actuator_location_axial(),
+            self.hardpoints[:3],
+            self.hardpoints[3:],
+            self._stiffness,
+        )
+
+    @staticmethod
+    def calc_kinetic_decoupling_matrix(
+        location_axial_actuator: list[list],
+        hardpoints_axial: list[int],
+        hardpoints_tangent: list[int],
+        stiffness_matrix: numpy.typing.NDArray[np.float64],
+    ) -> numpy.typing.NDArray[np.float64]:
+        """Calculate the kinetic decoupling matrix.
+
+        Notes
+        -----
+        Translate the calculation from the CalcHPFCInfMat.m in
+        ts_mtm2_matlab_tools.
+
+        The unit of the element is the motor step (could be fraction, row) per
+        Newton (column). This matrix is used to multiply with the desired
+        actuator's force changes to get the related amounts of motor's step
+        changes.
+
+        delta_force = M * delta_step => M^-1 = kdc to have:
+        delta_step = kdc * delta_force
+
+        Parameters
+        ----------
+        location_axial_actuator : `list`
+            Location of the axial actuators: (x, y). This should be a 72 x 2
+            matrix.
+        hardpoints_axial : `list`
+            Three axial hardpoints. The order is from low to high,
+            e.g. [5, 15, 25].
+        hardpoints_tangent : `list`
+            Three tangential hardpoints. This can only be [72, 74, 76] or
+            [73, 75, 77]. The order is from low to high.
+        stiffness_matrix : `numpy.ndarray`
+            Stiffness matrix of M2 mirror or surrogate.
+
+        Returns
+        -------
+        `numpy.ndarray`
+            Kinetic decoupling matrix.
+        """
+
+        # Calculate the hardpoint force error
+        (
+            active_actuators_axial,
+            active_actuators_tangent,
+        ) = MockControlClosedLoop.get_active_actuators(
+            hardpoints_axial, hardpoints_tangent
+        )
+
+        # There is a "minus" sign here because the hardpoints are the passive
+        # actuators.
+        hardpoint_error_axial = -stiffness_matrix[
+            np.ix_(active_actuators_axial, hardpoints_axial)
+        ]
+        hardpoint_error_tangent = -stiffness_matrix[
+            np.ix_(active_actuators_tangent, hardpoints_tangent)
+        ]
+
+        # Force change of the active actuators
+        force_axial = stiffness_matrix[
+            np.ix_(active_actuators_axial, active_actuators_axial)
+        ]
+        force_tangent = stiffness_matrix[
+            np.ix_(active_actuators_tangent, active_actuators_tangent)
+        ]
+
+        # Calculate the effective force feedback after hardpoint force
+        # compensation
+        hd_comp_axial, hd_comp_tangent = MockControlClosedLoop.calc_hp_comp_matrix(
+            location_axial_actuator, hardpoints_axial, hardpoints_tangent
+        )
+        force_feedback_axial = force_axial + hd_comp_axial.dot(hardpoint_error_axial.T)
+        force_feedback_tangent = force_tangent + hd_comp_tangent.dot(
+            hardpoint_error_tangent.T
+        )
+
+        force_feedback = block_diag(force_feedback_axial, force_feedback_tangent)
+
+        return np.linalg.pinv(force_feedback)
+
+    @staticmethod
+    def calc_cmd_prefilter_params(
+        numerator: list[float] | None = None, denominator: list[float] | None = None
+    ) -> tuple[float, numpy.typing.NDArray[np.float64]]:
+        """Calculate the command pre-filter parameters in biquadratic filters.
+
+        Notes
+        -----
+        Translate the calculation from the Create_Filter_Params.m in
+        ts_mtm2_matlab_tools.
+
+        Currently, pre-filter is a pass-through filter.
+
+        Parameters
+        ----------
+        numerator : `list` or None, optional
+            Numerator polynomial coefficients of the transfer function. If
+            None, the linear transfer is assumed (aka. [1.0]). (the default is
+            None)
+        denominator : `list` or None, optional
+            Denominator polynomial coefficients of the transfer function. If
+            None, the linear transfer is assumed (aka. [1.0]). (the default is
+            None)
+
+        Returns
+        -------
+        `float`
+            Gain.
+        `list`
+            Coefficients of the command pre-filter parameters.
+        """
+
+        numerator = numerator if (numerator is not None) else [1.0]
+        denominator = denominator if (denominator is not None) else [1.0]
+
+        return MockControlClosedLoop.transfer_function_to_biquadratic_filter(
+            numerator, denominator
+        )
+
+    @staticmethod
+    def transfer_function_to_biquadratic_filter(
+        numerator: list[float], denominator: list[float], num_stage: int = 8
+    ) -> tuple[float, numpy.typing.NDArray[np.float64]]:
+        """Transfer function to the biquadratic filters.
+
+        Notes
+        -----
+        Translate the calculation from the bqd.m and sos2pqd.m in
+        ts_mtm2_matlab_tools.
+
+        The reference is:
+        https://en.wikipedia.org/wiki/Digital_biquad_filter
+
+        Compact biquadratic format:
+
+                       1 + b11 z^-1 + b21 z^-2   1 + b12 z^-1 + b22 z^-2
+        H(z) = gain * (-----------------------) (-----------------------) ...
+                       1 + a11 z^-1 + a21 z^-2   1 + a12 z^-1 + a22 z^-2
+
+                1 + b1N z^-1 + b2N z^-2
+               (-----------------------)
+                1 + a1N z^-1 + a2N z^-2
+
+        Format of the coefficent output is:
+        [a11 a21 b11 b21 a12 a22 b12 b22 ... a1N a2N b1N b2N]
+
+        Parameters
+        ----------
+        numerator : `list`
+            Numerator polynomial coefficients of the transfer function.
+        denominator : `list`
+            Denominator polynomial coefficients of the transfer function.
+        num_stage : `int`, optional
+            Number of the stage of biquadratic filters. (the default is 8)
+
+        Returns
+        -------
+        gain : `float`
+            Gain.
+        coefficients : `list`
+            Coefficients of the biquadratic filters.
+        """
+
+        # The idea is:
+        # transfer function (TF) -> second-order sections (SOS)
+        # -> biquadratic filters (BQD)
+
+        # SOS is an L by 6 matrix with the following structure:
+        #     SOS = [ b01 b11 b21 1 a11 a21
+        #             b02 b12 b22 1 a12 a22
+        #             ...
+        #             b0L b1L b2L 1 a1L a2L ]
+
+        # Each row of the SOS matrix describes a 2nd order transfer function:
+        #               b0k + b1k * z^-1 + b2k * z^-2
+        #     Hk(z) =  ----------------------------
+        #                1 + a1k * z^-1 + a2k * z^-2
+        # where k is the row index.
+
+        sos = signal.tf2sos(numerator, denominator)
+
+        # Shift the numerator coefficients when there is a delay
+        num_sections = sos.shape[0]
+        for idx in range(num_sections):
+            if sos[idx, 0] == 0.0:
+                if sos[idx, 1] != 0.0:
+                    # [0, b1k, b2k] -> [b1k, b2k, 0]
+                    sos[idx, 0:3] = np.roll(sos[idx, 0:3], -1)
+                else:
+                    # [0, 0, b2k] -> [b2k, 0, 0]
+                    sos[idx, 0:3] = np.roll(sos[idx, 0:3], -2)
+
+        # Calculate the gain and normalize the second-order sections
+        b0 = sos[:, 0]
+        a0 = sos[:, 3]
+
+        gain = np.prod(np.divide(b0, a0))
+
+        sos_normalize = np.append(
+            np.diag(1 / b0).dot(sos[:, 0:3]), np.diag(1 / a0).dot(sos[:, 3:6]), axis=1
+        )
+
+        # Change to the order to be:
+        # [[a11 a21 b11 b21]
+        #  [a12 a22 b12 b22]
+        #  ...
+        #  [a1N a2N b1N b2N]]
+        coefficients = sos_normalize[:, [4, 5, 1, 2]]
+
+        # Pad the coeffients with 0 to fulfill the number of filter stages
+
+        # Note the constant "4 = 2 * 2" comes from:
+        # 1. numerator + denominator in biquadratic filter
+        # 2. 2 degrees in biquadratic filter
+        max_num_coefficients = num_stage * 4
+
+        return (
+            gain,
+            np.pad(
+                coefficients.reshape(-1), (0, max_num_coefficients - coefficients.size)
+            ).tolist(),
+        )
+
+    @staticmethod
+    def calc_cmd_delay_filter_params(
+        is_mirror: bool = True,
+        control_frequency: float = 20.0,
+        bypass_delay: bool = False,
+        num_degree: int = 5,
+    ) -> list[float]:
+        """Calculate the command delay filter parameters (or more clearly, the
+        numerator of the transfer function).
+
+        Notes
+        -----
+        Translate the calculation from the Create_Filter_Params.m in
+        ts_mtm2_matlab_tools.
+
+        For a transfer function, H(z), if the numerator is [1, 3, 3] and the
+        denominator is [1, 2, 1], it will be:
+
+        H(z) = (z^2 + 3 * z + 3) / (z^2 + 2 * z + 1)
+
+        Since the denominator of transfer function is the demanded force
+        change here, the linear transfer ([1.0]) is applied. Therefore, we only
+        care about the delay of command as the output.
+
+        Parameters
+        ----------
+        is_mirror : `bool`, optional
+            Is mirror or not. If not, the surrogate is applied. (the default is
+            True)
+        control_frequency : `float`, optional
+            Frequency of the control loop in Hz. (the default is 20.0)
+        bypass_delay : `bool`, optional
+            Bypass the command delay or not. (the default is False)
+        num_degree : `int`, optional
+            Number of the degree in the transfer function. (the default is 5)
+
+        Returns
+        -------
+        numerator_transfer_function : `list`
+            Numerator of the transfer function from the high degree to low
+            degree.
+        """
+        time_sample = 1 / control_frequency
+
+        if bypass_delay:
+            time_delay = 0.0
+        else:
+            # Note the following two constants come from the
+            # Create_Filter_Params.m and I do not understand why.
+            if is_mirror:
+                # Note the delay time of mirror is shorter than the surrogate
+                time_delay = 0.0993
+            else:
+                time_delay = 0.1016
+
+        num_sample_delay = int(time_delay / time_sample)
+        time_left = time_delay - num_sample_delay * time_sample
+
+        coeff_delay = [0.0] * num_sample_delay + [
+            (1 - time_left / time_sample),
+            time_left / time_sample,
+        ]
+
+        # 1 is for the constant part in the numerator coefficients
+        numerator_transfer_function = [0.0] * (num_degree + 1)
+        for idx, value in enumerate(coeff_delay):
+            numerator_transfer_function[idx] = value
+
+        return numerator_transfer_function
+
+    @staticmethod
+    def calc_force_control_filter_params(
+        is_mirror: bool = True,
+        numerator: list[float] | None = None,
+        denominator: list[float] | None = None,
+    ) -> tuple[float, numpy.typing.NDArray[np.float64]]:
+        """Calculate the force control filter parameters in biquadratic
+        filters.
+
+        Notes
+        -----
+        Translate the calculation from the Create_Filter_Params.m in
+        ts_mtm2_matlab_tools.
+
+        Parameters
+        ----------
+        is_mirror : `bool`, optional
+            Is mirror or not. If not, the surrogate is applied. (the default is
+            True)
+        numerator : `list` or None, optional
+            Numerator polynomial coefficients of the transfer function. If
+            None, the linear transfer is assumed (aka. [1.0]). (the default is
+            None)
+        denominator : `list` or None, optional
+            Denominator polynomial coefficients of the transfer function. If
+            None, the linear transfer is assumed (aka. [1.0]). (the default is
+            None)
+
+        Returns
+        -------
+        `float`
+            Gain.
+        coefficients : `list`
+            Coefficients of the force control filter parameters.
+        """
+
+        # Note the following four constants come from the
+        # Create_Filter_Params.m and I do not understand why.
+        basic_gain = 0.285
+        gain = basic_gain * 1.0593 * 1.0902 if is_mirror else basic_gain * 1.1885
+
+        numerator = numerator if (numerator is not None) else [1.0]
+        denominator = denominator if (denominator is not None) else [1.0]
+
+        (
+            gain_tf,
+            coefficients,
+        ) = MockControlClosedLoop.transfer_function_to_biquadratic_filter(
+            numerator, denominator
+        )
+
+        return gain * gain_tf, coefficients
 
     @staticmethod
     def select_axial_hardpoints(
         location_axial_actuator: list[list], specific_axial_hardpoint: int
-    ) -> list:
+    ) -> list[int]:
         """Select the axial hardpoints based on the specific axial hardpoint.
 
         Notes
@@ -498,7 +947,7 @@ class MockControlClosedLoop:
 
         Parameters
         ----------
-        location_axial_actuator : `list [list]`
+        location_axial_actuator : `list`
             Location of the axial actuators: (x, y). This should be a 72 x 2
             matrix.
         specific_axial_hardpoint : `int`
@@ -506,7 +955,7 @@ class MockControlClosedLoop:
 
         Returns
         -------
-        hardpoints : `list [int]`
+        hardpoints : `list`
             Selected 3 axial hardpoints that contains the specific axial
             hardpoint. The order is from low to high.
         """

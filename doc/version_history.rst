@@ -2,6 +2,13 @@
 Version History
 ===============
 
+v1.1.5
+------
+
+* Update the ``.ts_pre_commit_config.yaml``.
+* Calculate the dynamic kinetic matrix.
+* Calculate the command pre-filter, delay filter, and force cotrol filter parameters.
+
 v1.1.4
 ------
 
