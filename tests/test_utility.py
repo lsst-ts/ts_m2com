@@ -27,17 +27,24 @@ import numpy as np
 from lsst.ts.m2com import (
     NUM_ACTUATOR,
     camel_case,
+    check_hardpoints,
     check_limit_switches,
     check_queue_size,
     get_config_dir,
     is_coroutine,
     read_error_code_file,
     read_yaml_file,
+    select_axial_hardpoints,
 )
 
 
 class TestUtility(unittest.IsolatedAsyncioTestCase):
     """Test the functions in utility."""
+
+    def setUp(self) -> None:
+        yaml_file = get_config_dir() / "harrisLUT" / "cell_geom.yaml"
+
+        self.cell_geom = read_yaml_file(yaml_file)
 
     def test_check_queue_size(self) -> None:
         # No information is logged
@@ -119,6 +126,50 @@ class TestUtility(unittest.IsolatedAsyncioTestCase):
     def test_camel_case(self) -> None:
         self.assertEqual(camel_case("ab"), "ab")
         self.assertEqual(camel_case("ab_cd"), "abCd")
+
+    def test_check_hardpoints(self) -> None:
+        # Good hardpoints
+        check_hardpoints(
+            self.cell_geom["locAct_axial"],
+            [5, 15, 25],
+            [72, 74, 76],
+        )
+
+        # Bad hardpoints
+        self.assertRaises(
+            ValueError,
+            check_hardpoints,
+            self.cell_geom["locAct_axial"],
+            [5, 15, 24],
+            [72, 74, 76],
+        )
+
+        self.assertRaises(
+            ValueError,
+            check_hardpoints,
+            self.cell_geom["locAct_axial"],
+            [5, 15, 25],
+            [72, 73, 74],
+        )
+
+    def test_select_axial_hardpoints(self) -> None:
+        self.assertEqual(
+            select_axial_hardpoints(self.cell_geom["locAct_axial"], 4),
+            [4, 14, 24],
+        )
+        self.assertEqual(
+            select_axial_hardpoints(self.cell_geom["locAct_axial"], 15),
+            [5, 15, 25],
+        )
+        self.assertEqual(
+            select_axial_hardpoints(self.cell_geom["locAct_axial"], 26),
+            [6, 16, 26],
+        )
+
+        self.assertEqual(
+            select_axial_hardpoints(self.cell_geom["locAct_axial"], 0),
+            [0, 10, 20],
+        )
 
 
 if __name__ == "__main__":
