@@ -60,25 +60,6 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertEqual(self.control_closed_loop._stiffness.shape, (78, 78))
         self.assertEqual(self.control_closed_loop._kdc.shape, (72, 72))
 
-    def test_check_hardpoints(self) -> None:
-        # Good hardpoints
-        self.control_closed_loop.check_hardpoints([5, 15, 25], [72, 74, 76])
-
-        # Bad hardpoints
-        self.assertRaises(
-            ValueError,
-            self.control_closed_loop.check_hardpoints,
-            [5, 15, 24],
-            [72, 74, 76],
-        )
-
-        self.assertRaises(
-            ValueError,
-            self.control_closed_loop.check_hardpoints,
-            [5, 15, 25],
-            [72, 73, 74],
-        )
-
     def test_calc_hp_comp_matrix(self) -> None:
         (
             hd_comp_axial,
@@ -170,33 +151,6 @@ class TestMockControlClosedLoop(unittest.TestCase):
         gain, _ = MockControlClosedLoop.calc_force_control_filter_params(is_mirror=True)
 
         self.assertEqual(gain, 0.3291319251)
-
-    def test_select_axial_hardpoints(self) -> None:
-        self.assertEqual(
-            MockControlClosedLoop.select_axial_hardpoints(
-                self.control_closed_loop.get_actuator_location_axial(), 4
-            ),
-            [4, 14, 24],
-        )
-        self.assertEqual(
-            MockControlClosedLoop.select_axial_hardpoints(
-                self.control_closed_loop.get_actuator_location_axial(), 15
-            ),
-            [5, 15, 25],
-        )
-        self.assertEqual(
-            MockControlClosedLoop.select_axial_hardpoints(
-                self.control_closed_loop.get_actuator_location_axial(), 26
-            ),
-            [6, 16, 26],
-        )
-
-        self.assertEqual(
-            MockControlClosedLoop.select_axial_hardpoints(
-                self.control_closed_loop.get_actuator_location_axial(), 0
-            ),
-            [0, 10, 20],
-        )
 
     def test_rigid_body_to_actuator_displacement(self) -> None:
         # Test (x, y, z)

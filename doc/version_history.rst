@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.1.6
+------
+
+* Move the ``check_hardpoints()`` and ``select_axial_hardpoints()`` to **utility.py** from ``MockControlClosedLoop`` class.
+
 v1.1.5
 ------
 

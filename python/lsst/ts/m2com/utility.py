@@ -33,6 +33,7 @@ import numpy as np
 import numpy.typing
 import yaml
 from lsst.ts import tcpip
+from scipy.spatial import KDTree
 
 from .constant import NUM_ACTUATOR, NUM_TANGENT_LINK
 
@@ -47,6 +48,8 @@ __all__ = [
     "is_coroutine",
     "check_limit_switches",
     "camel_case",
+    "check_hardpoints",
+    "select_axial_hardpoints",
 ]
 
 
@@ -342,3 +345,102 @@ def camel_case(string_python: str) -> str:
 
     string_reformat = sub(r"(_|-)+", " ", string_python).title().replace(" ", "")
     return "".join([string_reformat[0].lower(), string_reformat[1:]])
+
+
+def check_hardpoints(
+    location_axial_actuator: list[list],
+    hardpoints_axial: list[int],
+    hardpoints_tangent: list[int],
+) -> None:
+    """Check the selected hardpoints are good or not.
+
+    Parameters
+    ----------
+    location_axial_actuator : `list`
+        Location of the axial actuators: (x, y). This should be a 72 x 2
+        matrix.
+    hardpoints_axial : `list`
+        Three axial hardpoints. The order is from low to high,
+        e.g. [5, 15, 25].
+    hardpoints_tangent : `list`
+        Three tangential hardpoints. This can only be [72, 74, 76] or
+        [73, 75, 77]. The order is from low to high.
+
+    Raises
+    ------
+    `ValueError`
+        If the axial hardpoints are bad.
+    `ValueError`
+        If the tangential hardpoints are wrong.
+    """
+
+    # Axial hardpoints
+
+    # Check the hardpoints by comparing with the expectation
+    if (
+        select_axial_hardpoints(location_axial_actuator, hardpoints_axial[0])
+        != hardpoints_axial
+    ):
+        raise ValueError("Bad selection of axial hardpoints.")
+
+    # Tangent hardpoints
+    option_one = [72, 74, 76]
+    option_two = [73, 75, 77]
+    if hardpoints_tangent not in (option_one, option_two):
+        raise ValueError(
+            f"Tangential hardpoints can only be {option_one} or {option_two}."
+        )
+
+
+def select_axial_hardpoints(
+    location_axial_actuator: list[list], specific_axial_hardpoint: int
+) -> list[int]:
+    """Select the axial hardpoints based on the specific axial hardpoint.
+
+    Notes
+    -----
+    Translate the calculation from the OptAxHardpointSelect.m in
+    ts_mtm2_matlab_tools.
+
+    The idea is to maximize the triangle constructed by 3 axial actuators,
+    which means it should be closed to the equilateral triangle.
+
+    Parameters
+    ----------
+    location_axial_actuator : `list`
+        Location of the axial actuators: (x, y). This should be a 72 x 2
+        matrix.
+    specific_axial_hardpoint : `int`
+        Specific axial hardpoint.
+
+    Returns
+    -------
+    hardpoints : `list`
+        Selected 3 axial hardpoints that contains the specific axial
+        hardpoint. The order is from low to high.
+    """
+
+    # Get the polar coordinate of specific
+    x, y = location_axial_actuator[specific_axial_hardpoint]
+    radius = np.sqrt(x**2 + y**2)
+    theta = np.arctan2(y, x)
+
+    # Get the angles of the other two hardpoints
+    theta_one = theta + np.deg2rad(120)
+    theta_two = theta + np.deg2rad(240)
+
+    # Get the closest actuator index
+    hardpoints = list(
+        KDTree(location_axial_actuator).query(
+            [
+                [radius * np.cos(theta_one), radius * np.sin(theta_one)],
+                [radius * np.cos(theta_two), radius * np.sin(theta_two)],
+            ]
+        )[1]
+    )
+
+    # Return the sorted hardpoints
+    hardpoints.append(specific_axial_hardpoint)
+    hardpoints.sort()
+
+    return hardpoints
