@@ -172,14 +172,12 @@ class MockModel:
         self.script_engine: MockScriptEngine = MockScriptEngine()
         self.error_handler: MockErrorHandler = MockErrorHandler()
 
-        # Force error of the tangent link to check the glass safety
-        self._force_error_tangent = {
-            "force": [0.0] * NUM_TANGENT_LINK,
-            "weight": 0.0,
-            "sum": 0.0,
-        }
-
         self._set_default_measured_forces()
+
+        # Force error of the tangent link to check the glass safety
+        self._force_error_tangent = self._calculate_force_error_tangent(
+            self.control_closed_loop.tangent_forces["measured"]
+        )
 
     def get_default_mirror_position(self) -> dict:
         """Get the default mirror position.
@@ -675,10 +673,14 @@ class MockModel:
         )
 
         gravitational_acceleration = 9.8
+
+        angle_correct = self.control_open_loop.correct_inclinometer_angle(
+            self.control_open_loop.inclinometer_angle
+        )
         mirror_weight_projection = (
             MIRROR_WEIGHT_KG
             * gravitational_acceleration
-            * np.sin(np.deg2rad(90 - self.control_open_loop.inclinometer_angle))
+            * np.sin(np.deg2rad(90 - angle_correct))
         )
         divided_mirror_division = mirror_weight_projection / len(indexes)
 
@@ -923,11 +925,11 @@ class MockModel:
         )
 
         zenith_angle = dict()
-        zenith_angle["measured"] = 90 - inclinometer_value
         zenith_angle["inclinometerRaw"] = inclinometer_value
         zenith_angle[
             "inclinometerProcessed"
         ] = self.control_open_loop.correct_inclinometer_angle(inclinometer_value)
+        zenith_angle["measured"] = 90 - zenith_angle["inclinometerProcessed"]
 
         return zenith_angle
 
