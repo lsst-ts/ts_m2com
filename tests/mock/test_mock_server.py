@@ -827,6 +827,25 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             msg_config = get_queue_message_latest(client_cmd.queue, "config")
             self.assertEqual(msg_config["version"], "20180831T092326")
 
+    async def test_cmd_set_hardpoint_list(self) -> None:
+        async with self.make_server() as server, self.make_clients(server) as (
+            client_cmd,
+            client_tel,
+        ):
+            hardpoints = [3, 13, 23, 73, 75, 77]
+            await client_cmd.write_message(
+                MsgType.Command,
+                "setHardpointList",
+                msg_details={"actuators": hardpoints},
+            )
+
+            await asyncio.sleep(2)
+
+            self.assertEqual(server.model.control_closed_loop.hardpoints, hardpoints)
+
+            msg_hd = get_queue_message_latest(client_cmd.queue, "hardpointList")
+            self.assertEqual(msg_hd["actuators"], [4, 14, 24, 74, 76, 78])
+
     async def test_check_error_inclinometer(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,

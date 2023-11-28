@@ -1643,3 +1643,24 @@ class Controller:
             raise RuntimeError(
                 f"Failed to command the actuator. Only allow in {open_loop!r}."
             )
+
+    async def set_hardpoint_list(
+        self, hardpoints: list[int], timeout: float = 10.0
+    ) -> None:
+        """Set the hardpoint list.
+
+        Parameters
+        ----------
+        hardpoints : `list`
+            List of the 0-based hardpoints. There are 6 actuators. The first
+            three are the axial actuators and the latter three are the tangent
+            links.
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server(
+            "setHardpointList",
+            message_details={"actuators": hardpoints},
+            timeout=timeout,
+        )
