@@ -2,6 +2,13 @@
 Version History
 ===============
 
+v1.1.7
+------
+
+* Add the ``MockControlClosedLoop.update_hardpoints()`` and ``MockCommand.set_hardpoint_list()`` methods.
+* Use the corrected angle in ``MockModel._calculate_force_error_tangent()``.
+* Fix the ``MockModel._simulate_zenith_angle()`` for the calculation of zenith angle.
+
 v1.1.6
 ------
 

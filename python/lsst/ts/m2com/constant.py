@@ -83,7 +83,14 @@ MAX_LIMIT_FORCE_TANGENT_OPEN_LOOP = 6227.51  # 1400 lbf
 # Thresholds of the force errors of the tangent links in
 # TangentLoadCellFaultDetection.vi in ts_mtm2 LabVIEW project.
 # The unit is Newton.
+
+# The excess mass contains both the "dynamic load" and "actual weight error".
+# For the dynamic load, consider the TMA acceleration at 100% value is ~0.06 g.
+# Therefore the dynamic force = MIRROR_WEIGHT_KG * 9.8 * 0.06 ~ 934.13 N.
+# That leaves ~1000 N for the "actual weight error" component in the total
+# error budget of 2000 N.
 TANGENT_LINK_TOTAL_WEIGHT_ERROR = 2000
+
 TANGENT_LINK_LOAD_BEARING_LINK = 1000
 TANGENT_LINK_THETA_Z_MOMENT = 1000
 TANGENT_LINK_NON_LOAD_BEARING_LINK = 1000

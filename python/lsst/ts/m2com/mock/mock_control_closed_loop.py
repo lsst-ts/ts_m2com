@@ -175,6 +175,27 @@ class MockControlClosedLoop:
 
         return temperatures
 
+    def update_hardpoints(self, hardpoints: list[int], lut_angle: float) -> None:
+        """Update the hardpoints and related internal parameters.
+
+        Parameters
+        ----------
+        hardpoints : `list`
+            List of the 0-based hardpoints. There are 6 actuators. The first
+            three are the axial actuators and the latter three are the tangent
+            links.
+        lut_angle : `float`
+            Angle used to calculate the LUT forces of gravity component in
+            degree.
+        """
+
+        self.hardpoints = hardpoints
+
+        self.set_kinetic_decoupling_matrix()
+
+        self.set_hardpoint_compensation()
+        self.calc_look_up_forces(lut_angle)
+
     def simulate_temperature_and_update(
         self,
         temperature_rms: float = 0.05,
@@ -390,12 +411,13 @@ class MockControlClosedLoop:
     def set_hardpoint_compensation(self) -> None:
         """Set the hardpoint compensation matrix."""
 
-        # There are 3 axial actuators to be hardpoints
         (
             hd_comp_axial,
             hd_comp_tangent,
         ) = MockControlClosedLoop.calc_hp_comp_matrix(
-            self.get_actuator_location_axial(), self.hardpoints[:3], self.hardpoints[3:]
+            self.get_actuator_location_axial(),
+            self.hardpoints[:NUM_HARDPOINTS_AXIAL],
+            self.hardpoints[NUM_HARDPOINTS_AXIAL:],
         )
         self._hd_comp = block_diag(hd_comp_axial, hd_comp_tangent)
 
@@ -532,11 +554,10 @@ class MockControlClosedLoop:
     def set_kinetic_decoupling_matrix(self) -> None:
         """Set the kinetic decoupling matrix."""
 
-        # There are 3 axial actuators to be hardpoints
         self._kdc = MockControlClosedLoop.calc_kinetic_decoupling_matrix(
             self.get_actuator_location_axial(),
-            self.hardpoints[:3],
-            self.hardpoints[3:],
+            self.hardpoints[:NUM_HARDPOINTS_AXIAL],
+            self.hardpoints[NUM_HARDPOINTS_AXIAL:],
             self._stiffness,
         )
 

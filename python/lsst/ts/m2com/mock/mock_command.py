@@ -1057,3 +1057,47 @@ class MockCommand:
         await message_event.write_config()
 
         return model, CommandStatus.Success
+
+    async def set_hardpoint_list(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> tuple[MockModel, CommandStatus]:
+        """Set the hardpoint list.
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        # Set the hardpoints
+        control_open_loop = model.control_open_loop
+        lut_angle = (
+            model.inclinometer_angle_external
+            if model.control_parameters["use_external_elevation_angle"]
+            else control_open_loop.correct_inclinometer_angle(
+                control_open_loop.inclinometer_angle
+            )
+        )
+
+        model.control_closed_loop.update_hardpoints(message["actuators"], lut_angle)
+
+        # Send the event
+
+        # Note the index begins from 0 in Python
+        hardpoints = [
+            (hardpoint + 1) for hardpoint in model.control_closed_loop.hardpoints
+        ]
+        await message_event.write_hardpoint_list(hardpoints)
+
+        return model, CommandStatus.Success

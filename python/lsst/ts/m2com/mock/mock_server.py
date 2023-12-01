@@ -151,6 +151,7 @@ class MockServer:
             "cmd_setControlParameters": self._command.set_control_parameters,
             "cmd_setEnabledFaultsMask": self._command.set_enabled_faults_mask,
             "cmd_setConfigurationFile": self._command.set_configuration_file,
+            "cmd_setHardpointList": self._command.set_hardpoint_list,
         }
 
     async def _connect_state_changed_callback_command(

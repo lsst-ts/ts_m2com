@@ -60,6 +60,22 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertEqual(self.control_closed_loop._stiffness.shape, (78, 78))
         self.assertEqual(self.control_closed_loop._kdc.shape, (72, 72))
 
+    def test_update_hardpoints(self) -> None:
+        hardpoints = [4, 14, 24, 72, 74, 76]
+        self.control_closed_loop.update_hardpoints(hardpoints, 59.06)
+
+        self.assertEqual(self.control_closed_loop.hardpoints, hardpoints)
+
+        self.assertEqual(
+            self.control_closed_loop.axial_forces["hardpointCorrection"][4], 0.0
+        )
+
+        hardpoint_correction_tangent = self.control_closed_loop.tangent_forces[
+            "hardpointCorrection"
+        ]
+        self.assertEqual(hardpoint_correction_tangent[0], 0.0)
+        self.assertAlmostEqual(hardpoint_correction_tangent[1], -11.0145333)
+
     def test_calc_hp_comp_matrix(self) -> None:
         (
             hd_comp_axial,
