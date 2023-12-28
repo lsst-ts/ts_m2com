@@ -338,15 +338,15 @@ class MockControlClosedLoop:
             Temperature inversion matrix.
         """
 
-        # Radius of mirror in millimeter
-        R = 1734.82
-
         # Positions of 12 temperature sensors
         # Radial is in millimeter, theta is in degree
-        r_normalized = np.array([937.514, 1634.744, 1734.82] * 4) / R
-        theta = np.kron(np.array([98.5, 278.5, 0, 180]), np.ones(3))
+        r_sensors = [937.514, 1634.744, 1734.82]
+        theta_sensors = [98.5, 278.5, 0.0, 180.0]
 
-        matrix = np.zeros([len(r_normalized), 4])
+        r_normalized = np.array(r_sensors * len(theta_sensors)) / max(r_sensors)
+        theta = np.kron(np.array(theta_sensors), np.ones(len(r_sensors)))
+
+        matrix = np.zeros([len(r_normalized), len(theta_sensors)])
         matrix[:, 0] = r_normalized
         matrix[:, 1] = r_normalized * np.cos(np.deg2rad(theta))
         matrix[:, 2] = r_normalized * np.sin(np.deg2rad(theta))
