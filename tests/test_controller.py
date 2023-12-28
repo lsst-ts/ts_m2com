@@ -52,6 +52,12 @@ class TestController(unittest.IsolatedAsyncioTestCase):
     host: str
     timeout_in_second: float
     log: logging.Logger
+    maxsize_queue: int
+
+    queue_evt: asyncio.Queue
+    queue_tel: asyncio.Queue
+
+    lost_connection: bool
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -63,6 +69,12 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             level=logging.INFO, handlers=[logging.StreamHandler(sys.stdout)]
         )
         cls.log = logging.getLogger()
+        cls.maxsize_queue = 1000
+
+        cls.queue_evt = asyncio.Queue()
+        cls.queue_tel = asyncio.Queue()
+
+        cls.lost_connection = False
 
     @contextlib.asynccontextmanager
     async def make_server(self) -> MockServer:
@@ -99,7 +111,23 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             Mock server.
         """
 
+        # Create new queues
+        self.queue_evt = asyncio.Queue(maxsize=self.maxsize_queue)
+        self.queue_tel = asyncio.Queue(maxsize=self.maxsize_queue)
+
+        self.lost_connection = False
+
         controller = Controller(log=self.log)
+        controller.set_callback_process_event(
+            self._callback_process_message, self.queue_evt
+        )
+        controller.set_callback_process_telemetry(
+            self._callback_process_message, self.queue_tel
+        )
+        controller.set_callback_process_lost_connection(
+            self._callback_process_lost_connection
+        )
+
         controller.start(
             server.server_command.host,
             server.server_command.port,
@@ -121,6 +149,15 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(controller.client_command)
         self.assertIsNone(controller.client_telemetry)
         self.assertEqual(controller.last_command_status, CommandStatus.Unknown)
+
+    async def _callback_process_message(
+        self, queue: asyncio.Queue, message: dict | None = None
+    ) -> None:
+        if message is not None:
+            queue.put_nowait(message)
+
+    async def _callback_process_lost_connection(self) -> None:
+        self.lost_connection = True
 
     def test_set_ilc_modes_to_unknown(self) -> None:
         controller = Controller()
@@ -176,9 +213,22 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertTrue(controller.are_clients_connected())
 
+            # Capture the previous connection lost
+            self.assertTrue(self.lost_connection)
+
     async def test_task_connection_timeout(self) -> None:
         # Let the controller connects to the wrong host position
         controller = Controller(log=self.log)
+        controller.set_callback_process_event(
+            self._callback_process_message, self.queue_evt
+        )
+        controller.set_callback_process_telemetry(
+            self._callback_process_message, self.queue_tel
+        )
+        controller.set_callback_process_lost_connection(
+            self._callback_process_lost_connection
+        )
+
         controller.start(
             "127.0.0.2",
             1,
@@ -198,12 +248,10 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(controller.client_telemetry)
 
     async def test_task_analyze_message(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as _:
             # Wait a little time to collect the event messages
             await asyncio.sleep(SLEEP_TIME_SHORT)
-            self.assertGreaterEqual(controller.queue_event.qsize(), 11)
+            self.assertGreaterEqual(self.queue_evt.qsize(), 11)
 
     async def test_last_command_status_ack_success(self) -> None:
         async with self.make_server() as server, self.make_controller(

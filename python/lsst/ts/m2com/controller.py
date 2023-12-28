@@ -43,7 +43,7 @@ from .enum import (
 )
 from .error_handler import ErrorHandler
 from .tcp_client import TcpClient
-from .utility import camel_case, check_queue_size, get_config_dir
+from .utility import camel_case, cancel_task_and_wait, get_config_dir
 
 __all__ = ["Controller"]
 
@@ -56,11 +56,6 @@ class Controller:
     log : `logging.Logger` or None, optional
         A logger. If None, a logger will be instantiated. (the default is
         None)
-    timeout_in_second : `float`, optional
-        Time limit for reading data from the TCP/IP interface (sec). (the
-        default is 0.05)
-    maxsize_queue : `int`, optional
-        Maximum size of queue. (the default is 1000)
 
     Attributes
     ----------
@@ -72,8 +67,6 @@ class Controller:
         Command client.
     client_telemetry : `TcpClient` or None
         Telemetry client.
-    queue_event : `asyncio.Queue`
-        Queue of the event.
     last_command_status : `CommandStatus`
         Last command status.
     timeout : `float`
@@ -91,8 +84,6 @@ class Controller:
     def __init__(
         self,
         log: logging.Logger | None = None,
-        timeout_in_second: float = 0.05,
-        maxsize_queue: int = 1000,
     ) -> None:
         # Set the logger
         if log is None:
@@ -105,11 +96,7 @@ class Controller:
         self.client_command: TcpClient | None = None
         self.client_telemetry: TcpClient | None = None
 
-        self.queue_event: asyncio.Queue = asyncio.Queue(maxsize=int(maxsize_queue))
-
         self.last_command_status = CommandStatus.Unknown
-
-        self.timeout = timeout_in_second
 
         self.power_system_status = {
             "motor_power_is_on": False,
@@ -137,8 +124,23 @@ class Controller:
         # Task to do the connection (asyncio.Future)
         self._task_connection = make_done_future()
 
-        # Task to analyze the message from server (asyncio.Future)
-        self._task_analyze_message = make_done_future()
+        # Callback functions and related arguments to process the
+        # event and telemetry
+        self._callback_process_event: typing.Callable[
+            ..., typing.Coroutine
+        ] | None = None
+        self._args_callback_process_event: typing.Any = None
+
+        self._callback_process_telemetry: typing.Callable[
+            ..., typing.Coroutine
+        ] | None = None
+        self._args_callback_process_telemetry: typing.Any = None
+
+        # Callback function to deal with the lost of connection
+        self._callback_process_lost_connection: typing.Callable[
+            ..., typing.Coroutine
+        ] | None = None
+        self._args_callback_process_lost_connection: typing.Any = None
 
     def _get_error_handler(self, filename: str = "error_code.tsv") -> ErrorHandler:
         """Get the error handler.
@@ -177,6 +179,60 @@ class Controller:
 
         return np.all(self.ilc_modes == MTM2.InnerLoopControlMode.Enabled)
 
+    def set_callback_process_event(
+        self, process_event: typing.Callable[..., typing.Coroutine], *args: typing.Any
+    ) -> None:
+        """Set the callback function to process the event.
+
+        Parameters
+        ----------
+        process_event : `coroutine`
+            Function to process the event. It must has a keyward argument of
+            "message" to receive the event as a dictionary.
+        args : `args`
+            Arguments needed in "process_event" function call.
+        """
+
+        self._callback_process_event = process_event
+        self._args_callback_process_event = args
+
+    def set_callback_process_telemetry(
+        self,
+        process_telemetry: typing.Callable[..., typing.Coroutine],
+        *args: typing.Any,
+    ) -> None:
+        """Set the callback function to process the telemetry.
+
+        Parameters
+        ----------
+        process_telemetry : `coroutine`
+            Function to process the telemetry. It must has a keyward argument
+            of "message" to receive the telemetry as a dictionary.
+        args : `args`
+            Arguments needed in "process_telemetry" function call.
+        """
+
+        self._callback_process_telemetry = process_telemetry
+        self._args_callback_process_telemetry = args
+
+    def set_callback_process_lost_connection(
+        self,
+        process_lost_connection: typing.Callable[..., typing.Coroutine],
+        *args: typing.Any,
+    ) -> None:
+        """Set the callback function to process the lost of connection.
+
+        Parameters
+        ----------
+        process_lost_connection : `coroutine`
+            Function to process the lost of connection.
+        args : `args`
+            Arguments needed in "process_lost_connection" function call.
+        """
+
+        self._callback_process_lost_connection = process_lost_connection
+        self._args_callback_process_lost_connection = args
+
     def start(
         self,
         host: str,
@@ -213,7 +269,6 @@ class Controller:
                 timeout,
             )
         )
-        self._task_analyze_message = asyncio.create_task(self._analyze_message())
 
     async def _connect(
         self,
@@ -239,104 +294,105 @@ class Controller:
             Connection timeout in second.
         """
 
-        self.log.info("Begin to connect the servers.")
+        # Workaround the mypy check
+        assert self._callback_process_telemetry is not None
+        assert self._callback_process_lost_connection is not None
 
+        self.log.info("Begin the connection loop with servers.")
+
+        were_clients_connected = False
         while self._start_connection:
-            if self.are_clients_connected():
-                await asyncio.sleep(1)
-            else:
-                # Always use the new instances to request new connections
-                maxsize_queue = self.queue_event.maxsize
-                self.client_command = TcpClient(
-                    host,
-                    port_command,
-                    timeout_in_second=self.timeout,
-                    log=self.log,
-                    sequence_generator=sequence_generator,
-                    maxsize_queue=maxsize_queue,
-                    name="command",
-                )
-                self.client_telemetry = TcpClient(
-                    host,
-                    port_telemetry,
-                    timeout_in_second=self.timeout,
-                    log=self.log,
-                    maxsize_queue=maxsize_queue,
-                    name="telemetry",
-                )
+            if not self.are_clients_connected():
+                if were_clients_connected:
+                    were_clients_connected = False
+                    self.log.info("Lost the TCP/IP connection in the connection loop.")
 
-                try:
-                    await asyncio.gather(
-                        self.client_command.connect(timeout=timeout),
-                        self.client_telemetry.connect(timeout=timeout),
+                    # Process the lost of connection
+                    await self._callback_process_lost_connection(
+                        *self._args_callback_process_lost_connection
                     )
-                    self.log.info("Servers are connected.")
 
-                except Exception as error:
-                    self.log.debug(
-                        "Error when connecting to servers - "
-                        f"{self.client_command.host}:{self.client_command.port} "
-                        f"and/or {self.client_telemetry.host}:{self.client_telemetry.port}: {str(error)}"
-                    )
-                    await self.close()
+                    await self._close_clients()
 
-        self.log.info("Stop the connection with servers.")
-
-    async def _analyze_message(self) -> None:
-        """Analyze the message from the command server."""
-
-        self.log.info("Begin to analyze the message from the command server.")
-
-        # Workaround of the mypy checking
-        assert self.client_command is not None
-        assert self.client_telemetry is not None
-
-        while self._start_connection:
-            try:
-                if not self.client_command.queue.empty():
-                    message = self.client_command.queue.get_nowait()
-                    self.log.debug(f"Receive the event message: {message}")
-
-                    self._analyze_command_status_and_event(message)
                 else:
-                    await asyncio.sleep(self.timeout)
+                    # Always use the new instances to request new connections
+                    self.client_command = TcpClient(
+                        host,
+                        port_command,
+                        self._analyze_command_status_and_event,
+                        log=self.log,
+                        sequence_generator=sequence_generator,
+                        name="command",
+                    )
+                    self.client_telemetry = TcpClient(
+                        host,
+                        port_telemetry,
+                        self._callback_process_telemetry,
+                        *self._args_callback_process_telemetry,
+                        log=self.log,
+                        name="telemetry",
+                        check_message_rate=True,
+                    )
 
-            except asyncio.QueueFull:
-                self.log.exception("Internal queue of event is full.")
+                    try:
+                        await asyncio.gather(
+                            self.client_command.connect(timeout=timeout),
+                            self.client_telemetry.connect(timeout=timeout),
+                        )
+                        self.log.info("Servers are connected.")
 
-        self.log.info("Stop the analysis of message.")
+                        were_clients_connected = True
 
-    def _analyze_command_status_and_event(self, message: dict) -> None:
+                    except Exception as error:
+                        self.log.debug(
+                            "Error when connecting to servers - "
+                            f"{self.client_command.host}:{self.client_command.port} "
+                            f"and/or {self.client_telemetry.host}:{self.client_telemetry.port}: {str(error)}"
+                        )
+                        await self.close()
+
+            await asyncio.sleep(1)
+
+        self.log.info("Stop the connection loop with servers.")
+
+    async def _analyze_command_status_and_event(
+        self, message: dict | None = None
+    ) -> None:
         """Analyze the command status and event.
 
         Parameters
         ----------
-        message : `dict`
-            Incoming message.
+        message : `dict` or None, optional
+            Incoming message. (the default is None)
         """
 
-        if self._is_command_status(message):
-            self.last_command_status = self._get_command_status(message)
-            return
+        if message is not None:
+            self.log.debug(f"Receive the event message: {message}")
 
-        # Check and update the power status
-        self._update_power_status(message)
+            if self._is_command_status(message):
+                self.last_command_status = self._get_command_status(message)
+                return
 
-        # Check and update the closed-loop control mode
-        self._update_closed_loop_control_mode(message)
+            # Check and update the power status
+            self._update_power_status(message)
 
-        # Check and update the inner-loop control mode
-        self._update_inner_loop_control_mode(message)
+            # Check and update the closed-loop control mode
+            self._update_closed_loop_control_mode(message)
 
-        # Add the received error code to the error handler
-        self._process_error_code(message)
+            # Check and update the inner-loop control mode
+            self._update_inner_loop_control_mode(message)
 
-        # Process the summary faults status and update the internal state
-        self._process_summary_faults_status(message)
+            # Add the received error code to the error handler
+            self._process_error_code(message)
 
-        # Put the event message into the queue for CSC/GUI to publish
-        self.queue_event.put_nowait(message)
-        check_queue_size(self.queue_event, self.log)
+            # Process the summary faults status and update the internal state
+            list_event_error_code = self._process_summary_faults_status(message)
+
+            # Process the event with the callback function
+            await self._process_event_with_callback(message)
+
+            for event_error_code in list_event_error_code:
+                await self._process_event_with_callback(event_error_code)
 
     def _is_command_status(self, message: dict) -> bool:
         """Is the command status or not.
@@ -506,7 +562,7 @@ class Controller:
             if self.error_handler.is_warning(code):
                 self.error_handler.add_new_warning(code)
 
-    def _process_summary_faults_status(self, message: dict) -> None:
+    def _process_summary_faults_status(self, message: dict) -> list[dict]:
         """Process the summary faults status. The decoded bit will be put into
         the 'errorCode' event.
 
@@ -514,8 +570,14 @@ class Controller:
         ----------
         message : `dict`
             Incoming message.
+
+        Returns
+        -------
+        list_event_error_code : `list`
+            List of the error code event.
         """
 
+        list_event_error_code = list()
         if message["id"] == "summaryFaultsStatus":
             self.error_handler.decode_summary_faults_status(message["status"])
 
@@ -530,7 +592,29 @@ class Controller:
 
             # Put the message into the queue for CSC/GUI to publish
             for code in codes:
-                self.queue_event.put_nowait({"id": "errorCode", "errorCode": code})
+                list_event_error_code.append({"id": "errorCode", "errorCode": code})
+
+        return list_event_error_code
+
+    async def _process_event_with_callback(self, message: dict) -> None:
+        """Process the event with the callback function.
+
+        Parameters
+        ----------
+        message : `dict`
+            Message.
+        """
+
+        # Workaround the mypy check
+        assert self._callback_process_event is not None
+
+        try:
+            await self._callback_process_event(
+                *self._args_callback_process_event, message=message
+            )
+
+        except Exception as error:
+            self.log.debug(f"Error in processing the event: {message}. {error!r}.")
 
     def are_clients_connected(self) -> bool:
         """The command and telemetry sockets are connected or not.
@@ -554,18 +638,9 @@ class Controller:
         """
 
         self._start_connection = False
+        await cancel_task_and_wait(self._task_connection)
 
-        self._task_connection.cancel()
-        self._task_analyze_message.cancel()
-
-        if self.client_command is not None:
-            await self.client_command.close()
-
-        if self.client_telemetry is not None:
-            await self.client_telemetry.close()
-
-        self.client_command = None
-        self.client_telemetry = None
+        await self._close_clients()
 
         self.last_command_status = CommandStatus.Unknown
 
@@ -578,6 +653,18 @@ class Controller:
 
         self.closed_loop_control_mode = MTM2.ClosedLoopControlMode.Idle
         self.set_ilc_modes_to_unknown()
+
+    async def _close_clients(self) -> None:
+        """Close the clients."""
+
+        if self.client_command is not None:
+            await self.client_command.close()
+
+        if self.client_telemetry is not None:
+            await self.client_telemetry.close()
+
+        self.client_command = None
+        self.client_telemetry = None
 
     async def clear_errors(self, timeout: float = 10.0) -> None:
         """Clear the errors.

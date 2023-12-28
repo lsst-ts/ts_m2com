@@ -22,15 +22,13 @@
 import asyncio
 import logging
 import time
-import typing
 from pathlib import Path
 
 from lsst.ts.tcpip import LOCALHOST_IPV4
-from lsst.ts.utils import index_generator, make_done_future
+from lsst.ts.utils import index_generator
 
 from .controller import Controller
 from .mock import MockServer
-from .utility import is_coroutine
 
 __all__ = ["ControllerCell"]
 
@@ -43,11 +41,6 @@ class ControllerCell(Controller):
     log : `logging.Logger` or None, optional
         A logger. If None, a logger will be instantiated. (the default is
         None)
-    timeout_in_second : `float`, optional
-        Time limit for reading data from the TCP/IP interface (sec). (the
-        default is 0.05)
-    maxsize_queue : `int`, optional
-        Maximum size of queue. (the default is 1000)
     is_csc : `bool`, optional
         Is called by the commandable SAL component (CSC) or not. (the default
         is True)
@@ -72,10 +65,6 @@ class ControllerCell(Controller):
         Connection timeout in second.
     mock_server : `MockServer` or None
         Mock server to support the simulation.
-    run_loops : `bool`
-        The event and telemetry loops are running or not.
-    stop_loop_timeout : `float`
-        Timeout of stoping loop in second.
     """
 
     # Maximum timeout to wait the telemetry in second
@@ -86,8 +75,6 @@ class ControllerCell(Controller):
     def __init__(
         self,
         log: logging.Logger | None = None,
-        timeout_in_second: float = 0.05,
-        maxsize_queue: int = 1000,
         is_csc: bool = True,
         host: str | None = None,
         port_command: int | None = None,
@@ -96,8 +83,6 @@ class ControllerCell(Controller):
     ) -> None:
         super().__init__(
             log=log,
-            timeout_in_second=timeout_in_second,
-            maxsize_queue=maxsize_queue,
         )
 
         self._is_csc = is_csc
@@ -113,19 +98,6 @@ class ControllerCell(Controller):
 
         # Sequence generator
         self._sequence_generator = index_generator()
-
-        self.run_loops = False
-
-        self.stop_loop_timeout = 5.0
-
-        # Task of the telemetry loop from component (asyncio.Future)
-        self._task_telemetry_loop = make_done_future()
-
-        # Task of the event loop from component (asyncio.Future)
-        self._task_event_loop = make_done_future()
-
-        # Task to monitor the connection status actively (asyncio.Future)
-        self._task_connection_monitor_loop = make_done_future()
 
     async def run_mock_server(self, config_dir: Path, lut_path: str) -> None:
         """Run the mock server to support the simulation mode.
@@ -208,298 +180,7 @@ class ControllerCell(Controller):
                 f"{port_command} and {port_telemetry}."
             )
 
-    def start_task_event_loop(
-        self,
-        process_event: typing.Callable | typing.Coroutine,
-        *args: typing.Any,
-        **kwargs: dict[str, typing.Any],
-    ) -> None:
-        """Start the task of event loop.
-
-        Parameters
-        ----------
-        process_event : `func` or `coroutine`
-            Function to process the event. It must has a keyward argument of
-            "message" to receive the message as a dictionary.
-        *args : `args`
-            Arguments needed in "process_event" function call.
-        **kwargs : `dict`, optional
-            Additional keyword arguments in "process_event" function
-            call.
-        """
-        self._task_event_loop = asyncio.create_task(
-            self._event_loop(process_event, *args, **kwargs)
-        )
-
-    async def _event_loop(
-        self,
-        process_event: typing.Callable | typing.Coroutine,
-        *args: typing.Any,
-        **kwargs: dict[str, typing.Any],
-    ) -> None:
-        """Update and output event information from component.
-
-        Parameters
-        ----------
-        process_event : `func` or `coroutine`
-            Function to process the event. It must has a keyward argument of
-            "message" to receive the message as a dictionary.
-        *args : `args`
-            Arguments needed in "process_event" function call.
-        **kwargs : `dict`, optional
-            Additional keyword arguments in "process_event" function
-            call.
-        """
-
-        self.log.debug("Begin to run the event loop from component.")
-
-        is_coroutine_function = is_coroutine(process_event)
-
-        while self.run_loops:
-            try:
-                message = (
-                    self.queue_event.get_nowait()
-                    if not self.queue_event.empty()
-                    else await self.queue_event.get()
-                )
-
-            # When there is no instance in the self.queue_event, the get() will
-            # be used to wait for the new coming event. It is a blocking call
-            # and will get the asyncio.CancelledError if we cancel the
-            # self._task_event_loop.
-            except asyncio.CancelledError:
-                message = ""
-
-            # Process the event
-            try:
-                if is_coroutine_function:
-                    await process_event(*args, message=message, **kwargs)  # type: ignore[operator]
-                else:
-                    process_event(*args, message=message, **kwargs)  # type: ignore[operator]
-
-            except Exception as error:
-                self.log.debug(f"Error in processing the event: {message}. {error!r}.")
-
-            await asyncio.sleep(self.timeout)
-
-        self.log.debug("Component's event loop exited.")
-
-    def start_task_telemetry_loop(
-        self,
-        process_telemetry: typing.Callable | typing.Coroutine,
-        *args: typing.Any,
-        period: float = 2.0,
-        **kwargs: dict[str, typing.Any],
-    ) -> None:
-        """Start the task of telemetry loop.
-
-        Parameters
-        ----------
-        process_telemetry : `func` or `coroutine`
-            Function to process the telemetry. It must has a keyward argument
-            of "message" to receive the message as a dictionary.
-        *args : `args`
-            Arguments needed in "process_telemetry" function call.
-        period : `float`, optional
-            Period to check the telemetry rate in second. (the default is 2.0)
-        **kwargs : `dict`, optional
-            Additional keyword arguments in "process_telemetry" function
-            call.
-        """
-        self._task_telemetry_loop = asyncio.create_task(
-            self._telemetry_loop(process_telemetry, *args, period=period, **kwargs)
-        )
-
-    async def _telemetry_loop(
-        self,
-        process_telemetry: typing.Callable | typing.Coroutine,
-        *args: typing.Any,
-        period: float = 2.0,
-        **kwargs: dict[str, typing.Any],
-    ) -> None:
-        """Update and output telemetry information from component.
-
-        Parameters
-        ----------
-        process_telemetry : `func` or `coroutine`
-            Function to process the telemetry. It must has a keyward argument
-            of "message" to receive the message as a dictionary.
-        *args : `args`
-            Arguments needed in "process_telemetry" function call.
-        period : `float`, optional
-            Period to check the telemetry rate in second. (the default is 2.0)
-        **kwargs : `dict`, optional
-            Additional keyword arguments in "process_telemetry" function
-            call.
-        """
-
-        self.log.debug("Starting telemetry loop from component.")
-
-        is_coroutine_function = is_coroutine(process_telemetry)
-
-        time_wait_telemetry = 0.0
-        is_telemetry_timed_out = False
-
-        messages_consumed = 0
-        messages_consumed_log_timer = asyncio.create_task(asyncio.sleep(period))
-        while self.run_loops:
-            if self.are_clients_connected():
-                # Workaround of the mypy checking
-                assert self.client_telemetry is not None
-
-                if (
-                    time_wait_telemetry >= self.TELEMETRY_WAIT_TIMEOUT
-                    and not is_telemetry_timed_out
-                ):
-                    self.log.warning(
-                        (
-                            "No telemetry update for more than "
-                            f"{self.TELEMETRY_WAIT_TIMEOUT} seconds. Can you "
-                            f"ping the controller at {self.host} and initiate "
-                            "connection to one of it's ports (at "
-                            f"{self.port_command} and {self.port_telemetry})?"
-                        )
-                    )
-                    time_wait_telemetry = 0.0
-                    is_telemetry_timed_out = True
-
-                # If there is no telemetry, sleep for some time
-                if self.client_telemetry.queue.empty():
-                    await asyncio.sleep(self.timeout)
-                    time_wait_telemetry += self.timeout
-                    continue
-
-                # There is the telemetry to publish
-                time_wait_telemetry = 0.0
-                if is_telemetry_timed_out:
-                    self.log.info("Telemetry is up and running after failure.")
-
-                # Intentional to express this variable will be False if there
-                # is the new message.
-                is_telemetry_timed_out = False
-
-                message = self.client_telemetry.queue.get_nowait()
-
-                # Process the telemetry
-                try:
-                    if is_coroutine_function:
-                        await process_telemetry(*args, message=message, **kwargs)  # type: ignore[operator]
-                    else:
-                        process_telemetry(*args, message=message, **kwargs)  # type: ignore[operator]
-
-                except Exception as error:
-                    self.log.debug(
-                        f"Error in processing the telemetry: {message}. {error!r}."
-                    )
-
-                # Evaluate the telemetry rate
-                messages_consumed += 1
-                if messages_consumed_log_timer.done():
-                    self.log.debug(f"Consumed {messages_consumed/period} messages/s.")
-                    messages_consumed = 0
-                    messages_consumed_log_timer = asyncio.create_task(
-                        asyncio.sleep(period)
-                    )
-
-            else:
-                self.log.debug(f"Clients not connected. Waiting {self.timeout}s...")
-                await asyncio.sleep(self.timeout)
-
-        self.log.debug("The component's telemetry loop exited/ended.")
-
-    def start_task_connection_monitor_loop(
-        self,
-        process_lost_connection: typing.Callable | typing.Coroutine,
-        *args: typing.Any,
-        period: float = 1.0,
-        **kwargs: dict[str, typing.Any],
-    ) -> None:
-        """Start the task of connection monitor loop.
-
-        Parameters
-        ----------
-        process_lost_connection : `func` or `coroutine`
-            Function to process the lost of connection.
-        *args : `args`
-            Arguments needed in "process_lost_connection" function call.
-        period : `float`, optional
-            Period to check the connection status in second. (the default is
-            1.0)
-        **kwargs : `dict`, optional
-            Additional keyword arguments in "process_lost_connection" function
-            call.
-        """
-        self._task_connection_monitor_loop = asyncio.create_task(
-            self._connection_monitor_loop(
-                process_lost_connection, *args, period=period, **kwargs
-            )
-        )
-
-    async def _connection_monitor_loop(
-        self,
-        process_lost_connection: typing.Callable | typing.Coroutine,
-        *args: typing.Any,
-        period: float = 1.0,
-        **kwargs: dict[str, typing.Any],
-    ) -> None:
-        """Actively monitor the connection status from component. Disconnect
-        the system if the connection is lost by itself.
-
-        Parameters
-        ----------
-        process_lost_connection : `func` or `coroutine`
-            Function to process the lost of connection.
-        *args : `args`
-            Arguments needed in "process_lost_connection" function call.
-        period : `float`, optional
-            Period to check the connection status in second. (the default is
-            1.0)
-        **kwargs : `dict`, optional
-            Additional keyword arguments in "process_lost_connection" function
-            call.
-        """
-
-        self.log.debug("Begin to run the connection monitor loop from component.")
-
-        is_coroutine_function = is_coroutine(process_lost_connection)
-
-        were_clients_connected = False
-        while self.run_loops:
-            if self.are_clients_connected():
-                were_clients_connected = True
-            else:
-                if were_clients_connected:
-                    were_clients_connected = False
-                    self.log.info(
-                        "Lost the TCP/IP connection in the active monitoring loop."
-                    )
-
-                    await self.close()
-
-                    # Process the lost of connection
-                    if is_coroutine_function:
-                        await process_lost_connection(*args, **kwargs)  # type: ignore[operator]
-                    else:
-                        process_lost_connection(*args, **kwargs)  # type: ignore[operator]
-
-            await asyncio.sleep(period)
-
-        self.log.debug("Connection monitor loop from component closed.")
-
-    async def close_tasks(self) -> None:
-        """Close the asynchronous tasks.
-
-        Note: this function is safe to call even though there is no connection.
-        """
-
-        await self._close_controller_and_mock_server()
-
-        try:
-            await self.stop_loops()
-        except Exception:
-            self.log.exception("Exception while stopping the loops. Ignoring...")
-
-    async def _close_controller_and_mock_server(self) -> None:
+    async def close_controller_and_mock_server(self) -> None:
         """Close the controller and mock server."""
 
         await self.close()
@@ -511,23 +192,3 @@ class ControllerCell(Controller):
 
             await self.mock_server.close()
             self.mock_server = None
-
-    async def stop_loops(self) -> None:
-        """Stop the loops.
-
-        Note: this function is safe to call even though there is no connection.
-        """
-
-        self.run_loops = False
-
-        for task in (
-            self._task_telemetry_loop,
-            self._task_event_loop,
-            self._task_connection_monitor_loop,
-        ):
-            try:
-                await asyncio.wait_for(task, timeout=self.stop_loop_timeout)
-            except asyncio.TimeoutError:
-                self.log.debug("Timed out waiting for the loop to finish. Canceling.")
-
-                task.cancel()
