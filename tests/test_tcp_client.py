@@ -46,6 +46,8 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
         cls.log = logging.getLogger()
         cls.times_previous_command = 3
 
+        cls.queue = asyncio.Queue()
+
     @contextlib.asynccontextmanager
     async def make_server(self) -> tcpip.OneClientServer:
         """Instantiate a TCP/IP server for the test."""
@@ -76,6 +78,9 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
             TCP/IP server.
         """
 
+        # Create a new queue
+        self.queue: asyncio.Queue = asyncio.Queue(maxsize=100)
+
         # Create a sequence generator and run it for a couple times first
         sequence_generator = index_generator()
         for count in range(self.times_previous_command):
@@ -84,9 +89,9 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
         client = TcpClient(
             server.host,
             server.port,
+            self._callback_process_message,
             log=self.log,
             sequence_generator=sequence_generator,
-            maxsize_queue=8,
         )
         await client.connect()
 
@@ -95,14 +100,18 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
         finally:
             await client.close()
 
+    async def _callback_process_message(self, message: dict | None = None) -> None:
+        if message is not None:
+            self.queue.put_nowait(message)
+
     async def test_connect_timeout_wrong_host(self) -> None:
-        client = TcpClient("127.0.0.2", 8888)
+        client = TcpClient("127.0.0.2", 8888, self._callback_process_message)
 
         with self.assertRaises(ConnectionRefusedError):
             await client.connect(timeout=3.0)
 
     async def test_close(self) -> None:
-        client = TcpClient(tcpip.DEFAULT_LOCALHOST, 0)
+        client = TcpClient(tcpip.DEFAULT_LOCALHOST, 0, self._callback_process_message)
         await client.close()
 
     async def test_connected(self) -> None:
@@ -117,7 +126,9 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(client.connected)
 
     async def test_write_no_connection(self) -> None:
-        tcp_client = TcpClient(self.host, 0, log=self.log)
+        tcp_client = TcpClient(
+            self.host, 0, self._callback_process_message, log=self.log
+        )
 
         with self.assertRaises(RuntimeError):
             await tcp_client.write_message(MsgType.Event, "inPosition")
@@ -252,27 +263,27 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(message["id"], "tel_" + msg_name)
             self.assertEqual(message["compName"], comp_name)
 
-    async def test_put_read_msg_to_queue(self) -> None:
-        async with self.make_server() as server, self.make_client(server) as client:
+    async def test_get_and_process_message(self) -> None:
+        async with self.make_server() as server, self.make_client(server) as _:
             input_msg = {"val": 1}
             await server.write_json(input_msg)
 
             # Sleep a short time to let the monitor loop have a chance to run
             await asyncio.sleep(0.01)
 
-            self.assertEqual(client.queue.qsize(), 1)
+            self.assertEqual(self.queue.qsize(), 1)
 
-            data = client.queue.get_nowait()
+            data = self.queue.get_nowait()
             self.assertEqual(data["val"], input_msg["val"])
 
     async def test_run_monitor_loop(self) -> None:
-        async with self.make_server() as server, self.make_client(server) as client:
+        async with self.make_server() as server, self.make_client(server) as _:
             input_msg = {"val": 1}
             await self._write_msg_continuously_at_specific_time(
                 2, server, input_msg, 5, 1
             )
 
-            self.assertEqual(client.queue.qsize(), 5)
+            self.assertEqual(self.queue.qsize(), 5)
 
     async def _write_msg_continuously_at_specific_time(
         self,

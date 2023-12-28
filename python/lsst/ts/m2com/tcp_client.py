@@ -23,13 +23,14 @@ import asyncio
 import copy
 import json
 import logging
+import time
 import typing
 
 from lsst.ts.tcpip import Client
 from lsst.ts.utils import index_generator, make_done_future
 
 from .enum import MsgType
-from .utility import check_queue_size
+from .utility import cancel_task_and_wait
 
 __all__ = ["TcpClient"]
 
@@ -43,17 +44,23 @@ class TcpClient(Client):
         Host address.
     port : `int`
         Port to connect.
-    timeout_in_second : `float`, optional
-        Read timeout in second. (the default is 0.05)
+    callback_process_message : `coroutine`
+        Function to process the received message. It must has a keyward
+        argument of "message" to receive the message as a dictionary.
+    *args : `args`
+        Arguments needed in "callback_process_message" function call.
     log : `logging.Logger` or None, optional
         A logger. If None, a logger will be instantiated. (the default is
         None)
     sequence_generator : `generator` or `None`, optional
         Sequence generator. (the default is None)
-    maxsize_queue : `int`, optional
-        Maximum size of queue. (the default is 1000)
     name : `str`, optional
-        Name of the tcp-client. Used for logging/debugging purposes.
+        Name of the tcp-client. Used for logging/debugging purposes. The
+        default is "tcp-client")
+    check_message_rate : `bool`, optional
+        Check the message rate or not. If True, the rate of message will be
+        calculated and recorded in the debug logging message. (the default is
+        False)
 
     Attributes
     ----------
@@ -63,24 +70,18 @@ class TcpClient(Client):
         Read timeout in second.
     last_sequence_id : `int`
         Last sequence ID of command.
-    queue : `asyncio.Queue`
-        Queue of the message.
-    queue_full_log_interval : `float`
-        When queue is full, how long to wait until logging condition again
-        (in seconds)?
-    queue_full_messages_lost : `int`
-        How many messages were lost while queue was full.
     """
 
     def __init__(
         self,
         host: str,
         port: int,
-        timeout_in_second: float = 0.05,
+        callback_process_message: typing.Callable[..., typing.Coroutine],
+        *args: typing.Any,
         log: logging.Logger | None = None,
         sequence_generator: typing.Generator | None = None,
-        maxsize_queue: int = 1000,
         name: str = "tcp-client",
+        check_message_rate: bool = False,
     ) -> None:
         # Set the logger
         if log is None:
@@ -96,7 +97,9 @@ class TcpClient(Client):
             name=name,
         )
 
-        self.timeout = timeout_in_second
+        # Callback function to process the received message
+        self._callback_process_message = callback_process_message
+        self._args_callback_process_message = args
 
         # Sequence ID generator
         self._sequence_id_generator = (
@@ -104,17 +107,10 @@ class TcpClient(Client):
         )
         self.last_sequence_id = -1
 
-        self.queue: asyncio.Queue = asyncio.Queue(maxsize=int(maxsize_queue))
-
-        self.queue_full_log_interval = 1.0  # seconds
-        self.queue_full_messages_lost = 0
-
         # Monitor loop task (asyncio.Future)
         self._monitor_loop_task = make_done_future()
 
-        # Timer for queue full log message
-        self._timer_queue_full_task = make_done_future()
-        self._timer_check_queue_size_task = make_done_future()
+        self._check_message_rate = check_message_rate
 
     async def connect(self, timeout: float = 10.0) -> None:
         """Connect to the server.
@@ -151,16 +147,25 @@ class TcpClient(Client):
         self._monitor_loop_task.cancel()
 
         if self.connected:
-            self._monitor_loop_task = asyncio.create_task(self._monitor_msg())
+            self._monitor_loop_task = asyncio.create_task(self._monitor_message())
 
-    async def _monitor_msg(self) -> None:
+    async def _monitor_message(self) -> None:
         """Monitor the message."""
 
         self.log.info("Begin to monitor the incoming message.")
 
+        consumed_messages = 0
+        time_start = time.monotonic()
+
         try:
             while self.connected:
-                await self._put_read_msg_to_queue()
+                has_message = await self._get_and_process_message()
+
+                # Evaluate the message rate
+                if self._check_message_rate and has_message:
+                    consumed_messages, time_start = self._log_message_rate(
+                        consumed_messages, time_start
+                    )
 
         except ConnectionError:
             self.log.info("Reader disconnected; closing client")
@@ -171,39 +176,81 @@ class TcpClient(Client):
 
         self.log.info("Stop to monitor the incoming message.")
 
-    async def _put_read_msg_to_queue(self) -> None:
-        """Put the read message to self.queue."""
+    async def _get_and_process_message(self) -> bool:
+        """Get and process the read message.
+
+        Returns
+        -------
+        `bool`
+            True if there is the new message. Otherwise, False.
+        """
 
         try:
-            msg = await asyncio.wait_for(self.read_json(), self.timeout)
-            self.queue.put_nowait(msg)
+            message = await self.read_json()
+            await self._process_message(message)
 
-            if self._timer_check_queue_size_task.done():
-                if check_queue_size(self.queue, self.log, self.name):
-                    self._timer_check_queue_size_task = asyncio.create_task(
-                        asyncio.sleep(self.queue_full_log_interval)
-                    )
-
-        except asyncio.TimeoutError:
-            await asyncio.sleep(self.timeout)
+            return True
 
         except json.JSONDecodeError:
             self.log.exception("Ignoring the received message.")
 
-        except asyncio.QueueFull:
-            self.queue_full_messages_lost += 1
-            if self._timer_queue_full_task.done():
-                self.log.exception(
-                    f"{self.name}::Internal queue is full. "
-                    f"Lost {self.queue_full_messages_lost} messages since last report."
-                )
-                self.queue_full_messages_lost = 0
-                self._timer_queue_full_task = asyncio.create_task(
-                    asyncio.sleep(self.queue_full_log_interval)
-                )
-
         except (asyncio.IncompleteReadError, ConnectionError):
             raise
+
+        return False
+
+    async def _process_message(self, message: dict) -> None:
+        """Process the message.
+
+        Parameters
+        ----------
+        message : `dict`
+            Message.
+        """
+
+        try:
+            await self._callback_process_message(
+                *self._args_callback_process_message, message=message
+            )
+
+        except Exception as error:
+            self.log.debug(f"Error in processing the message: {message}. {error!r}.")
+
+    def _log_message_rate(
+        self, consumed_messages: int, time_start: float, period: float = 2.0
+    ) -> tuple[int, float]:
+        """Log the message rate.
+
+        Parameters
+        ----------
+        consumed_messages : `int`
+            Consumed messages.
+        time_start : `float`
+            Start time in second.
+        period : `float`, optional
+            Period to check the message rate in second. (the default is 2.0)
+
+        Returns
+        -------
+        consumed_messages : `int`
+            Updated consumed messages.
+        time_start : `float`
+            Updated start time in second.
+        """
+
+        consumed_messages += 1
+
+        time_now = time.monotonic()
+        time_delta = time_now - time_start
+        if time_delta >= period:
+            # Log the message rate
+            self.log.debug(f"Consumed {consumed_messages // time_delta} messages/s.")
+
+            # Reset the values
+            consumed_messages = 0
+            time_start = time_now
+
+        return consumed_messages, time_start
 
     async def write_message(
         self,
@@ -353,8 +400,8 @@ class TcpClient(Client):
         Note: this function is safe to call even though there is no connection.
         """
 
-        # Cancel the task
-        if not self._monitor_loop_task.done():
-            self._monitor_loop_task.cancel()
-
+        # Close the connection
         await super().close()
+
+        # Cancel the task
+        await cancel_task_and_wait(self._monitor_loop_task)

@@ -50,6 +50,7 @@ __all__ = [
     "camel_case",
     "check_hardpoints",
     "select_axial_hardpoints",
+    "cancel_task_and_wait",
 ]
 
 
@@ -237,12 +238,14 @@ def get_config_dir(
     return Path(getenv(env_variable, default="")) / relative_path
 
 
-def is_coroutine(function: typing.Callable | typing.Coroutine) -> bool:
+def is_coroutine(
+    function: typing.Callable | typing.Coroutine | asyncio.Task | asyncio.Future,
+) -> bool:
     """Input function is a coroution or not.
 
     Parameters
     ----------
-    function : `func` or `coroutine`
+    function : `func`, `coroutine`, `asyncio.Task`, or `asyncio.Future`
         Function.
 
     Returns
@@ -444,3 +447,25 @@ def select_axial_hardpoints(
     hardpoints.sort()
 
     return hardpoints
+
+
+async def cancel_task_and_wait(task: asyncio.Task | asyncio.Future) -> None:
+    """Cancel the asynchronous task (if not done) and wait for it to complete.
+
+    Parameters
+    ----------
+    task : `asyncio.Task` or `asyncio.Future`
+        Asynchronous task.
+    """
+
+    if not task.done():
+        task.cancel()
+
+        # This might be a "Future" object. Check it is awaitable or not.
+        if is_coroutine(task):
+            try:
+                await task
+
+            # Ignore the CancelledError
+            except asyncio.CancelledError:
+                pass
