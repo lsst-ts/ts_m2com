@@ -296,7 +296,7 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
     def test_get_ilc_data(self) -> None:
         for idx in range(30):
             ilc_status = self.model._get_ilc_data()["status"]
-            self.assertEqual(ilc_status[0], idx % 16)
+            self.assertEqual(ilc_status[0], (idx % 16) << 4)
 
     def test_calculate_force_error_tangent(self) -> None:
         (

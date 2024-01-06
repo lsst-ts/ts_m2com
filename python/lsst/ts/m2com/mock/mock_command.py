@@ -33,6 +33,7 @@ from ..enum import (
     DigitalOutputStatus,
     MockErrorCode,
 )
+from ..utility import correct_inclinometer_angle
 from .mock_message_event import MockMessageEvent
 from .mock_model import MockModel
 from .mock_power_system import MockPowerSystem
@@ -1085,9 +1086,7 @@ class MockCommand:
         lut_angle = (
             model.inclinometer_angle_external
             if model.control_parameters["use_external_elevation_angle"]
-            else control_open_loop.correct_inclinometer_angle(
-                control_open_loop.inclinometer_angle
-            )
+            else correct_inclinometer_angle(control_open_loop.inclinometer_angle)
         )
 
         model.control_closed_loop.update_hardpoints(message["actuators"], lut_angle)

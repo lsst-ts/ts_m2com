@@ -27,8 +27,9 @@ from lsst.ts.m2com import (
     NUM_ACTUATOR,
     NUM_TANGENT_LINK,
     MockControlClosedLoop,
-    MockControlOpenLoop,
+    correct_inclinometer_angle,
     get_config_dir,
+    get_forces_mirror_weight,
 )
 
 
@@ -690,10 +691,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
     def _get_force_measured_and_lut_angle(
         self, angle: float
     ) -> tuple[numpy.typing.NDArray[np.float64], float]:
-        control_open_loop = MockControlOpenLoop()
-        return control_open_loop.get_forces_mirror_weight(
-            angle
-        ), control_open_loop.correct_inclinometer_angle(angle)
+        return get_forces_mirror_weight(angle), correct_inclinometer_angle(angle)
 
     def _get_force_demanded(self, angle: float) -> numpy.typing.NDArray[np.float64]:
         (

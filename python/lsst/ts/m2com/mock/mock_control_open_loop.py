@@ -32,12 +32,10 @@ from ..constant import (
     LIMIT_FORCE_TANGENT_OPEN_LOOP,
     MAX_LIMIT_FORCE_AXIAL_OPEN_LOOP,
     MAX_LIMIT_FORCE_TANGENT_OPEN_LOOP,
-    MIRROR_WEIGHT_KG,
     NUM_ACTUATOR,
-    NUM_TANGENT_LINK,
 )
 from ..enum import ActuatorDisplacementUnit
-from ..utility import check_limit_switches
+from ..utility import check_limit_switches, get_forces_mirror_weight
 
 
 class MockControlOpenLoop:
@@ -129,84 +127,6 @@ class MockControlOpenLoop:
 
         self.actuator_steps = actuator_steps
 
-    def correct_inclinometer_angle(self, angle: float, offset: float = 0.94) -> float:
-        """Correct the inclinometer's value and make sure to limit the
-        resulting value to the indicated range: (-270, 90).
-
-        This function is translated from vendor's original LabVIEW code.
-        The hard-coded range is related to the configuration of inclinometer
-        in the mirror assembly.
-
-        Parameters
-        ----------
-        angle : `float`
-            Inclinometer angle in degree.
-        offset : `float`, optional
-            Offset in degree. The default value is hard-coded in the LabVIEW's
-            project. (the default is 0.94)
-
-        Returns
-        -------
-        angle_correct : `float`
-            Corrected inclinometer angle in degree.
-        """
-
-        angle_offset = angle + offset
-        origin = 360 if (0 <= angle_offset < 90) else 0
-
-        angle_correct = 180 - angle_offset - origin
-
-        # Make sure the calculated angle value is limited to this range
-        if angle_correct > 90:
-            angle_correct = 90
-        elif angle_correct < -270:
-            angle_correct = -270
-
-        return angle_correct
-
-    def get_forces_mirror_weight(
-        self, angle: float
-    ) -> numpy.typing.NDArray[np.float64]:
-        """Get the forces that bear the weight of mirror.
-
-        This function is translated from vendor's original LabVIEW code.
-        This is just an estimation of forces.
-
-        Parameters
-        ----------
-        angle : `float`
-            Inclinometer angle in degree.
-
-        Returns
-        -------
-        forces : `numpy.ndarray`
-            Forces to support the mirror in Newton.
-        """
-
-        forces = np.zeros(NUM_ACTUATOR)
-
-        angle_correct = self.correct_inclinometer_angle(angle)
-
-        num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
-
-        gravitation_acceleration = 9.8
-        force_mirror_weight = MIRROR_WEIGHT_KG * gravitation_acceleration
-
-        forces[:num_axial_actuators] = (
-            force_mirror_weight
-            * np.sin(np.deg2rad(angle_correct))
-            / num_axial_actuators
-        )
-
-        # Tangent actuators A1 and A4 do not bear the weight of mirror.
-        # A2 and A3 have the reversed direction compared with A5 and A6.
-        index_tangent_link = num_axial_actuators + np.array([1, 2, 4, 5])
-        forces[index_tangent_link] = (
-            force_mirror_weight * np.cos(np.deg2rad(angle_correct)) / 4
-        ) * np.array([-1, -1, 1, 1])
-
-        return forces
-
     def is_actuator_force_out_limit(self) -> tuple[bool, list, list]:
         """The actuator force is out of limit or not. The result will depend
         on self.open_loop_max_limit_is_enabled.
@@ -258,7 +178,7 @@ class MockControlOpenLoop:
 
         return self._static_transfer_matrix.dot(
             steps.reshape(-1, 1)
-        ).ravel() + self.get_forces_mirror_weight(self.inclinometer_angle)
+        ).ravel() + get_forces_mirror_weight(self.inclinometer_angle)
 
     def calculate_forces_to_steps(
         self, forces: numpy.typing.NDArray[np.float64]
@@ -278,7 +198,7 @@ class MockControlOpenLoop:
             Actuator steps.
         """
 
-        forces_delta = forces - self.get_forces_mirror_weight(self.inclinometer_angle)
+        forces_delta = forces - get_forces_mirror_weight(self.inclinometer_angle)
 
         steps = (
             np.linalg.inv(self._static_transfer_matrix)

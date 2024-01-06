@@ -75,38 +75,6 @@ class TestMockControlOpenLoop(unittest.TestCase):
 
         self.assertEqual(np.sum(self.control_open_loop.actuator_steps), NUM_ACTUATOR)
 
-    def test_correct_inclinometer_angle(self) -> None:
-        self.assertEqual(self.control_open_loop.correct_inclinometer_angle(-10), 90)
-
-        self.assertAlmostEqual(
-            self.control_open_loop.correct_inclinometer_angle(0), -180.94
-        )
-        self.assertAlmostEqual(
-            self.control_open_loop.correct_inclinometer_angle(30), -210.94
-        )
-        self.assertEqual(self.control_open_loop.correct_inclinometer_angle(89.06), 90)
-        self.assertAlmostEqual(
-            self.control_open_loop.correct_inclinometer_angle(90), 89.06
-        )
-        self.assertAlmostEqual(
-            self.control_open_loop.correct_inclinometer_angle(120), 59.06
-        )
-        self.assertAlmostEqual(
-            self.control_open_loop.correct_inclinometer_angle(200), -20.94
-        )
-
-        self.assertEqual(self.control_open_loop.correct_inclinometer_angle(500), -270)
-
-    def test_get_forces_mirror_weight(self) -> None:
-        forces = self.control_open_loop.get_forces_mirror_weight(120)
-
-        self.assertAlmostEqual(forces[0], 185.4643083)
-
-        self.assertEqual(forces[72], 0)
-        self.assertAlmostEqual(forces[73], -2001.1325104)
-        self.assertEqual(forces[75], 0)
-        self.assertAlmostEqual(forces[76], 2001.1325104)
-
     def test_is_actuator_force_out_limit_default(self) -> None:
         (
             is_out_limit,
