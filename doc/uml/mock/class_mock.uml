@@ -5,7 +5,16 @@ package "tcpip" #DDDDDD {
 
 package "m2com" #DDDDDD {
   class ErrorHandler
+  class SimpleDelayFilter
+  class BiquadraticFilter
 }
+
+class MockPlant
+
+MockControlLoop "1" *-- "4" BiquadraticFilter
+MockControlLoop "1" *-- "3" SimpleDelayFilter
+MockControlLoop "1" *-- "2" MockDeadbandControl
+MockControlLoop *-- MockGainSchedular
 
 ErrorHandler <|-- MockErrorHandler
 

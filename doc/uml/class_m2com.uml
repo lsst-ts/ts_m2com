@@ -3,6 +3,9 @@ package "tcpip" #DDDDDD {
   class Client
 }
 
+class SimpleDelayFilter
+BiquadraticFilter "1" *-- "n" SingleBiquadraticFilter
+
 Client <|-- TcpClient
 
 Controller *-- ErrorHandler
