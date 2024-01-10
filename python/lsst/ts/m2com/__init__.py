@@ -24,11 +24,13 @@ try:
 except ImportError:
     __version__ = "?"
 
+from .biquadratic_filter import *
 from .constant import *
 from .controller import *
 from .controller_cell import *
 from .enum import *
 from .error_handler import *
 from .mock import *
+from .simple_delay_filter import *
 from .tcp_client import *
 from .utility import *
