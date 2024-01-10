@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v1.2.0
+------
+
+* Improve the readibility of the ``MockControlClosedLoop.calc_temp_inv_matrix()``.
+* Improve the architecture and performance.
+
 v1.1.7
 ------
 

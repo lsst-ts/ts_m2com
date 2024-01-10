@@ -60,6 +60,12 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
     host: str
     timeout_in_second: float
     log: logging.Logger
+    maxsize_queue: int
+
+    queue_evt: asyncio.Queue
+    queue_tel: asyncio.Queue
+
+    lost_connection: bool
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -71,6 +77,12 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             level=logging.INFO, handlers=[logging.StreamHandler(sys.stdout)]
         )
         cls.log = logging.getLogger()
+        cls.maxsize_queue = 1000
+
+        cls.queue_evt = asyncio.Queue()
+        cls.queue_tel = asyncio.Queue()
+
+        cls.lost_connection = False
 
     @contextlib.asynccontextmanager
     async def make_server(self) -> MockServer:
@@ -108,7 +120,23 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             Mock server.
         """
 
+        # Create new queues
+        self.queue_evt = asyncio.Queue(maxsize=self.maxsize_queue)
+        self.queue_tel = asyncio.Queue(maxsize=self.maxsize_queue)
+
+        self.lost_connection = False
+
         controller = Controller(log=self.log)
+        controller.set_callback_process_event(
+            self._callback_process_message, self.queue_evt
+        )
+        controller.set_callback_process_telemetry(
+            self._callback_process_message, self.queue_tel
+        )
+        controller.set_callback_process_lost_connection(
+            self._callback_process_lost_connection
+        )
+
         controller.start(
             server.server_command.host,
             server.server_command.port,
@@ -126,13 +154,22 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         finally:
             await controller.close()
 
+    async def _callback_process_message(
+        self, queue: asyncio.Queue, message: dict | None = None
+    ) -> None:
+        if message is not None:
+            queue.put_nowait(message)
+
+    async def _callback_process_lost_connection(self) -> None:
+        self.lost_connection = True
+
     async def test_switch_command_source(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
             # Default condition
             is_commandable_by_dds = await self._get_latest_state_commandable_by_dds(
-                controller.queue_event
+                self.queue_evt
             )
             self.assertTrue(is_commandable_by_dds)
 
@@ -142,7 +179,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             )
 
             is_commandable_by_dds = await self._get_latest_state_commandable_by_dds(
-                controller.queue_event
+                self.queue_evt
             )
             self.assertFalse(is_commandable_by_dds)
 
@@ -152,7 +189,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             )
 
             is_commandable_by_dds = await self._get_latest_state_commandable_by_dds(
-                controller.queue_event
+                self.queue_evt
             )
             self.assertTrue(is_commandable_by_dds)
 
@@ -218,9 +255,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(20)
 
             # Check the results
-            messages = collect_queue_messages(
-                controller.queue_event, "scriptExecutionStatus"
-            )
+            messages = collect_queue_messages(self.queue_evt, "scriptExecutionStatus")
 
             self.assertEqual(len(messages), 100)
 
@@ -275,7 +310,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             # Check the results
             await asyncio.sleep(SLEEP_TIME_SHORT)
             message_pause = get_queue_message_latest(
-                controller.queue_event, "scriptExecutionStatus"
+                self.queue_evt, "scriptExecutionStatus"
             )
 
             self.assertGreater(message_pause["percentage"], 0)
@@ -294,7 +329,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
 
             # Check the results
             message_resume = get_queue_message_latest(
-                controller.queue_event, "scriptExecutionStatus"
+                self.queue_evt, "scriptExecutionStatus"
             )
 
             self.assertGreater(
@@ -346,7 +381,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
 
             # Check the result
             message_axial_steps = get_queue_message_latest(
-                controller.client_telemetry.queue, "axialActuatorSteps"
+                self.queue_tel, "axialActuatorSteps"
             )
 
             self.assertEqual(message_axial_steps["steps"][2], 1000)
@@ -382,7 +417,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(server.model.control_open_loop.is_running)
 
             message_limit_switch_status = get_queue_message_latest(
-                controller.queue_event, "limitSwitchStatus", flush=False
+                self.queue_evt, "limitSwitchStatus", flush=False
             )
             self.assertEqual(message_limit_switch_status["retract"], [0])
             self.assertEqual(message_limit_switch_status["extend"], [])
@@ -415,7 +450,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
 
             # Check the result
             message_axial_steps_pause = get_queue_message_latest(
-                controller.client_telemetry.queue, "axialActuatorSteps"
+                self.queue_tel, "axialActuatorSteps"
             )
 
             self.assertGreater(message_axial_steps_pause["steps"][2], 0)
@@ -436,7 +471,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
 
             # Check the result
             message_axial_steps_stop = get_queue_message_latest(
-                controller.client_telemetry.queue, "axialActuatorSteps"
+                self.queue_tel, "axialActuatorSteps"
             )
 
             self.assertGreater(
@@ -454,7 +489,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                 message_details={"powerType": MTM2.PowerType.Communication},
             )
 
-            messages = collect_queue_messages(controller.queue_event, "digitalOutput")
+            messages = collect_queue_messages(self.queue_evt, "digitalOutput")
 
             self.assertEqual(
                 messages[-2]["value"],
@@ -474,7 +509,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                 message_details={"powerType": MTM2.PowerType.Motor},
             )
 
-            messages = collect_queue_messages(controller.queue_event, "digitalOutput")
+            messages = collect_queue_messages(self.queue_evt, "digitalOutput")
 
             self.assertEqual(
                 messages[-2]["value"],
@@ -498,6 +533,8 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertFalse(controller.are_clients_connected())
 
+            self.assertTrue(self.lost_connection)
+
     async def test_enable_open_loop_max_limit(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
@@ -513,7 +550,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             )
 
             msg_open_loop_max_limit = get_queue_message_latest(
-                controller.queue_event, "openLoopMaxLimit"
+                self.queue_evt, "openLoopMaxLimit"
             )
             self.assertTrue(msg_open_loop_max_limit["status"])
 
@@ -562,9 +599,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
 
             await asyncio.sleep(SLEEP_TIME_SHORT)
 
-            msg_latest = get_queue_message_latest(
-                controller.queue_event, "digitalOutput"
-            )
+            msg_latest = get_queue_message_latest(self.queue_evt, "digitalOutput")
             self.assertTrue(
                 msg_latest["value"] & DigitalOutput.CommunicationPower.value
             )
@@ -581,9 +616,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
 
             await asyncio.sleep(SLEEP_TIME_SHORT)
 
-            msg_latest = get_queue_message_latest(
-                controller.queue_event, "digitalOutput"
-            )
+            msg_latest = get_queue_message_latest(self.queue_evt, "digitalOutput")
             self.assertTrue(msg_latest["value"] & DigitalOutput.MotorPower.value)
             self.assertTrue(server.model.power_motor.is_power_on())
 

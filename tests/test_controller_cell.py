@@ -52,6 +52,9 @@ class TestControllerCell(unittest.IsolatedAsyncioTestCase):
         """
 
         controller = ControllerCell(log=self.log, host=self.host)
+        controller.set_callback_process_event(self._callback_process_message)
+        controller.set_callback_process_telemetry(self._callback_process_message)
+        controller.set_callback_process_lost_connection(self._process_lost_connection)
 
         await controller.run_mock_server(self.config_dir, "harrisLUT")
         await controller.connect_server()
@@ -62,45 +65,30 @@ class TestControllerCell(unittest.IsolatedAsyncioTestCase):
         try:
             yield controller
         finally:
-            await controller.close_tasks()
+            await controller.close_controller_and_mock_server()
 
         self.assertFalse(controller.are_clients_connected())
 
-    async def test_stop_loops(self) -> None:
+    async def _callback_process_message(self, message: dict | None = None) -> None:
+        pass
+
+    async def _process_lost_connection(self) -> None:
+        pass
+
+    async def test_close_controller_and_mock_server(self) -> None:
         async with self.make_controller() as controller:
             self.assertTrue(controller.are_clients_connected())
 
-            controller.run_loops = True
-            controller.start_task_event_loop(self._process_event)
-            controller.start_task_telemetry_loop(self._process_telemetry)
-            controller.start_task_connection_monitor_loop(self._process_lost_connection)
+            await controller.close_controller_and_mock_server()
 
-            await asyncio.sleep(2)
+            self.assertFalse(controller.are_clients_connected())
+            self.assertIsNone(controller.mock_server)
 
-            await controller.stop_loops()
-
-            self.assertFalse(controller.run_loops)
-
-    def _process_event(self, message: dict | None = None) -> None:
-        pass
-
-    def _process_telemetry(self, message: dict | None = None) -> None:
-        pass
-
-    def _process_lost_connection(self) -> None:
-        pass
-
-    async def test_stop_loops_no_connection(self) -> None:
+    async def test_close_controller_and_mock_server_no_connection(self) -> None:
         controller = ControllerCell(log=self.log, host=self.host)
-        await controller.stop_loops()
+        await controller.close_controller_and_mock_server()
 
-        self.assertFalse(controller.run_loops)
-
-    async def test_close_tasks_no_connection(self) -> None:
-        controller = ControllerCell(log=self.log, host=self.host)
-        await controller.close_tasks()
-
-        self.assertFalse(controller.run_loops)
+        self.assertIsNone(controller.mock_server)
 
 
 if __name__ == "__main__":

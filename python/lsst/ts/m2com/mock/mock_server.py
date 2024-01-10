@@ -28,6 +28,7 @@ from lsst.ts.utils import make_done_future
 from lsst.ts.xml.enums import MTM2
 
 from ..enum import CommandStatus, LimitSwitchType, MockErrorCode
+from ..utility import cancel_task_and_wait
 from .mock_command import MockCommand
 from .mock_message_event import MockMessageEvent
 from .mock_message_telemetry import MockMessageTelemetry
@@ -382,7 +383,7 @@ class MockServer:
                 self._get_event_data(msg)
 
         except asyncio.TimeoutError:
-            await asyncio.sleep(self.timeout_in_second)
+            pass
 
         except json.JSONDecodeError:
             self.log.exception("Error when decoding message in command server.")
@@ -724,7 +725,7 @@ class MockServer:
                 )
 
         except asyncio.TimeoutError:
-            await asyncio.sleep(self.timeout_in_second)
+            pass
 
         except json.JSONDecodeError:
             self.log.exception("Error when decoding message in telemetry server.")
@@ -756,11 +757,13 @@ class MockServer:
         Note: this function is safe to call even though there is no connection.
         """
 
-        self._monitor_loop_task_command.cancel()
-        self._monitor_loop_task_telemetry.cancel()
-
+        # Close the connections
         await self.server_command.close()
         await self.server_telemetry.close()
+
+        # Cancel the tasks
+        await cancel_task_and_wait(self._monitor_loop_task_command)
+        await cancel_task_and_wait(self._monitor_loop_task_telemetry)
 
         # Reset some attributes
         self._welcome_message_sent = False
