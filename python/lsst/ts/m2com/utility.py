@@ -238,9 +238,7 @@ def get_config_dir(
     return Path(getenv(env_variable, default="")) / relative_path
 
 
-def is_coroutine(
-    function: typing.Callable | typing.Coroutine | asyncio.Task | asyncio.Future,
-) -> bool:
+def is_coroutine(function: typing.Any) -> bool:
     """Input function is a coroution or not.
 
     Parameters
