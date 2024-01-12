@@ -56,7 +56,7 @@ class SingleBiquadraticFilter:
     b21 : `float`
         The coefficient b21 in the equation.
     num_element : `int`
-        Number of the elements.
+        Number of the elements when calling the "filter()".
     """
 
     def __init__(
@@ -84,7 +84,8 @@ class SingleBiquadraticFilter:
         Parameters
         ----------
         value : `numpy.ndarray`
-            Input value.
+            Input value with the same number of elements (aka. "num_element")
+            when initializing this class.
 
         Returns
         -------
@@ -131,7 +132,7 @@ class BiquadraticFilter:
         Coefficients of the biquadratic filters. This should be a 2D array.
         Each row is the [a1n, a2n, b1n, b2n] for the nth biquadratic filter.
     num_element : `int`
-        Number of the elements.
+        Number of the elements when calling the "filter()".
     """
 
     def __init__(
@@ -167,7 +168,8 @@ class BiquadraticFilter:
         Parameters
         ----------
         value : `numpy.ndarray`
-            Input value.
+            Input value with the same number of elements (aka. "num_element")
+            when initializing this class.
 
         Returns
         -------

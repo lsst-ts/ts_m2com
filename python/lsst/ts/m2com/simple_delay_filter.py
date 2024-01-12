@@ -43,7 +43,7 @@ class SimpleDelayFilter:
     coefficients : `list`
         Filter coefficients: [b0, b1, b2, ..., bN].
     num_element : `int`
-        Number of the elements.
+        Number of the elements when calling the "filter()".
     """
 
     def __init__(self, coefficients: list[float], num_element: int) -> None:
@@ -63,7 +63,8 @@ class SimpleDelayFilter:
         Parameters
         ----------
         value : `numpy.ndarray`
-            Input value.
+            Input value with the same number of elements (aka. "num_element")
+            when initializing this class.
 
         Returns
         -------
