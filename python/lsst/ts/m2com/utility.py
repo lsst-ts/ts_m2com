@@ -35,7 +35,7 @@ import yaml
 from lsst.ts import tcpip
 from scipy.spatial import KDTree
 
-from .constant import NUM_ACTUATOR, NUM_TANGENT_LINK
+from .constant import MIRROR_WEIGHT_KG, NUM_ACTUATOR, NUM_TANGENT_LINK
 
 __all__ = [
     "write_json_packet",
@@ -51,6 +51,8 @@ __all__ = [
     "check_hardpoints",
     "select_axial_hardpoints",
     "cancel_task_and_wait",
+    "correct_inclinometer_angle",
+    "get_forces_mirror_weight",
 ]
 
 
@@ -467,3 +469,85 @@ async def cancel_task_and_wait(task: asyncio.Task | asyncio.Future) -> None:
             # Ignore the CancelledError
             except asyncio.CancelledError:
                 pass
+
+
+def correct_inclinometer_angle(angle: float, offset: float = 0.94) -> float:
+    """Correct the inclinometer's value and make sure to limit the
+    resulting value to the indicated range: (-270, 90).
+
+    Notes
+    -----
+    This function is translated from vendor's original LabVIEW code:
+    "CorrectInclinometer.vi" in ts_mtm2_cell.
+    The hard-coded range is related to the configuration of inclinometer
+    in the mirror assembly.
+
+    Parameters
+    ----------
+    angle : `float`
+        Inclinometer angle in degree.
+    offset : `float`, optional
+        Offset in degree. The default value is hard-coded in the LabVIEW's
+        project. (the default is 0.94)
+
+    Returns
+    -------
+    angle_correct : `float`
+        Corrected inclinometer angle in degree.
+    """
+
+    angle_offset = angle + offset
+    origin = 360 if (0 <= angle_offset < 90) else 0
+
+    angle_correct = 180 - angle_offset - origin
+
+    # Make sure the calculated angle value is limited to this range
+    if angle_correct > 90:
+        angle_correct = 90
+    elif angle_correct < -270:
+        angle_correct = -270
+
+    return angle_correct
+
+
+def get_forces_mirror_weight(angle: float) -> numpy.typing.NDArray[np.float64]:
+    """Get the forces that bear the weight of mirror.
+
+    Notes
+    -----
+    This function is translated from vendor's original LabVIEW code:
+    "Steps to Force.vi" in ts_mtm2_cell.
+    This is just an estimation of forces.
+
+    Parameters
+    ----------
+    angle : `float`
+        Inclinometer angle in degree.
+
+    Returns
+    -------
+    forces : `numpy.ndarray`
+        Forces to support the mirror in Newton.
+    """
+
+    forces = np.zeros(NUM_ACTUATOR)
+
+    angle_correct = correct_inclinometer_angle(angle)
+
+    num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
+
+    gravitation_acceleration = 9.8
+    force_mirror_weight = MIRROR_WEIGHT_KG * gravitation_acceleration
+
+    forces[:num_axial_actuators] = (
+        force_mirror_weight * np.sin(np.deg2rad(angle_correct)) / num_axial_actuators
+    )
+
+    # Tangent actuators A1 and A4 do not bear the weight of mirror.
+    # A2 and A3 have the reversed direction compared with A5 and A6.
+    index_tangent_link = num_axial_actuators + np.array([1, 2, 4, 5])
+    forces[index_tangent_link] = (
+        force_mirror_weight * np.cos(np.deg2rad(angle_correct)) / 4
+    ) * np.array([-1, -1, 1, 1])
+
+    return forces

@@ -431,6 +431,8 @@ class MockControlClosedLoop:
 
         Notes
         -----
+        <Axial actuators>
+
         Translate the calculation from the CalcHPFCInfMat.m in
         ts_mtm2_matlab_tools.
 
@@ -446,6 +448,33 @@ class MockControlClosedLoop:
         The idea is to make the x-moment amd y-moment keep the same when
         distributes the force of axial hardpoints to other axial actuators.
         It is the same idea for tangential actuators with z-moment.
+
+        <Tangent links>
+
+        Assume the hardpoints are A1, A3, and A5. If they were active, the
+        z-moment would be: 3 * fm * mirror_radius, where
+        fm = (f1 + f3 + f5) / 3.
+
+        For the active tagent links: A2, A4, and A5 to maintain this z-moment
+        while keeping the hardpoints to be passive, we have:
+
+        f2 = -(f5 - fm) + fm = 2 * fm - f5 = 2 / 3 * (f1 + f3 + f5) - f5
+        f4 = -(f1 - fm) + fm = 2 * fm - f1 = 2 / 3 * (f1 + f3 + f5) - f1
+        f6 = -(f3 - fm) + fm = 2 * fm - f3 = 2 / 3 * (f1 + f3 + f5) - f3
+
+        Then, we have:
+
+        f2 = 2 / 3 * f1 + 2 / 3 * f3 - 1 / 3 * f5
+        f4 = -1 / 3 * f1 + 2 / 3 * f3 + 2 / 3 * f5
+        f6 = 2 / 3 * f1 - 1 / 3 * f3 + 2 / 3 * f5
+
+        In the matrix form, it will be:
+
+        (f2, f4, f6).T = M * (f1, f3, f5).T
+
+        If the hardpoints were A2, A4, A6, we would have:
+
+        (f1, f3, f5).T = M ^ (-1) * (f2, f4, f6).T
 
         Parameters
         ----------

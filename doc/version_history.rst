@@ -2,6 +2,13 @@
 Version History
 ===============
 
+v1.3.0
+------
+
+* Improve the doc string of ``MockControlClosedLoop.calc_hp_comp_matrix()``.
+* Fix the ``MockModel._uniq_ilc_status_generator()``.
+* Add the **MockPlant**, **MockControlLoop**, **SingleBiquadraticFilter**, **BiquadraticFilter**, **SimpleDelayFilter**, **MockDeadbandControl**, and **MockGainSchedular** classes.
+
 v1.2.0
 ------
 

@@ -28,7 +28,7 @@ from lsst.ts.utils import make_done_future
 from lsst.ts.xml.enums import MTM2
 
 from ..enum import CommandStatus, LimitSwitchType, MockErrorCode
-from ..utility import cancel_task_and_wait
+from ..utility import cancel_task_and_wait, correct_inclinometer_angle
 from .mock_command import MockCommand
 from .mock_message_event import MockMessageEvent
 from .mock_message_telemetry import MockMessageTelemetry
@@ -588,9 +588,7 @@ class MockServer:
         control_parameters = self.model.control_parameters
         if control_parameters["enable_angle_comparison"]:
             control_open_loop = self.model.control_open_loop
-            lut_angle = control_open_loop.correct_inclinometer_angle(
-                control_open_loop.inclinometer_angle
-            )
+            lut_angle = correct_inclinometer_angle(control_open_loop.inclinometer_angle)
 
             if (
                 abs(self.model.inclinometer_angle_external - lut_angle)

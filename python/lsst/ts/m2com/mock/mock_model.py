@@ -38,7 +38,11 @@ from ..constant import (
     TANGENT_LINK_TOTAL_WEIGHT_ERROR,
 )
 from ..enum import DigitalInput, DigitalOutput, DigitalOutputStatus, MockErrorCode
-from ..utility import read_yaml_file
+from ..utility import (
+    correct_inclinometer_angle,
+    get_forces_mirror_weight,
+    read_yaml_file,
+)
 from .mock_control_closed_loop import MockControlClosedLoop
 from .mock_control_open_loop import MockControlOpenLoop
 from .mock_error_handler import MockErrorHandler
@@ -135,8 +139,8 @@ class MockModel:
 
         self.telemetry_interval = telemetry_interval
 
-        self.inclinometer_angle_external = (
-            self.control_open_loop.correct_inclinometer_angle(inclinometer_angle)
+        self.inclinometer_angle_external = correct_inclinometer_angle(
+            inclinometer_angle
         )
 
         self.control_parameters = {
@@ -202,7 +206,8 @@ class MockModel:
 
         value = 0
         while True:
-            yield value % 16
+            # Bit 4..7 - Broadcast communication counter (0..15)
+            yield (value % 16) << 4
             value += 1
 
     def set_inclinometer_angle(self, angle: float, is_external: bool = False) -> None:
@@ -234,11 +239,7 @@ class MockModel:
         # self.control_closed_loop.calc_look_up_forces(). Therefore, we only
         # update it when the "angle" is changed.
         if update_lut_force:
-            lut_angle = (
-                angle
-                if is_external
-                else self.control_open_loop.correct_inclinometer_angle(angle)
-            )
+            lut_angle = angle if is_external else correct_inclinometer_angle(angle)
             self.control_closed_loop.calc_look_up_forces(lut_angle)
 
             # The change of elevation angle means the hardpoints may need to
@@ -248,9 +249,7 @@ class MockModel:
     def _set_default_measured_forces(self) -> None:
         """Set the default measured forces."""
 
-        forces = self.control_open_loop.get_forces_mirror_weight(
-            self.control_open_loop.inclinometer_angle
-        )
+        forces = get_forces_mirror_weight(self.control_open_loop.inclinometer_angle)
 
         self.control_closed_loop.set_measured_forces(
             forces[: (NUM_ACTUATOR - NUM_TANGENT_LINK)], forces[-NUM_TANGENT_LINK:]
@@ -674,7 +673,7 @@ class MockModel:
 
         gravitational_acceleration = 9.8
 
-        angle_correct = self.control_open_loop.correct_inclinometer_angle(
+        angle_correct = correct_inclinometer_angle(
             self.control_open_loop.inclinometer_angle
         )
         mirror_weight_projection = (
@@ -926,9 +925,9 @@ class MockModel:
 
         zenith_angle = dict()
         zenith_angle["inclinometerRaw"] = inclinometer_value
-        zenith_angle[
-            "inclinometerProcessed"
-        ] = self.control_open_loop.correct_inclinometer_angle(inclinometer_value)
+        zenith_angle["inclinometerProcessed"] = correct_inclinometer_angle(
+            inclinometer_value
+        )
         zenith_angle["measured"] = 90 - zenith_angle["inclinometerProcessed"]
 
         return zenith_angle

@@ -66,6 +66,9 @@ m2com
 * **Controller** has the business logic to communicate with hardware by TCP/IP interface.
 * **TcpClient** is a TCP/IP client.
 * **ControllerCell** is a high-level class to integrate with the **Controller** class to communicate with the M2 cell controller.
+* **SimpleDelayFilter** is a simplified delay filter.
+* **SingleBiquadraticFilter** is the single biquadratic filter without the gain.
+* **BiquadraticFilter** is the compacted biquadratic filter with the gain.
 
 .. _lsst.ts.m2com-modules_m2com_mock:
 
@@ -86,6 +89,10 @@ m2com.mock
 * **MockErrorHandler** manages the error codes to report.
 * **MockPowerSystem** simulates the behavior of power system.
 * **MockInnerLoopController** simulates the behavior of inner-loop controller.
+* **MockPlant** is the plant model of system.
+* **MockControlLoop** is the control loop of system.
+* **MockDeadbandControl** selects the force error of hardpoints.
+* **MockGainSchedular** tunes the gains for the slewing, settling, and imaging processes.
 
 .. _API:
 
