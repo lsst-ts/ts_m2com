@@ -48,6 +48,12 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         self.model = MockModel()
         self.model.configure(get_config_dir(), "harrisLUT")
 
+        self._balance_forces_and_steps()
+
+    def _balance_forces_and_steps(self, cycle_times: int = 10) -> None:
+        for idx in range(cycle_times):
+            self.model.balance_forces_and_steps()
+
     def test_init(self) -> None:
         # In the default condition, there should be no force error
         (
@@ -95,15 +101,19 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
     def test_set_inclinometer_angle_internal(self) -> None:
         self.model.set_inclinometer_angle(120.0)
 
-        self.assertEqual(self.model.control_open_loop.inclinometer_angle, 120.0)
+        self._balance_forces_and_steps()
+
+        self.assertEqual(self.model.inclinometer_angle, 120.0)
         self.assertAlmostEqual(
             self.model.control_closed_loop.axial_forces["hardpointCorrection"][0],
-            89.3292369,
+            58.5897286,
         )
 
     def test_set_inclinometer_angle_external(self) -> None:
         # There is no update of hardpoint correction
         self.model.set_inclinometer_angle(59.06, is_external=True)
+
+        self._balance_forces_and_steps()
 
         self.assertEqual(self.model.inclinometer_angle_external, 59.06)
         self.assertAlmostEqual(
@@ -114,6 +124,8 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         # There is the update of hardpoint correction
         self.model.control_parameters["use_external_elevation_angle"] = True
         self.model.set_inclinometer_angle(59.06, is_external=True)
+
+        self._balance_forces_and_steps()
 
         self.assertAlmostEqual(
             self.model.control_closed_loop.axial_forces["hardpointCorrection"][0],
@@ -137,7 +149,10 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
 
     def test_is_actuator_force_out_limit(self) -> None:
         # By default, use the result from the open-loop control.
-        self.model.control_open_loop.actuator_steps[0] -= 6000
+        steps = np.zeros(NUM_ACTUATOR, dtype=int)
+        steps[0] = -6000
+        self.model.plant.move_actuator_steps(steps)
+        self.model.balance_forces_and_steps()
 
         (
             is_out_limit,
@@ -305,7 +320,7 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
             force_error_tangent_expected,
         ) = self._get_force_error_tangent_expected()
 
-        self.model.control_open_loop.inclinometer_angle = angle
+        self.model.inclinometer_angle = angle
         force_error_tangent = self.model._calculate_force_error_tangent(
             tangent_force_current
         )
@@ -407,35 +422,31 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
     def test_balance_forces_and_steps(self) -> None:
         self.model.control_closed_loop.is_running = True
 
-        # In the initial beginning, the actuators are not in position
-        is_updated = self.model.balance_forces_and_steps(force_rms=0)
-        self.assertFalse(self.model.in_position)
-        self.assertTrue(is_updated)
+        self.assertAlmostEqual(
+            self.model.control_closed_loop.axial_forces["measured"][0], 216.2038167
+        )
 
-        # Do not update the steps
-        self.assertFalse(
-            self.model.balance_forces_and_steps(force_rms=0, update_steps=False)
+        # In the initial beginning, the actuators are not in position
+        self.model.balance_forces_and_steps()
+
+        self.assertAlmostEqual(
+            self.model.control_closed_loop.axial_forces["measured"][0], 216.4099693
         )
 
         # After some running of closed-loop control, the actuators are in
         # position
-        in_position_happened = False
-        for idx in range(100):
-            self.model.balance_forces_and_steps(force_rms=0)
+        self._balance_forces_and_steps(cycle_times=30)
 
-            if (not in_position_happened) and self.model.in_position:
-                in_position_happened = True
+        self.assertAlmostEqual(
+            self.model.control_closed_loop.axial_forces["measured"][0], 190.5481269
+        )
 
-        self.assertTrue(in_position_happened)
-
-        self.assertTrue(self.model.control_closed_loop.in_position_hardpoints)
-
-        self.assertAlmostEqual(self.model.mirror_position["x"], 0.0002766)
-        self.assertAlmostEqual(self.model.mirror_position["y"], -0.0009434)
-        self.assertAlmostEqual(self.model.mirror_position["z"], 0.00068495)
-        self.assertAlmostEqual(self.model.mirror_position["xRot"], 0.00064746)
-        self.assertAlmostEqual(self.model.mirror_position["yRot"], -0.00006415)
-        self.assertAlmostEqual(self.model.mirror_position["zRot"], -0.00031944)
+        self.assertAlmostEqual(self.model.mirror_position["x"], 0.0)
+        self.assertAlmostEqual(self.model.mirror_position["y"], 0.0)
+        self.assertAlmostEqual(self.model.mirror_position["z"], 0.0)
+        self.assertAlmostEqual(self.model.mirror_position["xRot"], 0.0)
+        self.assertAlmostEqual(self.model.mirror_position["yRot"], 0.0)
+        self.assertAlmostEqual(self.model.mirror_position["zRot"], 0.0)
 
     def test_simulate_zenith_angle(self) -> None:
         zenith_angle = self.model._simulate_zenith_angle()
@@ -471,7 +482,9 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         )
         self.model.handle_position_mirror(mirror_position_set_point)
 
-        self.assertEqual(self.model.mirror_position_offset, mirror_position_set_point)
+        np.testing.assert_array_equal(
+            self.model.steps_hardpoints_offset, [92, 338, -581, -450, -482, -363]
+        )
 
     async def test_enable_open_loop_max_limit(self) -> None:
         self.model.enable_open_loop_max_limit(True)
