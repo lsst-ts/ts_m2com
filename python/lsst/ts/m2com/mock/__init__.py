@@ -26,6 +26,7 @@ from .mock_control_open_loop import *
 from .mock_deadband_control import *
 from .mock_error_handler import *
 from .mock_gain_schedular import *
+from .mock_in_position import *
 from .mock_inner_loop_controller import *
 from .mock_message_event import *
 from .mock_message_telemetry import *
