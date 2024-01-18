@@ -21,6 +21,7 @@
 
 import asyncio
 
+import numpy as np
 from lsst.ts.xml.enums import MTM2
 
 from ..enum import (
@@ -33,7 +34,6 @@ from ..enum import (
     DigitalOutputStatus,
     MockErrorCode,
 )
-from ..utility import correct_inclinometer_angle
 from .mock_message_event import MockMessageEvent
 from .mock_model import MockModel
 from .mock_power_system import MockPowerSystem
@@ -681,7 +681,7 @@ class MockCommand:
         )
 
         model.mirror_position = model.get_default_mirror_position()
-        model.mirror_position_offset = model.get_default_mirror_position()
+        model.steps_hardpoints_offset = np.zeros(6, dtype=int)
 
         return model, CommandStatus.Success
 
@@ -1082,14 +1082,7 @@ class MockCommand:
         """
 
         # Set the hardpoints
-        control_open_loop = model.control_open_loop
-        lut_angle = (
-            model.inclinometer_angle_external
-            if model.control_parameters["use_external_elevation_angle"]
-            else correct_inclinometer_angle(control_open_loop.inclinometer_angle)
-        )
-
-        model.control_closed_loop.update_hardpoints(message["actuators"], lut_angle)
+        model.control_closed_loop.update_hardpoints(message["actuators"])
 
         # Send the event
 

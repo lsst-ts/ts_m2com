@@ -179,25 +179,23 @@ class MockServer:
                 self._monitor_message_command()
             )
 
-    async def _monitor_message_command(self, counts_min: int = 5) -> None:
+    async def _monitor_message_command(self, counts_max: int = 3) -> None:
         """Monitor the message from command server.
 
         Parameters
         ----------
-        counts_min : `int`, optional
-            Minimum counts to decide to update the actuator steps or not. (the
-            default is 5)
+        counts_max : `int`, optional
+            Maximum counts to update the actuator forces and steps. At each
+            control cycle, the value of "count" will increase by 1 until the
+            maximum value. Then, the "count" will return to 0 and the actuator
+            forces and steps will be updated. This is to reduce the CPU usage
+            because the calculation will take a significant resources. (the
+            default is 3)
         """
-
-        # Decide the counts per second to update the actuator steps
-        counts_per_second = int(1 / self.PERIOD_TELEMETRY_IN_SECOND)
-        counts_per_second = (
-            counts_per_second if counts_per_second >= counts_min else counts_min
-        )
 
         try:
             count = 0
-            update_steps = False
+            do_update = False
             while self.server_command.connected:
                 if not self._welcome_message_sent:
                     await self._send_welcome_message()
@@ -210,27 +208,30 @@ class MockServer:
                 await self._process_message_command()
 
                 await self._run_and_report_script_engine_status()
-                self._run_control_open_loop()
+                actuator_is_moved = self._run_control_open_loop()
 
                 # Balance the forces and steps. Because the calculation of
                 # steps takes some CPU resource, we will do it in a slow pace
                 # to decrease the CPU usage.
+                # If there is the movement from the open-loop, always update
+                # the force.
                 is_updated = self.model.balance_forces_and_steps(
-                    force_rms=0.1, update_steps=update_steps
+                    do_update=(do_update or actuator_is_moved)
                 )
 
-                # Decide the value of update_steps
+                # Decide the value of do_update
                 if is_updated:
-                    update_steps = False
+                    do_update = False
 
-                if count >= counts_per_second:
+                if count >= counts_max:
                     count = 0
-                    update_steps = True
+                    do_update = True
                 else:
                     count += 1
 
                 # Check the force error
-                self._check_error_force()
+                if self.model.power_motor.is_power_on():
+                    self._check_error_force()
 
                 # Check the inclinometer error. Do not check this for CSC
                 # simulation. Otherwise, the test stand will have the trouble
@@ -529,22 +530,35 @@ class MockServer:
                 script_engine.percentage
             )
 
-    def _run_control_open_loop(self, steps: int = 500) -> None:
+    def _run_control_open_loop(self, steps: int = 100) -> bool:
         """Run the open-loop control.
 
         Parameters
         ----------
         steps : `int`, optional
-            Steps to run. (the default is 500)
+            Steps to run. (the default is 100)
+
+        Returns
+        -------
+        `bool`
+            True if there is the movement in the open-loop control. Otherwise,
+            False.
         """
+
+        # Workaround the mypy check
+        assert self.model.plant is not None
 
         control_open_loop = self.model.control_open_loop
         if control_open_loop.is_running:
             try:
-                control_open_loop.run_steps(steps)
+                actuator_steps = control_open_loop.get_steps_to_move(steps)
+                self.model.plant.move_actuator_steps(actuator_steps)
+                return True
 
             except Exception as error:
                 self.log.debug(f"Error when run the open-loop control: {error}")
+
+        return False
 
     def _check_error_force(self) -> None:
         """Check the force error and fault the system if needed."""
@@ -587,8 +601,7 @@ class MockServer:
 
         control_parameters = self.model.control_parameters
         if control_parameters["enable_angle_comparison"]:
-            control_open_loop = self.model.control_open_loop
-            lut_angle = correct_inclinometer_angle(control_open_loop.inclinometer_angle)
+            lut_angle = correct_inclinometer_angle(self.model.inclinometer_angle)
 
             if (
                 abs(self.model.inclinometer_angle_external - lut_angle)
