@@ -29,6 +29,7 @@ from ..constant import NUM_ACTUATOR, NUM_HARDPOINTS_AXIAL, NUM_TANGENT_LINK
 from ..simple_delay_filter import SimpleDelayFilter
 from .mock_deadband_control import MockDeadbandControl
 from .mock_gain_schedular import MockGainSchedular
+from .mock_in_position import MockInPosition
 
 
 class MockControlLoop:
@@ -98,6 +99,16 @@ class MockControlLoop:
         Step limit of the axial actuator in each control cycle.
     step_limit_tangent : `int`
         Step limit of the tangent actuator in each control cycle.
+    in_position_window_size : `int`
+        Window size in second to judge the mirror is in position or not.
+    in_position_control_frequency : `float`
+        Control frequency in Hz to judge the mirror is in position or not.
+    in_position_threshold_axial : `float`
+        Threshold of the force error of axial actuator in Newton to judge the
+        mirror is in position or not.
+    in_position_threshold_tangent : `float`
+        Threshold of the force error of tangent actuator in Newton to judge the
+        mirror is in position or not.
     is_feedforward : `bool`, optional
         The feedforward is on or not. (the default is True)
     is_feedback : `bool`, optional
@@ -109,6 +120,12 @@ class MockControlLoop:
         The feedforward is on or not.
     is_feedback : `bool`
         The feedback is on or not.
+    kdc : `numpy.ndarray`
+        Decoupling matrix.
+    kinfl : `numpy.ndarray`
+        Influence matrix.
+    hd_comp : `numpy.ndarray`
+        Hardpoint compensation matrix.
     """
 
     def __init__(
@@ -135,6 +152,10 @@ class MockControlLoop:
         max_sample_settle: int,
         step_limit_axial: int,
         step_limit_tangent: int,
+        in_position_window_size: int,
+        in_position_control_frequency: float,
+        in_position_threshold_axial: float,
+        in_position_threshold_tangent: float,
         is_feedforward: bool = True,
         is_feedback: bool = True,
     ) -> None:
@@ -171,14 +192,11 @@ class MockControlLoop:
         # H(z) = 1 - z^(-1)
         self._feedforward_delay_filter = SimpleDelayFilter([1.0, -1.0], num_axial)
 
-        # Decoupling matrix
-        self._kdc = kdc
+        self.kdc = kdc
 
-        # Influence matrix
-        self._kinfl = kinfl
+        self.kinfl = kinfl
 
-        # Hardpoint compensation matrix
-        self._hd_comp = hd_comp
+        self.hd_comp = hd_comp
 
         self._deadband_control_axial = MockDeadbandControl(
             thresholds_deadzone_axial[0], thresholds_deadzone_axial[1]
@@ -197,6 +215,13 @@ class MockControlLoop:
 
         self._step_limit_axial = step_limit_axial
         self._step_limit_tangent = step_limit_tangent
+
+        self._in_position = MockInPosition(
+            in_position_window_size,
+            in_position_control_frequency,
+            in_position_threshold_axial,
+            in_position_threshold_tangent,
+        )
 
         self.is_feedforward = is_feedforward
         self.is_feedback = is_feedback
@@ -226,6 +251,8 @@ class MockControlLoop:
 
         self._gain_schedular.reset()
 
+        self._in_position.reset()
+
     def calc_actuator_steps(
         self,
         force_demanded: numpy.typing.NDArray[np.float64],
@@ -234,7 +261,7 @@ class MockControlLoop:
         is_in_position: bool,
         is_deadzone_enabled_axial: bool = True,
         is_deadzone_enabled_tangent: bool = True,
-    ) -> tuple[numpy.typing.NDArray[np.int64], numpy.typing.NDArray[np.float64]]:
+    ) -> tuple[numpy.typing.NDArray[np.int64], numpy.typing.NDArray[np.float64], bool]:
         """Calculate the actuator steps to move in the next control cycle.
 
         Parameters
@@ -257,9 +284,11 @@ class MockControlLoop:
         Returns
         -------
         `numpy.ndarray` [`int`]
-            Actuator steps to move in the next control cycle.
-        hardpoint_correction : `numpy.ndarray`
-            Hardpoint correction in Newton (for the active actuators).
+            78 actuator steps to move in the next control cycle.
+        `numpy.ndarray`
+            78 hardpoint correction in Newton.
+        `bool`
+            True if the mirror is in position. Otherwise, False.
         """
 
         # Filter the demanded forces
@@ -316,7 +345,7 @@ class MockControlLoop:
         )
 
         # Multiply with the decoupling matrix and gains
-        steps_active = self._kdc.dot(
+        steps_active = self.kdc.dot(
             np.append(error_axial_active_filter, error_tangent_active_filter).reshape(
                 -1, 1
             )
@@ -348,16 +377,23 @@ class MockControlLoop:
 
         # Insert the hardpoints
         steps_all = steps.copy()
+        hardpoint_correction_all = hardpoint_correction.copy()
         for hardpoint in hardpoints:
             steps_all = np.insert(steps_all, hardpoint, 0.0)
+            hardpoint_correction_all = np.insert(
+                hardpoint_correction_all, hardpoint, 0.0
+            )
 
         # Saturate the steps in each control cycle
-        # Multiply the hardpoint_correction with -1 to make sure we have:
-        # "force_measured = force_demanded + hardpoint_correction'"
+        # Multiply the hardpoint_correction_all with -1 to make sure we have:
+        # "force_measured = force_demanded + hardpoint_correction_all'"
         # to make the data analysis easier
         return (
             self._saturate_actuator_steps(steps_all.astype(int)),
-            -hardpoint_correction,
+            -hardpoint_correction_all,
+            self._in_position.is_in_position(
+                np.append(error_axial_active, error_tangent_active)
+            ),
         )
 
     def _filter_force_demanded(
@@ -470,7 +506,7 @@ class MockControlLoop:
 
         # The feedbacked forces of active actutors need to consider the
         # hardpoint compensation.
-        hardpoint_correction = self._hd_comp.dot(
+        hardpoint_correction = self.hd_comp.dot(
             np.append(latched_passive_axial, latched_passive_tangent).reshape(-1, 1)
         ).ravel()
 
@@ -508,13 +544,13 @@ class MockControlLoop:
             force_demanded, hardpoints
         )
 
-        force_demanded_hd_comp = self._hd_comp.dot(
+        force_demanded_hd_comp = self.hd_comp.dot(
             force_demanded_passive.reshape(-1, 1)
         ).ravel()
 
         force_demanded_active_diff = force_demanded_active - force_demanded_hd_comp
 
-        steps = self._kinfl.dot(force_demanded_active_diff.reshape(-1, 1)).ravel()
+        steps = self.kinfl.dot(force_demanded_active_diff.reshape(-1, 1)).ravel()
 
         # Pass the delay filter
         return self._feedforward_delay_filter.filter(steps)
