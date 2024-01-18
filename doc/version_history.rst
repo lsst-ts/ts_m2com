@@ -2,6 +2,13 @@
 Version History
 ===============
 
+v2.0.0
+------
+
+* Update the mock module to use the **MockControlLoop**.
+* Add the **MockInPosition** class.
+* Improve the rigid body movement.
+
 v1.3.0
 ------
 
