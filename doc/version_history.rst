@@ -2,7 +2,7 @@
 Version History
 ===============
 
-v2.0.0
+v1.4.0
 ------
 
 * Update the mock module to use the **MockControlLoop**.
