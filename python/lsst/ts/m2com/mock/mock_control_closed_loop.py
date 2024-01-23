@@ -40,10 +40,18 @@ from ..constant import (
     NUM_TEMPERATURE_RING,
 )
 from ..utility import check_limit_switches, read_yaml_file
+from .mock_control_loop import MockControlLoop
+from .mock_plant import MockPlant
 
 
 class MockControlClosedLoop:
     """Mock closed-loop control.
+
+    Parameters
+    ----------
+    is_mirror : `bool`, optional
+        Is mirror or not. If not, the surrogate is applied. (the default is
+        False)
 
     Attributes
     ----------
@@ -60,11 +68,11 @@ class MockControlClosedLoop:
         axial actuators and the latter three are the tangent links.
     disp_hardpoint_home : `list`
         Displacement of the hardpoints at the home position. The unit is meter.
-    in_position_hardpoints : `bool`
-        Hardpoints are in position or not.
+    control_loop : `MockControlLoop`
+        Mock control loop with the force control algorithm.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, is_mirror: bool = False) -> None:
         self.is_running = False
 
         self.temperature = MockControlClosedLoop._get_temperatures()
@@ -101,16 +109,7 @@ class MockControlClosedLoop:
 
         # The values here are designed intentionally to let the mirror has the
         # nearly-zero home position at the closed-loop control.
-        self.disp_hardpoint_home = [
-            -0.00168923,
-            -0.00647945,
-            -0.01085443,
-            -0.0016753,
-            -0.00323069,
-            -0.00281834,
-        ]
-
-        self.in_position_hardpoints = False
+        self.disp_hardpoint_home = [0.0] * 6
 
         # Look-up tables (LUTs)
         self._lut: dict = dict()
@@ -118,14 +117,10 @@ class MockControlClosedLoop:
         # Cell geometry used in the calculation of net total forces and moments
         self._cell_geom: dict = dict()
 
-        # Hardpoint compensation matrix
-        self._hd_comp = np.array([])
-
         # Stiffness matrix to reflect the force change of actuator's movement
         self._stiffness = np.array([])
 
-        # Kinetic decoupling matrix
-        self._kdc = np.array([])
+        self.control_loop = self._get_default_control_loop(is_mirror=is_mirror)
 
     @staticmethod
     def _get_temperatures(
@@ -175,7 +170,68 @@ class MockControlClosedLoop:
 
         return temperatures
 
-    def update_hardpoints(self, hardpoints: list[int], lut_angle: float) -> None:
+    def _get_default_control_loop(self, is_mirror: bool = False) -> MockControlLoop:
+        """Get the default control loop.
+
+        Parameters
+        ----------
+        is_mirror : `bool`, optional
+            Is mirror or not. If not, the surrogate is applied. (the default is
+            False)
+
+        Returns
+        -------
+        `MockControlLoop`
+            Default control loop.
+        """
+
+        (
+            gain_prefilter,
+            params_prefilter,
+        ) = MockControlClosedLoop.calc_cmd_prefilter_params()
+
+        params_cmd_delay = MockControlClosedLoop.calc_cmd_delay_filter_params(
+            is_mirror=is_mirror
+        )
+
+        (
+            gain_control_filter,
+            params_control_filter,
+        ) = MockControlClosedLoop.calc_force_control_filter_params(is_mirror=is_mirror)
+
+        # The parameters here are to match the simulation mode of ts_mtm2_cell
+        return MockControlLoop(
+            gain_prefilter,
+            np.array(params_prefilter),
+            gain_prefilter,
+            np.array(params_prefilter),
+            params_cmd_delay,
+            params_cmd_delay,
+            gain_control_filter,
+            np.array(params_control_filter),
+            gain_control_filter,
+            np.array(params_control_filter),
+            np.array([]),
+            np.array([]),
+            np.array([]),
+            [0.0, 0.0],
+            [0.0, 0.0],
+            0.28,
+            0.1,
+            1,
+            10,
+            40,
+            75,
+            75,
+            1,
+            20.0,
+            0.2,  # 0.158 in ts_mtm2_cell. This value is easier in simulation.
+            1.1,
+            is_feedforward=True,
+            is_feedback=True,
+        )
+
+    def update_hardpoints(self, hardpoints: list[int]) -> None:
         """Update the hardpoints and related internal parameters.
 
         Parameters
@@ -184,17 +240,12 @@ class MockControlClosedLoop:
             List of the 0-based hardpoints. There are 6 actuators. The first
             three are the axial actuators and the latter three are the tangent
             links.
-        lut_angle : `float`
-            Angle used to calculate the LUT forces of gravity component in
-            degree.
         """
 
         self.hardpoints = hardpoints
 
         self.set_kinetic_decoupling_matrix()
-
         self.set_hardpoint_compensation()
-        self.calc_look_up_forces(lut_angle)
 
     def simulate_temperature_and_update(
         self,
@@ -419,7 +470,7 @@ class MockControlClosedLoop:
             self.hardpoints[:NUM_HARDPOINTS_AXIAL],
             self.hardpoints[NUM_HARDPOINTS_AXIAL:],
         )
-        self._hd_comp = block_diag(hd_comp_axial, hd_comp_tangent)
+        self.control_loop.hd_comp = block_diag(hd_comp_axial, hd_comp_tangent)
 
     @staticmethod
     def calc_hp_comp_matrix(
@@ -583,12 +634,17 @@ class MockControlClosedLoop:
     def set_kinetic_decoupling_matrix(self) -> None:
         """Set the kinetic decoupling matrix."""
 
-        self._kdc = MockControlClosedLoop.calc_kinetic_decoupling_matrix(
+        kdc = MockControlClosedLoop.calc_kinetic_decoupling_matrix(
             self.get_actuator_location_axial(),
             self.hardpoints[:NUM_HARDPOINTS_AXIAL],
             self.hardpoints[NUM_HARDPOINTS_AXIAL:],
             self._stiffness,
         )
+
+        # At this moment, put the decoupling matrix and influence matrix to be
+        # the same.
+        self.control_loop.kdc = kdc
+        self.control_loop.kinfl = kdc
 
     @staticmethod
     def calc_kinetic_decoupling_matrix(
@@ -1547,26 +1603,6 @@ class MockControlClosedLoop:
         self.axial_forces["lutGravity"] = force_gravity[:num_axial_actuators]
         self.tangent_forces["lutGravity"] = force_gravity[-NUM_TANGENT_LINK:]
 
-        # Calculate the hardpoint correction
-        force_demanded = self.get_demanded_force()
-        force_measured = np.append(
-            self.axial_forces["measured"], self.tangent_forces["measured"]
-        )
-        force_hardpoint = self._calc_look_up_forces_hardpoint(
-            force_demanded, force_measured
-        )
-
-        # Use the negative sign here as requested by scientist.
-        # This is different from the calculation in ts_mtm2_cell with a
-        # negative sign.
-        # The benefit is to make the understanding of force's details easier.
-        self.axial_forces["hardpointCorrection"] = -force_hardpoint[
-            :num_axial_actuators
-        ]
-        self.tangent_forces["hardpointCorrection"] = -force_hardpoint[
-            -NUM_TANGENT_LINK:
-        ]
-
     def _calc_look_up_forces_temperature(
         self,
         lut_temperature: numpy.typing.NDArray[np.float64],
@@ -1673,60 +1709,24 @@ class MockControlClosedLoop:
             force_factory_offset,
         )
 
-    def _calc_look_up_forces_hardpoint(
+    def handle_forces(
         self,
-        force_demanded: numpy.typing.NDArray[np.float64],
-        force_measured: numpy.typing.NDArray[np.float64],
-    ) -> numpy.typing.NDArray[np.float64]:
-        """Calculate the forces of hardpoint compensation based on the look-up
-        table (LUT) in Newton.
+        is_in_position: bool,
+        plant: MockPlant | None = None,
+        steps_hardpoints: numpy.typing.NDArray[np.int64] | None = None,
+    ) -> bool:
+        """Handle forces and update the hardpoint correction and measured
+        forces.
 
         Parameters
         ----------
-        force_demanded : `numpy.ndarray`
-            Demanded actuator forces in Newton.
-        force_measured : `numpy.ndarray`
-            Measured actuator forces in Newton.
-
-        Returns
-        -------
-        force_hardpoint : `numpy.ndarray`
-            Forces for the hardpoint compensation in Newton.
-        """
-
-        force_demanded_hardpoints = force_demanded[self.hardpoints]
-        force_compensation = np.squeeze(
-            self._hd_comp.dot(force_demanded_hardpoints.reshape(-1, 1))
-        )
-
-        list_non_hardpoints = list(set(range(NUM_ACTUATOR)) - set(self.hardpoints))
-        force_hardpoint = force_compensation - force_measured[list_non_hardpoints]
-
-        # Hardpoints do not do the correction, put 0
-        for hardpoint in self.hardpoints:
-            force_hardpoint = np.insert(force_hardpoint, hardpoint, 0)
-
-        return force_hardpoint
-
-    def handle_forces(self, force_rms: float = 0.5, force_per_cycle: float = 5) -> bool:
-        """Handle forces and check the actuators are in position or not based
-        on the demanded forces, hardpoint correction, and measured forces.
-
-        If the closed-loop control is running, the measured force will be
-        updated based on the "force_per_cycle" as well to decrease the force
-        error. This update will add a random error based on "force_rms".
-        Therefore, even in the convergend condition, the "in_position" might be
-        False, which is an expected behavior for the real hardware.
-
-        This function makes sure the forces are inside range and compute the
-        forces dynamics.
-
-        Parameters
-        ----------
-        force_rms : `float`, optional
-            Force rms variation in Newton. (the default is 0.5)
-        force_per_cycle : `float`, optional
-            Force per cycle to apply in Newton. (the default is 5)
+        is_in_position : `bool`
+            Mirror is in position or not.
+        plant : `MockPlant` or None
+            Plant model. If not None, the movement of plant model will be
+            applied.
+        steps_hardpoints : `numpy.ndarray` [`int`] or None
+            Hardpoint steps of the rigid body movement. (the default is None)
 
         Returns
         -------
@@ -1734,152 +1734,38 @@ class MockControlClosedLoop:
             M2 assembly is in position or not.
         """
 
-        in_position, final_force = self._force_dynamics(force_rms, force_per_cycle)
+        # Steps from the force control algorithm
+        (
+            steps_force_control,
+            hardpoint_correction,
+            in_position,
+        ) = self.control_loop.calc_actuator_steps(
+            self.get_demanded_force(),
+            np.append(self.axial_forces["measured"], self.tangent_forces["measured"]),
+            self.hardpoints,
+            is_in_position,
+        )
 
-        # In the closed-loop control, update the measured forces. Otherwise, do
-        # not update the values.
-        if self.is_running:
-            num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
+        # Steps from the rigid body movement
+        steps_rigid_body_hardpoints = np.zeros(NUM_ACTUATOR, dtype=int)
+        if steps_hardpoints is not None:
+            steps_rigid_body_hardpoints[self.hardpoints] = steps_hardpoints
 
-            self.axial_forces["measured"] = final_force[
-                :num_axial_actuators
-            ] + np.random.normal(
-                scale=force_rms,
-                size=num_axial_actuators,
-            )
-            self.tangent_forces["measured"] = final_force[
-                -NUM_TANGENT_LINK:
-            ] + np.random.normal(
-                scale=force_rms,
-                size=NUM_TANGENT_LINK,
+        # Update the hardpoint correction
+        num_axial = NUM_ACTUATOR - NUM_TANGENT_LINK
+        self.axial_forces["hardpointCorrection"] = hardpoint_correction[:num_axial]
+        self.tangent_forces["hardpointCorrection"] = hardpoint_correction[num_axial:]
+
+        # Move the actuators in the plant model and update the measured forces
+        if plant is not None:
+            if self.is_running:
+                plant.move_actuator_steps(
+                    steps_force_control + steps_rigid_body_hardpoints
+                )
+
+            actuator_forces = plant.get_actuator_forces()
+            self.set_measured_forces(
+                actuator_forces[:num_axial], actuator_forces[num_axial:]
             )
 
         return in_position
-
-    def _force_dynamics(
-        self, force_rms: float, force_per_cycle: float
-    ) -> tuple[bool, numpy.typing.NDArray[np.float64]]:
-        """Handle the force dynamics.
-
-        The method works by comparing the demanded forces with the current
-        forces and hardpoint correction. For each actuator, if the force
-        differs by less than the amount of "force_per_cycle" then the
-        current value is set to the demand value minus the hardpoint
-        correction. If the difference is larger, the current value will be
-        modified by the amount of "force_per_cycle".
-
-        The target is:
-        |force_demanded + hardpoints - force_measured| < force_error
-
-        Parameters
-        ----------
-        force_rms : `float`
-            force rms variation in Newton. This is used to check the actuators
-            are in position or not.
-        force_per_cycle : `float`
-            Force per cycle to apply in Newton.
-
-        Returns
-        -------
-        in_position : `bool`
-            Are forces in accepted range before the application of
-            "force_per_cycle"?
-        final_force : `numpy.ndarray`
-            Resulting forces in Newton. If the actuators are in position, this
-            will be the measured forces.
-        """
-
-        (
-            force_error,
-            force_demanded,
-            force_hardpoint,
-            force_measured,
-        ) = self._get_force_error()
-
-        if np.std(force_error) > 2.0 * force_rms:
-            in_position = False
-        else:
-            in_position = True
-
-        if (not self.in_position_hardpoints) and in_position:
-            self.in_position_hardpoints = True
-
-        # Calculate the final force
-        final_force = force_measured.copy()
-        if not in_position:
-            # Since the force error in hardpoints are always zero, we need to
-            # deal with them seperatily.
-            actuators_in_cycle = np.where(np.abs(force_error) <= force_per_cycle)[0]
-
-            actuators_in_cycle_no_hardpoint = set(actuators_in_cycle)
-            for hardpoint in self.hardpoints:
-                actuators_in_cycle_no_hardpoint.discard(hardpoint)
-
-            actuators_in_cycle_no_hardpoint_list = np.array(
-                list(actuators_in_cycle_no_hardpoint), dtype=int
-            )
-
-            final_force[actuators_in_cycle_no_hardpoint_list] = (
-                force_demanded[actuators_in_cycle_no_hardpoint_list]
-                + force_hardpoint[actuators_in_cycle_no_hardpoint_list]
-            )
-
-            actuators_out_of_cycle = np.where(np.abs(force_error) > force_per_cycle)[0]
-            final_force[actuators_out_of_cycle] += force_per_cycle * np.sign(
-                force_error[actuators_out_of_cycle]
-            )
-
-            # We only update the forces of hardpoints if they are not in
-            # position yet.
-            if not self.in_position_hardpoints:
-                # Assume the direction of hardpoint update is the same as its
-                # demanded force direction as a random assumption
-                final_force[self.hardpoints] += force_per_cycle * np.sign(
-                    force_demanded[self.hardpoints]
-                )
-
-        return in_position, final_force
-
-    def _get_force_error(
-        self,
-    ) -> tuple[
-        numpy.typing.NDArray[np.float64],
-        numpy.typing.NDArray[np.float64],
-        numpy.typing.NDArray[np.float64],
-        numpy.typing.NDArray[np.float64],
-    ]:
-        """Get the actuator force error.
-
-        Returns
-        ----------
-        force_error : `numpy.ndarray`
-            Actuator force error in Newton.
-        force_demanded : `numpy.ndarray`
-            Demanded actuator force in Newton.
-        force_hardpoint : `numpy.ndarray`
-            Hardpoint correction in Newton.
-        force_measured : `numpy.ndarray`
-            Measured actuator force in Newton.
-        """
-
-        force_demanded = self.get_demanded_force()
-        force_hardpoint = np.append(
-            self.axial_forces["hardpointCorrection"],
-            self.tangent_forces["hardpointCorrection"],
-        )
-        force_measured = np.append(
-            self.axial_forces["measured"], self.tangent_forces["measured"]
-        )
-
-        # In the calculation of force error, we minus the measured force
-        # directly as a first order assumption. In the real control system,
-        # we need to consider a feedback loop to decide the actual value of
-        # measured force from the previous loop in hardware controller.
-        force_error = force_demanded + force_hardpoint - force_measured
-
-        # Do not consider the force error in hardpoints.
-        # This is the logic in M2 cell LabVIEW code by vendor. Need to figure
-        # out why it was designed in this way in a latter time.
-        force_error[self.hardpoints] = 0
-
-        return force_error, force_demanded, force_hardpoint, force_measured

@@ -21,11 +21,8 @@
 
 __all__ = ["MockControlOpenLoop"]
 
-from pathlib import Path
-
 import numpy as np
 import numpy.typing
-import pandas as pd
 
 from ..constant import (
     LIMIT_FORCE_AXIAL_OPEN_LOOP,
@@ -35,7 +32,8 @@ from ..constant import (
     NUM_ACTUATOR,
 )
 from ..enum import ActuatorDisplacementUnit
-from ..utility import check_limit_switches, get_forces_mirror_weight
+from ..utility import check_limit_switches
+from .mock_plant import MockPlant
 
 
 class MockControlOpenLoop:
@@ -43,32 +41,15 @@ class MockControlOpenLoop:
 
     Attributes
     ----------
-    inclinometer_angle : `float`
-        Inclinometer angle in degree.
     open_loop_max_limit_is_enabled : `bool`
         The maximum limit of open-loop control is enabled or not.
     is_running : `bool`
         The open-loop control is running or not.
-    actuator_steps : `numpy.ndarray [int]`
-        Current positions of the actuator in steps referenced to the home
-        position.
     """
 
-    # 1 step equals 1.9967536601e-5 millimeter
-    # In the simulation, we just use a single value. In the real system, each
-    # actuator has its own calibrated value.
-    STEP_TO_MM = 1.9967536601e-5
-
     def __init__(self) -> None:
-        self.inclinometer_angle = 0.0
         self.open_loop_max_limit_is_enabled = False
         self.is_running = False
-
-        # Static transfer matrix used to simulate the delta force from the
-        # change of steps
-        self._static_transfer_matrix = np.array([])
-
-        self.actuator_steps = np.zeros(NUM_ACTUATOR, dtype=int)
 
         # Selected actuator IDs to do the movement
         self._selected_actuators: list[int] = list()
@@ -76,72 +57,30 @@ class MockControlOpenLoop:
         # Displacement of steps to do the movement
         self._displacement_steps = 0
 
-    def read_file_static_transfer_matrix(
-        self, filepath: str | Path, skiprows: int = 7
-    ) -> None:
-        """Read the file of static transfer matrix (the size is 78 x 78).
-
-        This file comes from the vender's original project used in the
-        simulation purpose.
-
-        Parameters
-        ----------
-        filepath : `str` or `pathlib.PosixPath`
-            File path of the static transfer matrix.
-        skiprows : `int`, optional
-            Number of lines to skip (int) at the start of the file. (the
-            default is 7)
-        """
-
-        dataframe = pd.read_csv(filepath, skiprows=skiprows)
-        data = np.array(dataframe.iloc[:, 0])
-
-        self._static_transfer_matrix = data.reshape(NUM_ACTUATOR, NUM_ACTUATOR)
-
-    def update_actuator_steps(
-        self, actuator_steps: numpy.typing.NDArray[np.int64]
-    ) -> None:
-        """Update the current actuator steps referenced to the home position.
-
-        Parameters
-        ----------
-        actuator_steps : `numpy.ndarray [int]`
-            New current positions of the actuator in steps.
-
-        Raises
-        ------
-        `ValueError`
-            When the length of actuators does not match.
-        `ValueError`
-            When the data type is not integer.
-        """
-
-        num_actuators = len(actuator_steps)
-        if num_actuators != NUM_ACTUATOR:
-            raise ValueError(
-                f"Received actuator length ({num_actuators}) doesn't match the expectation: {NUM_ACTUATOR}."
-            )
-
-        if actuator_steps.dtype != int:
-            raise ValueError(f"Expected integer data type, got {actuator_steps.dtype}.")
-
-        self.actuator_steps = actuator_steps
-
-    def is_actuator_force_out_limit(self) -> tuple[bool, list, list]:
+    def is_actuator_force_out_limit(
+        self, actuator_force: numpy.typing.NDArray[np.float64]
+    ) -> tuple[bool, list[int], list[int]]:
         """The actuator force is out of limit or not. The result will depend
         on self.open_loop_max_limit_is_enabled.
 
+        Notes
+        -----
+        If the force is out of limit, stop the running of open-loop control.
+
+        Parameters
+        ----------
+        actuator_force : `numpy.ndarray`
+            Actuator forces in Newton.
+
         Returns
         -------
-        `bool`
+        is_triggered : `bool`
             True if the actuator force is out of limit. Otherwise, False.
-        `list`
+        limit_switch_retract : `list`
             Triggered retracted limit switches.
-        `list`
+        limit_switch_extend : `list`
             Triggered extended limit switches.
         """
-
-        forces = self.calculate_steps_to_forces(self.actuator_steps)
 
         limit_force_axial = (
             MAX_LIMIT_FORCE_AXIAL_OPEN_LOOP
@@ -154,88 +93,15 @@ class MockControlOpenLoop:
             else LIMIT_FORCE_TANGENT_OPEN_LOOP
         )
 
-        return check_limit_switches(forces, limit_force_axial, limit_force_tangent)
-
-    def calculate_steps_to_forces(
-        self, steps: numpy.typing.NDArray[np.int64]
-    ) -> numpy.typing.NDArray[np.float64]:
-        """Calculate the steps to forces.
-
-        This function is translated from vendor's original LabVIEW code.
-        The static transfer matrix is used to simlulate the force change of
-        actuator's movement.
-
-        Parameters
-        ----------
-        steps : `numpy.ndarray [int]`
-            Actuator steps.
-
-        Returns
-        -------
-        `numpy.ndarray`
-            Actuator forces in Newton.
-        """
-
-        return self._static_transfer_matrix.dot(
-            steps.reshape(-1, 1)
-        ).ravel() + get_forces_mirror_weight(self.inclinometer_angle)
-
-    def calculate_forces_to_steps(
-        self, forces: numpy.typing.NDArray[np.float64]
-    ) -> numpy.typing.NDArray[np.int64]:
-        """Calculate the forces to steps.
-
-        This is the reverse of self.calculate_steps_to_forces().
-
-        Parameters
-        ----------
-        forces : `numpy.ndarray`
-            Actuator forces in Newton.
-
-        Returns
-        -------
-        `numpy.ndarray [int]`
-            Actuator steps.
-        """
-
-        forces_delta = forces - get_forces_mirror_weight(self.inclinometer_angle)
-
-        steps = (
-            np.linalg.inv(self._static_transfer_matrix)
-            .dot(forces_delta.reshape(-1, 1))
-            .astype(int)
+        is_triggered, limit_switch_retract, limit_switch_extend = check_limit_switches(
+            actuator_force, limit_force_axial, limit_force_tangent
         )
 
-        return steps.ravel()
+        # Stop the running if the limit switch is triggered
+        if is_triggered:
+            self.is_running = False
 
-    def calculate_forces_to_positions(
-        self, forces: numpy.typing.NDArray[np.float64]
-    ) -> numpy.typing.NDArray[np.float64]:
-        """Calculate the forces to positions.
-
-        This is just an extension of self.calculate_forces_to_steps().
-
-        Parameters
-        ----------
-        forces : `numpy.ndarray`
-            Actuator forces in Newton.
-
-        Returns
-        -------
-        `numpy.ndarray`
-            Actuator positions in millimeter.
-        """
-        return self.calculate_forces_to_steps(forces) * self.STEP_TO_MM
-
-    def get_actuator_positions(self) -> numpy.typing.NDArray[np.float64]:
-        """Get the actuator positions in millimeter.
-
-        Returns
-        -------
-        `numpy.ndarray`
-            Actuator positions in millimeter.
-        """
-        return self.actuator_steps * self.STEP_TO_MM
+        return is_triggered, limit_switch_retract, limit_switch_extend
 
     def start(
         self,
@@ -291,7 +157,7 @@ class MockControlOpenLoop:
             Steps of the displacement.
         """
         return (
-            int(displacement / self.STEP_TO_MM)
+            int(displacement / MockPlant.STEP_TO_MM)
             if unit == ActuatorDisplacementUnit.Millimeter
             else int(displacement)
         )
@@ -325,8 +191,8 @@ class MockControlOpenLoop:
         else:
             raise RuntimeError("The movement is done.")
 
-    def run_steps(self, steps: int) -> None:
-        """Run the steps.
+    def get_steps_to_move(self, steps: int) -> numpy.typing.NDArray[np.int64]:
+        """Get the steps to move.
 
         If the requested displacement is done or the actuator force is out of
         limit, the value of self.is_running will change to False.
@@ -336,6 +202,11 @@ class MockControlOpenLoop:
         steps : `int`
             Absolute steps (>=0) to move. The internal calculation will
             consider the direction of target displacement by itself.
+
+        Returns
+        -------
+        actuator_steps : `numpy.ndarray` [`int`]
+            78 actuator steps.
 
         Raises
         ------
@@ -351,47 +222,23 @@ class MockControlOpenLoop:
         if steps < 0:
             raise ValueError(f"The steps (={steps}) should be >= 0.")
 
+        # Deside the step to move
         steps_to_move = np.sign(self._displacement_steps) * int(steps)
 
         if abs(self._displacement_steps) < abs(steps_to_move):
-            self.move_actuator_steps(self._selected_actuators, self._displacement_steps)
+            actuator_step = self._displacement_steps
             self._displacement_steps = 0
         else:
-            self.move_actuator_steps(self._selected_actuators, steps_to_move)
+            actuator_step = steps_to_move
             self._displacement_steps -= steps_to_move
 
-        if (self._displacement_steps == 0) or self.is_actuator_force_out_limit()[0]:
+        # Finish the running after the final movement
+        if self._displacement_steps == 0:
             self.is_running = False
 
-    def move_actuator_steps(
-        self,
-        actuators: list[int] | numpy.typing.NDArray[np.int64],
-        steps: int | list[int] | numpy.typing.NDArray[np.int64],
-    ) -> None:
-        """Move the actuator steps.
+        # Return the actuator steps to move
+        actuator_steps = np.zeros(NUM_ACTUATOR, dtype=int)
+        for idx in self._selected_actuators:
+            actuator_steps[idx] = actuator_step
 
-        Parameters
-        ----------
-        actuators : `list [int]` or `numpy.ndarray [int]`
-            Actuator IDs to do the movement.
-        steps : `int`, `list [int]` or `numpy.ndarray [int]`
-            Actuator steps to move.
-
-        Raises
-        ------
-        `ValueError`
-            When the data type is not integer.
-        `RuntimeError`
-            When the actuator force is out of limit.
-        """
-
-        actuators = np.array(actuators)
-        steps = np.array(steps)
-
-        if (actuators.dtype != int) or (steps.dtype != int):
-            raise ValueError("The data type is not integer.")
-
-        if self.is_actuator_force_out_limit()[0]:
-            raise RuntimeError("The actuator force is out of limit now.")
-        else:
-            self.actuator_steps[actuators] += steps
+        return actuator_steps

@@ -93,6 +93,7 @@ m2com.mock
 * **MockControlLoop** is the control loop of system.
 * **MockDeadbandControl** selects the force error of hardpoints.
 * **MockGainSchedular** tunes the gains for the slewing, settling, and imaging processes.
+* **MockInPosition** checks the mirror is in position or not.
 
 .. _API:
 

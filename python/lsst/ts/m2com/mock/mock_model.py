@@ -38,15 +38,12 @@ from ..constant import (
     TANGENT_LINK_TOTAL_WEIGHT_ERROR,
 )
 from ..enum import DigitalInput, DigitalOutput, DigitalOutputStatus, MockErrorCode
-from ..utility import (
-    correct_inclinometer_angle,
-    get_forces_mirror_weight,
-    read_yaml_file,
-)
+from ..utility import correct_inclinometer_angle, read_yaml_file
 from .mock_control_closed_loop import MockControlClosedLoop
 from .mock_control_open_loop import MockControlOpenLoop
 from .mock_error_handler import MockErrorHandler
 from .mock_inner_loop_controller import MockInnerLoopController
+from .mock_plant import MockPlant
 from .mock_power_system import MockPowerSystem
 from .mock_script_engine import MockScriptEngine
 
@@ -86,6 +83,8 @@ class MockModel:
         Closed-loop control.
     telemetry_interval : `float`
         Telemetry interval in second.
+    inclinometer_angle : `float`
+        Inclinometer angle in degree.
     inclinometer_angle_external : `float`
         External inclinometer angle in degree. This has the same coordinate
         system of look-up table angle.
@@ -94,12 +93,8 @@ class MockModel:
     mirror_position : `dict`
         Mirror's position. The key is the axis (x, y, z, xRot, yRot, zRot) of
         mirror. The units are the micron and arcsec.
-    mirror_position_offset : `dict`
-        Offset value of the mirror position. The key is the axis (x, y, z,
-        xRot, yRot, zRot) of mirror. The units are the micron and arcsec. This
-        is a workaround to deal with the rigid body movement at this moment.
-        Need to remove this after the translation of forward modeling of
-        hardpoint correction.
+    steps_hardpoints_offset : `numpy.ndarray` [`int`]
+        Offset of the hardpoint steps. This is used in the rigid body movement.
     power_communication : `MockPowerSystem`
         Power system of communication.
     power_motor : `MockPowerSystem`
@@ -114,6 +109,8 @@ class MockModel:
         Script engine to run the binary script.
     error_handler : `MockErrorHandler`
         Error handler to manage the error codes.
+    plant : `MockPlant`
+        Plant model.
     """
 
     def __init__(
@@ -133,12 +130,12 @@ class MockModel:
             self.log = log.getChild(type(self).__name__)
 
         self.control_open_loop = MockControlOpenLoop()
-        self.control_open_loop.inclinometer_angle = inclinometer_angle
 
         self.control_closed_loop: MockControlClosedLoop = MockControlClosedLoop()
 
         self.telemetry_interval = telemetry_interval
 
+        self.inclinometer_angle = inclinometer_angle
         self.inclinometer_angle_external = correct_inclinometer_angle(
             inclinometer_angle
         )
@@ -150,7 +147,7 @@ class MockModel:
         }
 
         self.mirror_position = self.get_default_mirror_position()
-        self.mirror_position_offset = self.get_default_mirror_position()
+        self.steps_hardpoints_offset = np.zeros(6, dtype=int)
 
         self.power_communication: MockPowerSystem = MockPowerSystem(
             communication_voltage, communication_current
@@ -176,12 +173,12 @@ class MockModel:
         self.script_engine: MockScriptEngine = MockScriptEngine()
         self.error_handler: MockErrorHandler = MockErrorHandler()
 
-        self._set_default_measured_forces()
-
         # Force error of the tangent link to check the glass safety
         self._force_error_tangent = self._calculate_force_error_tangent(
             self.control_closed_loop.tangent_forces["measured"]
         )
+
+        self.plant: None | MockPlant = None
 
     def get_default_mirror_position(self) -> dict:
         """Get the default mirror position.
@@ -225,35 +222,24 @@ class MockModel:
         if is_external:
             self.inclinometer_angle_external = angle
         else:
-            self.control_open_loop.inclinometer_angle = angle
+            self.inclinometer_angle = angle
 
         # Check the system needs to update the LUT force or not
         update_lut_force = not is_external
         if is_external and self.control_parameters["use_external_elevation_angle"]:
             update_lut_force = True
 
-        # In the real hardware, the hardpoint correction based on the look-up
-        # table (LUT) should be udpated continuously. But this will make the
-        # measured force hard to converge in the closed-loop control for the
-        # simplified calculation in the
-        # self.control_closed_loop.calc_look_up_forces(). Therefore, we only
-        # update it when the "angle" is changed.
         if update_lut_force:
             lut_angle = angle if is_external else correct_inclinometer_angle(angle)
             self.control_closed_loop.calc_look_up_forces(lut_angle)
 
-            # The change of elevation angle means the hardpoints may need to
-            # update the force as well.
-            self.control_closed_loop.in_position_hardpoints = False
+        # Update the plant model
 
-    def _set_default_measured_forces(self) -> None:
-        """Set the default measured forces."""
+        # Workaround the mypy check
+        assert self.plant is not None
 
-        forces = get_forces_mirror_weight(self.control_open_loop.inclinometer_angle)
-
-        self.control_closed_loop.set_measured_forces(
-            forces[: (NUM_ACTUATOR - NUM_TANGENT_LINK)], forces[-NUM_TANGENT_LINK:]
-        )
+        if not is_external:
+            self.plant.update_actuator_force_weight(angle)
 
     @property
     def position_limit_radial(self) -> float:
@@ -353,17 +339,17 @@ class MockModel:
         path_stiffness = path_lut / "stiff_matrix_surrogate.yaml"
         self.control_closed_loop.load_file_stiffness(path_stiffness)
 
-        # Read the static transfer matrix
-        path_static_transfer_matrix = path_lut / "StaticTransferMatrix.csv"
-        self.control_open_loop.read_file_static_transfer_matrix(
-            path_static_transfer_matrix
-        )
-
         self.control_closed_loop.set_hardpoint_compensation()
         self.control_closed_loop.set_kinetic_decoupling_matrix()
 
+        # Use the M2 stiffness matrix here intentionally to match the
+        # simulation model of ts_mtm2_cell
+        path_stiffness_m2 = path_lut / "stiff_matrix_m2.yaml"
+        stiffness_m2 = read_yaml_file(path_stiffness_m2)
+        self.plant = MockPlant(np.array(stiffness_m2["stiff"]), self.inclinometer_angle)
+
         # By doing this, we can calculate the forces of look-up table.
-        self.set_inclinometer_angle(self.control_open_loop.inclinometer_angle)
+        self.set_inclinometer_angle(self.inclinometer_angle)
 
         # Read the error code file
         self.error_handler.read_error_list_file(config_dir / "error_code.tsv")
@@ -406,7 +392,12 @@ class MockModel:
                 is_out_limit,
                 limit_switches_retract,
                 limit_switches_extend,
-            ) = self.control_open_loop.is_actuator_force_out_limit()
+            ) = self.control_open_loop.is_actuator_force_out_limit(
+                np.append(
+                    self.control_closed_loop.axial_forces["measured"],
+                    self.control_closed_loop.tangent_forces["measured"],
+                )
+            )
 
             if is_out_limit:
                 error_code = MockErrorCode.LimitSwitchTriggeredOpenloop
@@ -531,6 +522,9 @@ class MockModel:
             Telemetry data.
         """
 
+        # Workaround the mypy check
+        assert self.plant is not None
+
         telemetry_data = dict()
 
         position_ims = None
@@ -554,7 +548,7 @@ class MockModel:
             ] = self.control_closed_loop.get_force_balance()
 
             # Get the position data
-            telemetry_data["position"] = self._get_mirror_position_with_offset()
+            telemetry_data["position"] = self.mirror_position
 
             position_ims = self._simulate_position_mirror()
             telemetry_data["positionIMS"] = position_ims
@@ -567,8 +561,8 @@ class MockModel:
             telemetry_data["zenithAngle"] = self._simulate_zenith_angle()
 
             # Get the actuator steps and positions
-            steps = self.control_open_loop.actuator_steps
-            positions = self.control_open_loop.get_actuator_positions()
+            steps = self.plant.actuator_steps
+            positions = self.plant.get_actuator_positions()
 
             num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
 
@@ -673,9 +667,7 @@ class MockModel:
 
         gravitational_acceleration = 9.8
 
-        angle_correct = correct_inclinometer_angle(
-            self.control_open_loop.inclinometer_angle
-        )
+        angle_correct = correct_inclinometer_angle(self.inclinometer_angle)
         mirror_weight_projection = (
             MIRROR_WEIGHT_KG
             * gravitational_acceleration
@@ -742,35 +734,22 @@ class MockModel:
         return {"thetaZ": theta_z, "deltaZ": delta_z}
 
     def balance_forces_and_steps(
-        self,
-        force_rms: float = 0.5,
-        force_per_cycle: float = 5.0,
-        update_steps: bool = True,
+        self, do_update: bool = True, steps_rigid_body: int = 100
     ) -> bool:
         """Balance the forces and steps.
 
+        Notes
+        -----
         This function will check the actuators are in position or not and
-        udpate the self.in_position. If the closed-loop control is running, it
-        will do the force dynamics based on the "force_per_cycle" to try to
-        balance the forces of actuators. In addition, it will try to make sure
-        the internal data in open-loop and closed-loop controls are consistent.
+        udpate the self.in_position after doing the force dynamics.
 
         Parameters
         ----------
-        force_rms : `float`, optional
-            Force rms variation in Newton. (default is 0.5)
-        force_per_cycle : `float`, optional
-            Force per cycle to apply in Newton. (the default is 5.0)
-        update_steps : `bool`, optional
-            If True, update the steps based on the force change. Otherwise, no
-            update. This takes a significant CPU usage (np.linalg.inv()). (the
+        do_update : `bool`, optional
+            If True, update the internal data. Otherwise, no update. (the
             default is True)
-
-        Returns
-        -------
-        `bool`
-            True if the steps had been updated according to the force change.
-            Otherwise, False.
+        steps_rigid_body : `int`, optional
+            Steps to run for the rigid body movement. (the default is 100)
 
         Raises
         ------
@@ -784,30 +763,22 @@ class MockModel:
                 "The open-loop and closed-loop controls are running at the same time."
             )
 
-        self.in_position = self.control_closed_loop.handle_forces(
-            force_rms=force_rms,
-            force_per_cycle=force_per_cycle,
-        )
+        if do_update:
+            no_rigid_body_movement = np.all(self.steps_hardpoints_offset == 0)
 
-        # In the open-loop control, update the measured force
-        if self.control_open_loop.is_running:
-            forces = self.control_open_loop.calculate_steps_to_forces(
-                self.control_open_loop.actuator_steps
+            steps_hardpoints = (
+                None
+                if no_rigid_body_movement
+                else np.clip(
+                    self.steps_hardpoints_offset, -steps_rigid_body, steps_rigid_body
+                ).astype(int)
             )
-            self.control_closed_loop.set_measured_forces(
-                forces[: (NUM_ACTUATOR - NUM_TANGENT_LINK)], forces[-NUM_TANGENT_LINK:]
-            )
+            if not no_rigid_body_movement:
+                self.steps_hardpoints_offset -= steps_hardpoints
 
-        # In the closed-loop control, update the steps and rigid body position
-        # because of the udpated measured forces.
-        if self.control_closed_loop.is_running and update_steps:
-            # Calculate the steps
-            forces = np.append(
-                self.control_closed_loop.axial_forces["measured"],
-                self.control_closed_loop.tangent_forces["measured"],
+            self.in_position = self.control_closed_loop.handle_forces(
+                self.in_position, plant=self.plant, steps_hardpoints=steps_hardpoints
             )
-            steps = self.control_open_loop.calculate_forces_to_steps(forces)
-            self.control_open_loop.update_actuator_steps(steps)
 
             # Calculate the rigid body position
             x, y, z, rx, ry, rz = MockControlClosedLoop.hardpoint_to_rigid_body(
@@ -844,46 +815,27 @@ class MockModel:
         `numpy.ndarray`
             Current hardpoint displacements in meter.
         """
+
+        # Workaround the mypy check
+        assert self.plant is not None
+
         # Change the unit from millimeter to meter.
         return (
-            self.control_open_loop.get_actuator_positions()[
-                self.control_closed_loop.hardpoints
-            ]
+            self.plant.get_actuator_positions()[self.control_closed_loop.hardpoints]
             * 1e-3
         )
 
-    def _get_mirror_position_with_offset(self) -> dict:
-        """Get the mirror position with the offset.
-
-        Notes
-        -----
-        Remove this function after the translation of forward modeling of
-        hardpoint correction.
-
-        Returns
-        -------
-        position : `dict`
-            Mirror's position with the offset. The key is the axis (x, y, z,
-            xRot, yRot, zRot) of mirror. The units are the micron and arcsec.
-        """
-
-        position = dict()
-        for axis, value in self.mirror_position.items():
-            position[axis] = value + self.mirror_position_offset[axis]
-
-        return position
-
     def _simulate_position_mirror(
-        self, position_rms: float = 0.005, angle_rms: float = 0.005
+        self, position_rms: float = 0.05, angle_rms: float = 0.05
     ) -> dict:
         """Simulate the position of mirror.
 
         Parameters
         ----------
         position_rms : `float`, optional
-            Position rms variation in microns. (default is 0.005)
+            Position rms variation in microns. (default is 0.05)
         angle_rms : `float`, optional
-            Angle rms variation in arcsec. (default is 0.005)
+            Angle rms variation in arcsec. (default is 0.05)
 
         Returns
         -------
@@ -892,7 +844,7 @@ class MockModel:
             of mirror. The units are the micron and arcsec.
         """
 
-        position = self._get_mirror_position_with_offset()
+        position = self.mirror_position.copy()
 
         for axis, value in position.items():
             if axis in ("x, y, z"):
@@ -918,9 +870,8 @@ class MockModel:
             Zenith angle data. The unit is degree.
         """
 
-        inclinometer_value = (
-            self.control_open_loop.inclinometer_angle
-            + np.random.normal(scale=inclinometer_rms)
+        inclinometer_value = self.inclinometer_angle + np.random.normal(
+            scale=inclinometer_rms
         )
 
         zenith_angle = dict()
@@ -937,20 +888,7 @@ class MockModel:
 
         Notes
         -----
-        This is just a placeholder at this moment. To do this correctly, need:
-
-        1. Translate the calculation of forward modeling of hardpoint
-        correction.
-
-        2. Apply MockControlClosedLoop.rigid_body_to_actuator_displacement()
-        and get the expected displacement of actuator.
-
-        3. Put the displacement to the forward-modeling and get correct
-        hardpoint correction in force.
-
-        4. Put the hardpoint correction to
-        MockControlClosedLoop.axial_forces["hardpointCorrection"] and
-        MockControlClosedLoop.tangent_forces["hardpointCorrection"].
+        This translates the "Context.move.vi" in ts_mtm2_cell.
 
         Parameters
         ----------
@@ -958,8 +896,32 @@ class MockModel:
             Dictionary with the same format as `self.mirror_position`.
         """
 
-        for axis in self.mirror_position_offset:
-            self.mirror_position_offset[axis] = mirror_position_set_point[axis]
+        # Get the hardpoint displacements
+        UM_TO_M = 1e-6
+        ARCSEC_TO_RAD = 4.84814e-6
+
+        displacments_xyz = MockControlClosedLoop.rigid_body_to_actuator_displacement(
+            self.control_closed_loop.get_actuator_location_axial(),
+            self.control_closed_loop.get_actuator_location_tangent(),
+            self.control_closed_loop.get_radius(),
+            mirror_position_set_point["x"] * UM_TO_M,
+            mirror_position_set_point["y"] * UM_TO_M,
+            mirror_position_set_point["z"] * UM_TO_M,
+            mirror_position_set_point["xRot"] * ARCSEC_TO_RAD,
+            mirror_position_set_point["yRot"] * ARCSEC_TO_RAD,
+            mirror_position_set_point["zRot"] * ARCSEC_TO_RAD,
+        )
+
+        hardpoints_displacement = (
+            displacments_xyz[self.control_closed_loop.hardpoints]
+            + np.array(self.control_closed_loop.disp_hardpoint_home)
+            - self.get_current_hardpoint_displacement()
+        )
+
+        # Change the unit to be step
+        M_TO_MM = 1e3
+        hardpoints_steps = hardpoints_displacement * M_TO_MM / MockPlant.STEP_TO_MM
+        self.steps_hardpoints_offset = hardpoints_steps.astype(int)
 
     def check_set_point_position_mirror(self, mirror_position_set_point: dict) -> bool:
         """Check the set point of mirror's position.

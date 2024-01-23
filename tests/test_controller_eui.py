@@ -26,10 +26,8 @@ import sys
 import unittest
 from pathlib import Path
 
-import numpy as np
 from lsst.ts import tcpip
 from lsst.ts.m2com import (
-    NUM_ACTUATOR,
     TEST_DIGITAL_OUTPUT_POWER_COMM,
     TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
     ActuatorDisplacementUnit,
@@ -47,6 +45,7 @@ from lsst.ts.m2com import (
 from lsst.ts.xml.enums import MTM2
 
 SLEEP_TIME_SHORT = 1
+SLEEP_TIME_LONG = 10
 
 
 class TestControllerEui(unittest.IsolatedAsyncioTestCase):
@@ -393,11 +392,6 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         ) as controller:
             server.model.control_open_loop.open_loop_max_limit_is_enabled = True
 
-            # Change the default steps to trigger the fault easier
-            steps = np.zeros(NUM_ACTUATOR, dtype=int)
-            steps[0] = -5500
-            server.model.control_open_loop.update_actuator_steps(steps)
-
             await server.model.power_communication.power_on()
             await server.model.power_motor.power_on()
 
@@ -406,12 +400,12 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                 message_details={
                     "actuatorCommand": CommandActuator.Start,
                     "actuators": [0],
-                    "displacement": -2000,
+                    "displacement": -8000,
                     "unit": ActuatorDisplacementUnit.Step,
                 },
             )
 
-            await asyncio.sleep(SLEEP_TIME_SHORT)
+            await asyncio.sleep(SLEEP_TIME_LONG)
 
             self.assertTrue(server.model.error_handler.exists_error())
             self.assertFalse(server.model.control_open_loop.is_running)
@@ -530,7 +524,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await controller.write_command_to_server("rebootController")
 
             # Wait a little time to collect the messages
-            await asyncio.sleep(SLEEP_TIME_SHORT)
+            await asyncio.sleep(SLEEP_TIME_LONG)
             self.assertFalse(controller.are_clients_connected())
 
             self.assertTrue(self.lost_connection)

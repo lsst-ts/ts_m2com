@@ -27,9 +27,9 @@ from lsst.ts.m2com import (
     NUM_ACTUATOR,
     NUM_TANGENT_LINK,
     MockControlClosedLoop,
-    correct_inclinometer_angle,
+    MockPlant,
     get_config_dir,
-    get_forces_mirror_weight,
+    read_yaml_file,
 )
 
 
@@ -52,18 +52,36 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
         self.control_closed_loop.set_kinetic_decoupling_matrix()
 
+        inclinometer_angle = 120.0
+        self.plant = self._get_plant(inclinometer_angle)
+
+    def _get_plant(self, inclinometer_angle: float) -> MockPlant:
+        # We intensionally use the M2 stiff matrix here to test the control
+        # loop can converge or not.
+        filepath = get_config_dir() / "harrisLUT" / "stiff_matrix_m2.yaml"
+        stiffness_matrix = read_yaml_file(filepath)
+        return MockPlant(np.array(stiffness_matrix["stiff"]), inclinometer_angle)
+
     def test_init(self) -> None:
         self.assertEqual(len(self.control_closed_loop.temperature), 5)
         self.assertEqual(len(self.control_closed_loop._lut), 10)
         self.assertEqual(len(self.control_closed_loop._cell_geom), 3)
-        self.assertEqual(self.control_closed_loop._hd_comp.shape, (72, 6))
 
         self.assertEqual(self.control_closed_loop._stiffness.shape, (78, 78))
-        self.assertEqual(self.control_closed_loop._kdc.shape, (72, 72))
+
+        control_loop = self.control_closed_loop.control_loop
+        self.assertEqual(control_loop.hd_comp.shape, (72, 6))
+        self.assertEqual(control_loop.kdc.shape, (72, 72))
+        self.assertEqual(control_loop.kinfl.shape, (72, 72))
 
     def test_update_hardpoints(self) -> None:
+        self.control_closed_loop.calc_look_up_forces(59.06)
+
         hardpoints = [4, 14, 24, 72, 74, 76]
-        self.control_closed_loop.update_hardpoints(hardpoints, 59.06)
+        self.control_closed_loop.update_hardpoints(hardpoints)
+
+        for idx in range(5):
+            self.control_closed_loop.handle_forces(False, plant=self.plant)
 
         self.assertEqual(self.control_closed_loop.hardpoints, hardpoints)
 
@@ -75,7 +93,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
             "hardpointCorrection"
         ]
         self.assertEqual(hardpoint_correction_tangent[0], 0.0)
-        self.assertAlmostEqual(hardpoint_correction_tangent[1], -11.0145333)
+        self.assertAlmostEqual(hardpoint_correction_tangent[1], -2012.1470437)
+        self.assertAlmostEqual(hardpoint_correction_tangent[3], 14.10966667)
+        self.assertAlmostEqual(hardpoint_correction_tangent[5], 1995.0323771)
 
     def test_calc_hp_comp_matrix(self) -> None:
         (
@@ -669,146 +689,98 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertAlmostEqual(force_factory_offset[2], 0.0)
 
     def test_calc_force_hardpoint(self) -> None:
-        angle = 120
-        force_measured, lut_angle = self._get_force_measured_and_lut_angle(angle)
-        force_demanded = self._get_force_demanded(lut_angle)
+        self.control_closed_loop.calc_look_up_forces(59.06)
 
-        force_hardpoint = self.control_closed_loop._calc_look_up_forces_hardpoint(
-            force_demanded, force_measured
-        )
+        for idx in range(5):
+            self.control_closed_loop.handle_forces(False, plant=self.plant)
 
-        self.assertAlmostEqual(force_hardpoint[0], -58.5897286)
-        self.assertAlmostEqual(force_hardpoint[1], -58.0630028)
-        self.assertAlmostEqual(force_hardpoint[2], -56.7942092)
-        self.assertAlmostEqual(force_hardpoint[5], 0)
-        self.assertAlmostEqual(force_hardpoint[15], 0)
-        self.assertAlmostEqual(force_hardpoint[-6], -96.9923333)
-        self.assertAlmostEqual(force_hardpoint[-5], 0)
-        self.assertAlmostEqual(force_hardpoint[-4], 1902.7131771)
-        self.assertAlmostEqual(force_hardpoint[-3], 0)
-        self.assertAlmostEqual(force_hardpoint[-2], -1996.7958437)
+        force_hardpoint_axial = self.control_closed_loop.axial_forces[
+            "hardpointCorrection"
+        ]
+        force_hardpoint_tangent = self.control_closed_loop.tangent_forces[
+            "hardpointCorrection"
+        ]
 
-    def _get_force_measured_and_lut_angle(
-        self, angle: float
-    ) -> tuple[numpy.typing.NDArray[np.float64], float]:
-        return get_forces_mirror_weight(angle), correct_inclinometer_angle(angle)
-
-    def _get_force_demanded(self, angle: float) -> numpy.typing.NDArray[np.float64]:
-        (
-            force_elevation,
-            force_0g_component,
-            force_actuator_bias,
-            force_factory_offset,
-        ) = self.control_closed_loop._calc_look_up_forces_gravity(angle)
-
-        lut_temperature = self._get_temperature()
-        (
-            force_r,
-            force_x,
-            force_y,
-            force_u,
-        ) = self.control_closed_loop._calc_look_up_forces_temperature(
-            lut_temperature, 21 * np.ones(12)
-        )
-        force_r = np.append(force_r, np.zeros(NUM_TANGENT_LINK))
-        force_x = np.append(force_x, np.zeros(NUM_TANGENT_LINK))
-        force_y = np.append(force_y, np.zeros(NUM_TANGENT_LINK))
-        force_u = np.append(force_u, np.zeros(NUM_TANGENT_LINK))
-
-        return (
-            force_elevation
-            + force_0g_component
-            + force_actuator_bias
-            + force_factory_offset
-            + force_r
-            + force_x
-            + force_y
-            + force_u
-        )
+        self.assertAlmostEqual(force_hardpoint_axial[0], 58.5897286)
+        self.assertAlmostEqual(force_hardpoint_axial[1], 58.0630028)
+        self.assertAlmostEqual(force_hardpoint_axial[2], 56.7942092)
+        self.assertAlmostEqual(force_hardpoint_axial[5], 0)
+        self.assertAlmostEqual(force_hardpoint_axial[15], 0)
+        self.assertAlmostEqual(force_hardpoint_tangent[0], 96.9923333)
+        self.assertAlmostEqual(force_hardpoint_tangent[1], 0)
+        self.assertAlmostEqual(force_hardpoint_tangent[2], -1902.7131771)
+        self.assertAlmostEqual(force_hardpoint_tangent[3], 0)
+        self.assertAlmostEqual(force_hardpoint_tangent[4], 1996.7958437)
 
     def test_handle_forces_function(self) -> None:
+        self.control_closed_loop.calc_look_up_forces(59.06)
+
         # No update of force now
-        self.control_closed_loop.handle_forces()
+        in_position = False
+        for idx in range(5):
+            in_position = self.control_closed_loop.handle_forces(
+                in_position, plant=self.plant
+            )
 
         value_original = self.control_closed_loop.tangent_forces["measured"][0]
         self.assertEqual(value_original, 0.0)
 
         # There is the update of force
         self.control_closed_loop.is_running = True
-        self.control_closed_loop.handle_forces()
+        self.control_closed_loop.handle_forces(in_position, plant=self.plant)
 
         value_updated = self.control_closed_loop.tangent_forces["measured"][0]
         self.assertNotEqual(value_updated, 0.0)
 
     def test_handle_forces(self) -> None:
-        self.control_closed_loop.is_running = True
+        self.control_closed_loop.calc_look_up_forces(59.06)
 
-        angle = 120
-        force_measured, lut_angle = self._get_force_measured_and_lut_angle(angle)
-        self.control_closed_loop.calc_look_up_forces(lut_angle)
-
-        num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
-        self.control_closed_loop.set_measured_forces(
-            force_measured[:num_axial_actuators], force_measured[-NUM_TANGENT_LINK:]
-        )
-
-        in_position_happened = False
-        for counter in range(1000):
+        # No update of force now
+        # Saturate the hardpoint correction
+        in_position = False
+        for idx in range(10):
             in_position = self.control_closed_loop.handle_forces(
-                force_rms=0.5, force_per_cycle=5
+                in_position, plant=self.plant
             )
-            if (not in_position_happened) and in_position:
-                in_position_happened = True
 
-        self.assertTrue(in_position_happened)
+        # Run the closed-loop control
+        self.assertFalse(in_position)
 
-        self.assertTrue(self.control_closed_loop.in_position_hardpoints)
-
-    def test_force_dynamics_in_position(self) -> None:
-        self._prepare_force(0.01, 0.001)
-        in_position, final_force = self.control_closed_loop._force_dynamics(0.5, 5)
+        self.control_closed_loop.is_running = True
+        for counter in range(60):
+            in_position = self.control_closed_loop.handle_forces(
+                in_position, plant=self.plant
+            )
 
         self.assertTrue(in_position)
-        self.assertEqual(final_force[0], 0)
-        self.assertEqual(final_force[5], 0)
 
-        self.assertTrue(self.control_closed_loop.in_position_hardpoints)
-
-    def _prepare_force(self, coef_lut: float, coef_hardpoint: float) -> None:
-        num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
-        self.control_closed_loop.axial_forces["lutGravity"] = coef_lut * np.ones(
-            num_axial_actuators
+        self.assertAlmostEqual(
+            self.control_closed_loop.axial_forces["measured"][0], 110.5328014
         )
-        self.control_closed_loop.axial_forces[
-            "hardpointCorrection"
-        ] = coef_hardpoint * np.ones(num_axial_actuators)
-
-        self.control_closed_loop.tangent_forces["lutGravity"] = coef_lut * np.ones(
-            NUM_TANGENT_LINK
+        self.assertAlmostEqual(
+            self.control_closed_loop.tangent_forces["measured"][0], 56.77537631
         )
-        self.control_closed_loop.tangent_forces[
-            "hardpointCorrection"
-        ] = coef_hardpoint * np.ones(NUM_TANGENT_LINK)
 
-    def test_force_dynamics_not_in_position_small(self) -> None:
-        self._prepare_force(3, 1)
-        in_position, final_force = self.control_closed_loop._force_dynamics(0.5, 5)
+        np.testing.assert_array_equal(
+            self.plant.actuator_steps[self.control_closed_loop.hardpoints], [0] * 6
+        )
 
-        self.assertFalse(in_position)
-        self.assertEqual(final_force[0], 4)
-        self.assertEqual(final_force[5], 5)
+        # Do the rigid body movement
+        steps_hardpoints = np.array([100] * 6)
+        self.control_closed_loop.handle_forces(
+            in_position, plant=self.plant, steps_hardpoints=steps_hardpoints
+        )
+        np.testing.assert_array_equal(
+            self.plant.actuator_steps[self.control_closed_loop.hardpoints],
+            steps_hardpoints,
+        )
 
-        self.assertFalse(self.control_closed_loop.in_position_hardpoints)
-
-    def test_force_dynamics_not_in_position_big(self) -> None:
-        self._prepare_force(10, 1)
-        in_position, final_force = self.control_closed_loop._force_dynamics(0.5, 5)
-
-        self.assertFalse(in_position)
-        self.assertEqual(final_force[0], 5)
-        self.assertEqual(final_force[5], 5)
-
-        self.assertFalse(self.control_closed_loop.in_position_hardpoints)
+        self.assertAlmostEqual(
+            self.control_closed_loop.axial_forces["measured"][0], 110.6296258
+        )
+        self.assertAlmostEqual(
+            self.control_closed_loop.tangent_forces["measured"][0], 48.3822856
+        )
 
 
 if __name__ == "__main__":
