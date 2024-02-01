@@ -47,6 +47,25 @@ The design here takes the following documents as references: `TS JSON Message Fo
     json-string-format
     :maxdepth: 1
 
+.. _Algorithms:
+
+Algorithms
+==========
+
+The followings are the algorithms used in the cell control system:
+
+.. toctree::
+    algorithm/force-control-loop
+    :maxdepth: 1
+
+.. toctree::
+    algorithm/calc-pos-ims
+    :maxdepth: 1
+
+.. toctree::
+    algorithm/tan-fault-det
+    :maxdepth: 1
+
 .. _Architecture:
 
 Architecture
