@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.4.1
+------
+
+* Add the **force-control-loop.rst**, **calc-pos-ims.rst**, and **tan-fault-det.rst**.
+
 v1.4.0
 ------
 
