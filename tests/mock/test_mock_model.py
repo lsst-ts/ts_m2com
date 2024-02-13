@@ -182,13 +182,13 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
 
         # Check the non-load bearing link
         self.model._force_error_tangent["sum"] = 0.0
-        self.model._force_error_tangent["force"] = [-1000.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        self.model._force_error_tangent["force"] = [-2000.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
         is_out_limit, error_code = self.model.is_force_error_tangent_out_limit()
         self.assertTrue(is_out_limit)
 
         # Check the load bearing link
-        self.model._force_error_tangent["force"] = [0.0, -1000.0, 0.0, 0.0, 0.0, 0.0]
+        self.model._force_error_tangent["force"] = [0.0, -2000.0, 0.0, 0.0, 0.0, 0.0]
 
         is_out_limit, error_code = self.model.is_force_error_tangent_out_limit()
         self.assertTrue(is_out_limit)
