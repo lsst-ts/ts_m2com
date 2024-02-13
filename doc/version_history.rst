@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.4.2
+------
+
+* Change the **TANGENT_LINK_LOAD_BEARING_LINK** and **TANGENT_LINK_NON_LOAD_BEARING_LINK** to be consistent with the controller.
+
 v1.4.1
 ------
 
