@@ -1051,6 +1051,9 @@ class MockModel:
         if self.power_motor.is_power_on():
             digital_output += DigitalOutput.MotorPower.value
 
+        if self.control_closed_loop.is_running:
+            digital_output += DigitalOutput.ClosedLoopControl.value
+
         return digital_output
 
     def get_digital_input(self) -> int:

@@ -104,7 +104,7 @@ class DigitalOutput(BitEnum):
     InterlockEnable = auto()
     ResetMotorBreakers = auto()
     ResetCommunicationBreakers = auto()
-    SpareOutput_5 = auto()
+    ClosedLoopControl = auto()
     SpareOutput_6 = auto()
     SpareOutput_7 = auto()
 
