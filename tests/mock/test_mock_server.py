@@ -41,6 +41,7 @@ from lsst.ts.m2com import (
     TEST_DIGITAL_OUTPUT_NO_POWER,
     TEST_DIGITAL_OUTPUT_POWER_COMM,
     TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
+    TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR_CLOSED_LOOP,
     MockErrorCode,
     MockServer,
     MsgType,
@@ -619,11 +620,17 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             self.assertFalse(msg_open_loop_max_limit["status"])
 
+            msg_digital_output = get_queue_message_latest(
+                self.queue_cmd, "digitalOutput", flush=False
+            )
+            self.assertEqual(msg_digital_output["value"], TEST_DIGITAL_OUTPUT_NO_POWER)
+
     async def test_cmd_switch_force_balance_system_success(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
             client_tel,
         ):
+            await server.model.power_communication.power_on()
             await server.model.power_motor.power_on()
             await client_cmd.write_message(
                 MsgType.Command,
@@ -643,6 +650,14 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 self.queue_cmd, "openLoopMaxLimit", flush=False
             )
             self.assertFalse(msg_open_loop_max_limit["status"])
+
+            msg_digital_output = get_queue_message_latest(
+                self.queue_cmd, "digitalOutput", flush=False
+            )
+            self.assertEqual(
+                msg_digital_output["value"],
+                TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR_CLOSED_LOOP,
+            )
 
     async def test_cmd_set_temperature_offset(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (

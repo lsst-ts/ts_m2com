@@ -32,6 +32,7 @@ from lsst.ts.m2com import (
     TEST_DIGITAL_OUTPUT_NO_POWER,
     TEST_DIGITAL_OUTPUT_POWER_COMM,
     TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR,
+    TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR_CLOSED_LOOP,
     DigitalOutput,
     DigitalOutputStatus,
     MockErrorCode,
@@ -528,6 +529,12 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         await self.model.power_motor.power_on()
         self.assertEqual(
             self.model.get_digital_output(), TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR
+        )
+
+        self.model.control_closed_loop.is_running = True
+        self.assertEqual(
+            self.model.get_digital_output(),
+            TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR_CLOSED_LOOP,
         )
 
     async def test_get_digital_input(self) -> None:

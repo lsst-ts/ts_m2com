@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.4.3
+------
+
+* Update the enum **DigitalOutput** bit 5 to be **ClosedLoopControl**.
+
 v1.4.2
 ------
 

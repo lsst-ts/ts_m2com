@@ -332,6 +332,10 @@ class MockCommand:
                 MTM2.ClosedLoopControlMode.OpenLoop
             )
 
+        # Publish the digital output
+        self._digital_output = model.get_digital_output()
+        await message_event.write_digital_output(self._digital_output)
+
         return (
             model,
             CommandStatus.Success if command_success is True else CommandStatus.Fail,
@@ -780,8 +784,6 @@ class MockCommand:
         else:
             await self._power_off_fully(power_type, power_system, message_event)
 
-        await self._report_digital_input_and_ouput(model, message_event)
-
         if (
             not model.power_motor.is_power_on()
         ) and model.control_closed_loop.is_running:
@@ -789,6 +791,8 @@ class MockCommand:
             await message_event.write_force_balance_system_status(
                 model.control_closed_loop.is_running
             )
+
+        await self._report_digital_input_and_ouput(model, message_event)
 
         await message_event.write_open_loop_max_limit(
             model.control_open_loop.open_loop_max_limit_is_enabled
