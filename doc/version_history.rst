@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v1.4.4
+------
+
+* Improve the **force-control-loop.rst**.
+* Add the **hardpoint-compensation.rst** and **lut-gravity.rst**.
+
 v1.4.3
 ------
 
