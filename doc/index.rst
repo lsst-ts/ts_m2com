@@ -59,6 +59,14 @@ The followings are the algorithms used in the cell control system:
     :maxdepth: 1
 
 .. toctree::
+    algorithm/lut-gravity
+    :maxdepth: 1
+
+.. toctree::
+    algorithm/hardpoint-compensation
+    :maxdepth: 1
+
+.. toctree::
     algorithm/calc-pos-ims
     :maxdepth: 1
 
