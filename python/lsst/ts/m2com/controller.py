@@ -126,20 +126,20 @@ class Controller:
 
         # Callback functions and related arguments to process the
         # event and telemetry
-        self._callback_process_event: typing.Callable[
-            ..., typing.Coroutine
-        ] | None = None
+        self._callback_process_event: typing.Callable[..., typing.Coroutine] | None = (
+            None
+        )
         self._args_callback_process_event: typing.Any = None
 
-        self._callback_process_telemetry: typing.Callable[
-            ..., typing.Coroutine
-        ] | None = None
+        self._callback_process_telemetry: (
+            typing.Callable[..., typing.Coroutine] | None
+        ) = None
         self._args_callback_process_telemetry: typing.Any = None
 
         # Callback function to deal with the lost of connection
-        self._callback_process_lost_connection: typing.Callable[
-            ..., typing.Coroutine
-        ] | None = None
+        self._callback_process_lost_connection: (
+            typing.Callable[..., typing.Coroutine] | None
+        ) = None
         self._args_callback_process_lost_connection: typing.Any = None
 
     def _get_error_handler(self, filename: str = "error_code.tsv") -> ErrorHandler:
@@ -1432,9 +1432,9 @@ class Controller:
         """
 
         # Update the control parameters
-        self.control_parameters[
-            "use_external_elevation_angle"
-        ] = use_external_elevation_angle
+        self.control_parameters["use_external_elevation_angle"] = (
+            use_external_elevation_angle
+        )
 
         if max_angle_difference is not None:
             self.control_parameters["max_angle_difference"] = max_angle_difference

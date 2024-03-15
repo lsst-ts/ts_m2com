@@ -1,6 +1,6 @@
-@startuml
-package "tcpip" #DDDDDD {
-  class Client
+classDiagram
+namespace tcpip {
+    class Client
 }
 
 class SimpleDelayFilter
@@ -11,4 +11,3 @@ Client <|-- TcpClient
 Controller *-- ErrorHandler
 Controller "1" *-- "2" TcpClient
 Controller <|-- ControllerCell
-@enduml

@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.4.5
+------
+
+* Use the **mermaid** to replace the **PlantUML**.
+
 v1.4.4
 ------
 
