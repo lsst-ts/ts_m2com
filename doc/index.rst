@@ -86,7 +86,7 @@ The classes and files for each module are listed below.
 m2com
 -------------
 
-.. mermaid:: uml/class_m2com.uml
+.. mermaid:: uml/class_m2com.mmd
     :caption: Class diagram of M2 common code
 
 * **ErrorHandler** deals with the summary faults status from M2 cell controller.
@@ -102,7 +102,7 @@ m2com
 m2com.mock
 -------------
 
-.. mermaid:: uml/mock/class_mock.uml
+.. mermaid:: uml/mock/class_mock.mmd
     :caption: Class diagram of mock module in M2 common code
 
 * **MockServer** is a mock server of M2 to support the simulation mode.
