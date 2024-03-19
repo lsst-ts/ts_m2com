@@ -1,9 +1,9 @@
-@startuml
-package "tcpip" #DDDDDD {
+classDiagram
+namespace tcpip {
   class OneClientServer
 }
 
-package "m2com" #DDDDDD {
+namespace m2com {
   class ErrorHandler
   class SimpleDelayFilter
   class BiquadraticFilter
@@ -41,5 +41,3 @@ MockControlClosedLoop *-- MockControlLoop
 MockControlClosedLoop --> MockPlant
 
 MockControlOpenLoop ..> MockPlant
-
-@enduml

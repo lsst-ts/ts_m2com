@@ -530,12 +530,12 @@ class MockModel:
         position_ims = None
         if self.power_motor.is_power_on():
             telemetry_data["ilcData"] = self._get_ilc_data()
-            telemetry_data[
-                "netForcesTotal"
-            ] = self.control_closed_loop.get_net_forces_total()
-            telemetry_data[
-                "netMomentsTotal"
-            ] = self.control_closed_loop.get_net_moments_total()
+            telemetry_data["netForcesTotal"] = (
+                self.control_closed_loop.get_net_forces_total()
+            )
+            telemetry_data["netMomentsTotal"] = (
+                self.control_closed_loop.get_net_moments_total()
+            )
 
             # Get the force data
             telemetry_data["axialForce"] = self.control_closed_loop.axial_forces
@@ -543,9 +543,9 @@ class MockModel:
             telemetry_data["forceErrorTangent"] = self._calculate_force_error_tangent(
                 self.control_closed_loop.tangent_forces["measured"]
             )
-            telemetry_data[
-                "forceBalance"
-            ] = self.control_closed_loop.get_force_balance()
+            telemetry_data["forceBalance"] = (
+                self.control_closed_loop.get_force_balance()
+            )
 
             # Get the position data
             telemetry_data["position"] = self.mirror_position

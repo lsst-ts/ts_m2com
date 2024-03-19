@@ -1652,9 +1652,7 @@ class MockControlClosedLoop:
             np.squeeze(tcoef[3] * self._lut["Tu"]),
         )
 
-    def _calc_look_up_forces_gravity(
-        self, lut_angle: float
-    ) -> tuple[
+    def _calc_look_up_forces_gravity(self, lut_angle: float) -> tuple[
         numpy.typing.NDArray[np.float64],
         numpy.typing.NDArray[np.float64],
         numpy.typing.NDArray[np.float64],
