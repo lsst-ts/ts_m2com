@@ -161,7 +161,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(server.are_servers_connected())
 
             # Check the one-time message (welcome messages)
-            self.assertGreaterEqual(self.queue_cmd.qsize(), 12)
+            self.assertGreaterEqual(self.queue_cmd.qsize(), 13)
 
             # Check the TCP/IP connection
             msg_tcpip = self.queue_cmd.get_nowait()
@@ -177,6 +177,11 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             msg_hardpoints = self.queue_cmd.get_nowait()
             self.assertEqual(msg_hardpoints["id"], "hardpointList")
             self.assertEqual(msg_hardpoints["actuators"], [6, 16, 26, 74, 76, 78])
+
+            # Check the bypassed ILCs
+            msg_bypassed_ilcs = self.queue_cmd.get_nowait()
+            self.assertEqual(msg_bypassed_ilcs["id"], "bypassedActuatorILCs")
+            self.assertEqual(msg_bypassed_ilcs["ilcs"], [6])
 
             # Check the interlock
             msg_interlock = self.queue_cmd.get_nowait()

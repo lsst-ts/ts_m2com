@@ -141,6 +141,7 @@ class MockModel:
         )
 
         self.control_parameters = {
+            "enable_lut_temperature": True,
             "use_external_elevation_angle": False,
             "enable_angle_comparison": False,
             "max_angle_difference": 2.0,
@@ -231,7 +232,7 @@ class MockModel:
 
         if update_lut_force:
             lut_angle = angle if is_external else correct_inclinometer_angle(angle)
-            self.control_closed_loop.calc_look_up_forces(lut_angle)
+            self.control_closed_loop.calc_look_up_forces(lut_angle=lut_angle)
 
         # Update the plant model
 
@@ -350,6 +351,9 @@ class MockModel:
 
         # By doing this, we can calculate the forces of look-up table.
         self.set_inclinometer_angle(self.inclinometer_angle)
+        self.control_closed_loop.calc_look_up_forces(
+            enable_lut_temperature=self.control_parameters["enable_lut_temperature"]  # type: ignore[arg-type]
+        )
 
         # Read the error code file
         self.error_handler.read_error_list_file(config_dir / "error_code.tsv")

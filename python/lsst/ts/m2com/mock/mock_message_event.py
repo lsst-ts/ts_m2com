@@ -132,6 +132,18 @@ class MockMessageEvent:
                 {"id": "hardpointList", "actuators": actuators}
             )
 
+    async def write_bypassed_actuator_ilcs(self, ilcs: list[int]) -> None:
+        """Write the message: bypassed actuator inner-loop controllers (ILCs).
+
+        Parameters
+        ----------
+        ilcs : `list`
+            Bypassed ILCs.
+        """
+
+        if self.server is not None:
+            await self.server.write_json({"id": "bypassedActuatorILCs", "ilcs": ilcs})
+
     async def write_force_balance_system_status(self, status: bool) -> None:
         """Write the message: force balance system is on or not.
 
