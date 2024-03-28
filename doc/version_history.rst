@@ -2,6 +2,15 @@
 Version History
 ===============
 
+v1.5.0
+------
+
+* Add the **ILC_READ_WARNING_ERROR_CODES** in ``constant.py``.
+* Add the ``MockMessageEvent.write_bypassed_actuator_ilcs()`` and update the ``MockServer._send_welcome_message()``.
+* Allow the bypass of temperature LUT calculation in ``MockControlClosedLoop.calc_look_up_forces()``.
+* Update the ``Controller`` class to have the **bypassed_ilcs** attribute.
+* Make the function of ``Controller.switch_force_balance_system()`` to be robust.
+
 v1.4.6
 ------
 

@@ -1552,56 +1552,75 @@ class MockControlClosedLoop:
 
         return force_balance
 
-    def calc_look_up_forces(self, lut_angle: float) -> None:
+    def calc_look_up_forces(
+        self, lut_angle: float | None = None, enable_lut_temperature: bool | None = None
+    ) -> None:
         """Calculate look-up table (LUT) forces using current system state
         (position and temperature).
 
         Parameters
         ----------
-        lut_angle : `float`
-            Angle used to calculate the LUT forces of gravity component.
+        lut_angle : `float` or None, optional
+            Angle used to calculate the LUT forces of gravity component. If
+            None, bypass the calculation. (the default is None)
+        enable_lut_temperature : `bool` or None, optional
+            Enable the temperature LUT calculation or not. If None, bypass the
+            calculation. (the default is None)
         """
 
         # Calculate the LUT forces of temperature component
-        temperature_m2 = np.concatenate(
-            (
-                self.temperature["ring"],
-                self.temperature["intake"],
-                self.temperature["exhaust"],
-            )
-        )
+        if enable_lut_temperature is not None:
 
-        # Order temperature data based on a12_temperature.ipynb in
-        # https://github.com/lsst-sitcom/M2_summit_2003
-        temperature_bin = temperature_m2[
-            [0, 1, 2, 3, 12, 15, 14, 13, 8, 9, 10, 11, 4, 5, 6, 7]
-        ]
-        temperature_lut = temperature_bin[[1, 2, 3, 12, 9, 8, 13, 14, 15, 11, 10, 0]]
+            if enable_lut_temperature:
+                temperature_m2 = np.concatenate(
+                    (
+                        self.temperature["ring"],
+                        self.temperature["intake"],
+                        self.temperature["exhaust"],
+                    )
+                )
 
-        force_r, force_x, force_y, force_u = self._calc_look_up_forces_temperature(
-            temperature_lut, np.array(self.temperature["ref"])
-        )
+                # Order temperature data based on a12_temperature.ipynb in
+                # https://github.com/lsst-sitcom/M2_summit_2003
+                temperature_bin = temperature_m2[
+                    [0, 1, 2, 3, 12, 15, 14, 13, 8, 9, 10, 11, 4, 5, 6, 7]
+                ]
+                temperature_lut = temperature_bin[
+                    [1, 2, 3, 12, 9, 8, 13, 14, 15, 11, 10, 0]
+                ]
 
-        self.axial_forces["lutTemperature"] = force_r + force_x + force_y + force_u
+                force_r, force_x, force_y, force_u = (
+                    self._calc_look_up_forces_temperature(
+                        temperature_lut, np.array(self.temperature["ref"])
+                    )
+                )
+
+            else:
+                force_r = force_x = force_y = force_u = np.zeros(
+                    NUM_ACTUATOR - NUM_TANGENT_LINK
+                )
+
+            self.axial_forces["lutTemperature"] = force_r + force_x + force_y + force_u
 
         # Calculate the LUT forces of gravity component
-        (
-            force_elevation,
-            force_0g_component,
-            force_actuator_bias,
-            force_factory_offset,
-        ) = self._calc_look_up_forces_gravity(lut_angle)
+        if lut_angle is not None:
+            (
+                force_elevation,
+                force_0g_component,
+                force_actuator_bias,
+                force_factory_offset,
+            ) = self._calc_look_up_forces_gravity(lut_angle)
 
-        force_gravity = (
-            force_elevation
-            + force_0g_component
-            + force_actuator_bias
-            + force_factory_offset
-        )
+            force_gravity = (
+                force_elevation
+                + force_0g_component
+                + force_actuator_bias
+                + force_factory_offset
+            )
 
-        num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
-        self.axial_forces["lutGravity"] = force_gravity[:num_axial_actuators]
-        self.tangent_forces["lutGravity"] = force_gravity[-NUM_TANGENT_LINK:]
+            num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
+            self.axial_forces["lutGravity"] = force_gravity[:num_axial_actuators]
+            self.tangent_forces["lutGravity"] = force_gravity[-NUM_TANGENT_LINK:]
 
     def _calc_look_up_forces_temperature(
         self,
