@@ -25,6 +25,7 @@ import time
 import typing
 
 import numpy as np
+import numpy.typing
 from lsst.ts.utils import make_done_future
 from lsst.ts.xml.enums import MTM2
 
@@ -77,6 +78,8 @@ class Controller:
         Closed loop control mode in the cell controller.
     ilc_modes : `numpy.ndarray [MTM2.InnerLoopControlMode]`
         Modes of the inner-loop controller (ILC).
+    ilc_bypassed : `list` [`int`]
+        Bypassed 0-based ILCs.
     control_parameters : `dict`
         Control parameters in the closed-loop controller (CLC).
     """
@@ -109,6 +112,8 @@ class Controller:
 
         self.ilc_modes = np.array([])
         self.set_ilc_modes_to_unknown()
+
+        self.ilc_bypassed: list[int] = list()
 
         self.control_parameters = {
             "enable_lut_temperature": True,
@@ -171,13 +176,21 @@ class Controller:
     def are_ilc_modes_enabled(self) -> bool:
         """All the inner-loop controller (ILC) modes are enabled or not.
 
+        Notes
+        -----
+        The bypassed ILCs will be assumed to be "Enabled" to simplify the
+        judgement because we only care about the available ILCs are all
+        "Enabled" or not.
+
         Returns
         -------
         `bool`
             True if all ILC modes are enabled. Otherwise, False.
         """
 
-        return np.all(self.ilc_modes == MTM2.InnerLoopControlMode.Enabled)
+        all_ilcs_enabled = self.ilc_modes == MTM2.InnerLoopControlMode.Enabled
+        all_ilcs_enabled[self.ilc_bypassed] = True
+        return np.all(all_ilcs_enabled)
 
     def set_callback_process_event(
         self, process_event: typing.Callable[..., typing.Coroutine], *args: typing.Any
@@ -382,6 +395,9 @@ class Controller:
             # Check and update the inner-loop control mode
             self._update_inner_loop_control_mode(message)
 
+            # Check and update the bypassed actuator ILCs
+            self._update_bypassed_actuator_ilcs(message)
+
             # Add the received error code to the error handler
             self._process_error_code(message)
 
@@ -541,6 +557,24 @@ class Controller:
                     f"loop control mode ({mode})."
                 )
 
+    def _update_bypassed_actuator_ilcs(self, message: dict) -> None:
+        """Check and update the bypassed actuator inner-loop controllers
+        (ILCs).
+
+        Parameters
+        ----------
+        message : `dict`
+            Incoming message.
+        """
+
+        if message["id"] == "bypassedActuatorILCs":
+            try:
+                ilcs = message["ilcs"]
+                # The received values are 1-based, change to 0-based.
+                self.ilc_bypassed = [ilc - 1 for ilc in ilcs]
+            except ValueError:
+                self.log.debug(f"Get the unknown bypassed ILCs: {ilcs}.")
+
     def _process_error_code(self, message: dict) -> None:
         """Process the error code.
 
@@ -653,6 +687,8 @@ class Controller:
 
         self.closed_loop_control_mode = MTM2.ClosedLoopControlMode.Idle
         self.set_ilc_modes_to_unknown()
+
+        self.ilc_bypassed = list()
 
     async def _close_clients(self) -> None:
         """Close the clients."""
@@ -984,6 +1020,9 @@ class Controller:
             When not all ILCs are Enabled.
         """
 
+        # Give the information for the bypassed ILCs
+        self.log.debug(f"Bypassed ILCs are: {self.ilc_bypassed}.")
+
         # Set all the ILC modes to NaN first
         self.ilc_modes = np.array([np.nan] * NUM_INNER_LOOP_CONTROLLER)
 
@@ -1009,9 +1048,11 @@ class Controller:
                     continue
 
             # For the unknown state, try to get the state again
-            addresses_unknown = np.where(
-                self.ilc_modes == MTM2.InnerLoopControlMode.Unknown
-            )[0].tolist()
+            addresses_unknown = self._get_available_ilcs(
+                np.where(self.ilc_modes == MTM2.InnerLoopControlMode.Unknown)[
+                    0
+                ].tolist()
+            )
             if len(addresses_unknown) != 0:
                 await self.write_command_to_server(
                     "getInnerLoopControlMode",
@@ -1086,9 +1127,11 @@ class Controller:
                 continue
 
             # Break the loop if all ILCs are in Enabled state.
-            addresses_not_enabled = np.where(
-                self.ilc_modes != MTM2.InnerLoopControlMode.Enabled
-            )[0].tolist()
+            addresses_not_enabled = self._get_available_ilcs(
+                np.where(self.ilc_modes != MTM2.InnerLoopControlMode.Enabled)[
+                    0
+                ].tolist()
+            )
             all_modes_are_enabled = len(addresses_not_enabled) == 0
             if all_modes_are_enabled:
                 break
@@ -1125,6 +1168,22 @@ class Controller:
                 f"Following ILCs are not Enabled: {addresses_not_enabled}."
             )
 
+    def _get_available_ilcs(self, ilcs: list[int]) -> list[int]:
+        """Get the available (aka. non-bypassed) inner-loop controllers (ILCs).
+
+        Parameters
+        ----------
+        ilcs : `list`
+            ILCs.
+
+        Returns
+        -------
+        `list`
+            Available ILCs.
+        """
+
+        return [ilc for ilc in ilcs if ilc not in self.ilc_bypassed]
+
     def _callback_check_ilc_mode_nan(self) -> bool:
         """Callback function to check the inner-loop control (ILC) mode is NaN
         or not. The "NaN" value means the controller does not receive the
@@ -1136,8 +1195,8 @@ class Controller:
             True if all ILC modes are received. Otherwise, False.
         """
 
-        indexes = np.where(np.isnan(self.ilc_modes))[0]
-        return len(indexes) == 0
+        indexes = np.where(np.isnan(self.ilc_modes))[0].tolist()
+        return len(self._get_available_ilcs(indexes)) == 0
 
     def _callback_check_ilc_mode_unknown(self) -> bool:
         """Callback function to check the inner-loop control (ILC) mode is
@@ -1149,8 +1208,10 @@ class Controller:
             True if all ILC modes are known. Otherwise, False.
         """
 
-        indexes = np.where(self.ilc_modes == MTM2.InnerLoopControlMode.Unknown)[0]
-        return len(indexes) == 0
+        indexes = np.where(self.ilc_modes == MTM2.InnerLoopControlMode.Unknown)[
+            0
+        ].tolist()
+        return len(self._get_available_ilcs(indexes)) == 0
 
     async def _set_ilc_mode(
         self,
@@ -1238,15 +1299,19 @@ class Controller:
         """
 
         if is_actuator_ilc:
-            indexes = np.where(self.ilc_modes[:NUM_ACTUATOR] != expected_mode)[0]
+            indexes = np.where(self.ilc_modes[:NUM_ACTUATOR] != expected_mode)[
+                0
+            ].tolist()
 
         elif is_sensor_ilc:
-            indexes = np.where(self.ilc_modes[NUM_ACTUATOR:] != expected_mode)[0]
+            indexes = np.where(self.ilc_modes[NUM_ACTUATOR:] != expected_mode)[
+                0
+            ].tolist()
 
         else:
-            indexes = np.where(self.ilc_modes != expected_mode)[0]
+            indexes = np.where(self.ilc_modes != expected_mode)[0].tolist()
 
-        return len(indexes) == 0
+        return len(self._get_available_ilcs(indexes)) == 0
 
     async def reset_force_offsets(self, timeout: float = 10.0) -> None:
         """Reset the user defined forces to zero.
@@ -1491,7 +1556,46 @@ class Controller:
             True if turn on the force balance system. Otherwise, False.
         timeout : `float`, optional
             Timeout of command in second. (the default is 10.0)
+
+        Raises
+        ------
+        `RuntimeError`
+            If the gravity LUT is not enabled.
+        `RuntimeError`
+            If not all actuator ILCs enabled.
+        `RuntimeError`
+            If the inclinometer ILC is not enabled.
+        `RuntimeError`
+            If not all temperature ILCs enabled.
         """
+
+        # Check the system can transition to the closed-loop control mode or
+        # not. We need to check these conditions because some ILCs might be
+        # bypassed in the cell control system.
+        if status is True:
+
+            # Check the gravity LUT
+            if not self.control_parameters["enable_lut_inclinometer"]:
+                raise RuntimeError("Gravity LUT needs to be Enabled.")
+
+            # Check the actuator ILCs (ILC-1 - ILC-78). Note we care about
+            # the hardpoint ILCs here. In the closed-loop control, we need to
+            # know the measured forces of hardpoints to do the hardpoint
+            # compensation.
+            if not np.all(
+                self.ilc_modes[:NUM_ACTUATOR] == MTM2.InnerLoopControlMode.Enabled
+            ):
+                raise RuntimeError("All actuator ILCs need to be Enabled.")
+
+            # Check the inclinometer ILC (ILC-84)
+            if self.ilc_modes[83] != MTM2.InnerLoopControlMode.Enabled:
+                raise RuntimeError("Inclinometer ILC needs to be Enabled.")
+
+            # Check the temperature ILCs (ILC-79 - ILC-82)
+            if self.control_parameters["enable_lut_temperature"] and (
+                not np.all(self.ilc_modes[78:81] == MTM2.InnerLoopControlMode.Enabled)
+            ):
+                raise RuntimeError("All temperature ILCs need to be Enabled.")
 
         await self.write_command_to_server(
             "switchForceBalanceSystem",
