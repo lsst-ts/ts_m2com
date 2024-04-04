@@ -272,6 +272,9 @@ class MockServer:
         ]
         await self._message_event.write_hardpoint_list(hardpoints)
 
+        # Only assume the first hardpoint is bypassed
+        await self._message_event.write_bypassed_actuator_ilcs(hardpoints[:1])
+
         await self._message_event.write_interlock(False)
 
         # Workaround of the mypy checking

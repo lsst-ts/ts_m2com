@@ -75,7 +75,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertEqual(control_loop.kinfl.shape, (72, 72))
 
     def test_update_hardpoints(self) -> None:
-        self.control_closed_loop.calc_look_up_forces(59.06)
+        self.control_closed_loop.calc_look_up_forces(
+            lut_angle=59.06, enable_lut_temperature=True
+        )
 
         hardpoints = [4, 14, 24, 72, 74, 76]
         self.control_closed_loop.update_hardpoints(hardpoints)
@@ -446,7 +448,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
     def test_get_demanded_force_axial(self) -> None:
         # Without the applying of force
-        self.control_closed_loop.calc_look_up_forces(59.06)
+        self.control_closed_loop.calc_look_up_forces(
+            lut_angle=59.06, enable_lut_temperature=True
+        )
         demanded_force = self.control_closed_loop.get_demanded_force()
 
         self.assertAlmostEqual(demanded_force[0], 130.3581281)
@@ -460,7 +464,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
     def test_get_demanded_force_tangent(self) -> None:
         # Without the applying of force
-        self.control_closed_loop.calc_look_up_forces(59.06)
+        self.control_closed_loop.calc_look_up_forces(
+            lut_angle=59.06, enable_lut_temperature=True
+        )
         demanded_force = self.control_closed_loop.get_demanded_force()
 
         self.assertAlmostEqual(demanded_force[72], 16.113)
@@ -564,7 +570,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertEqual(len(force_balance), 6)
 
     def test_calc_look_up_forces(self) -> None:
-        self.control_closed_loop.calc_look_up_forces(59.06)
+        self.control_closed_loop.calc_look_up_forces(
+            lut_angle=59.06, enable_lut_temperature=True
+        )
 
         # Check the length
         num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
@@ -607,6 +615,13 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
         np.testing.assert_array_equal(
             self.control_closed_loop.tangent_forces["lutTemperature"], np.array([])
+        )
+
+    def test_calc_look_up_forces_disable_lut_temperature(self) -> None:
+        self.control_closed_loop.calc_look_up_forces(enable_lut_temperature=False)
+        np.testing.assert_array_equal(
+            self.control_closed_loop.axial_forces["lutTemperature"],
+            np.zeros(NUM_ACTUATOR - NUM_TANGENT_LINK),
         )
 
     def test_calc_look_up_forces_temperature(self) -> None:
@@ -689,7 +704,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertAlmostEqual(force_factory_offset[2], 0.0)
 
     def test_calc_force_hardpoint(self) -> None:
-        self.control_closed_loop.calc_look_up_forces(59.06)
+        self.control_closed_loop.calc_look_up_forces(
+            lut_angle=59.06, enable_lut_temperature=True
+        )
 
         for idx in range(5):
             self.control_closed_loop.handle_forces(False, plant=self.plant)
@@ -713,7 +730,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertAlmostEqual(force_hardpoint_tangent[4], 1996.7958437)
 
     def test_handle_forces_function(self) -> None:
-        self.control_closed_loop.calc_look_up_forces(59.06)
+        self.control_closed_loop.calc_look_up_forces(
+            lut_angle=59.06, enable_lut_temperature=True
+        )
 
         # No update of force now
         in_position = False
@@ -733,7 +752,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertNotEqual(value_updated, 0.0)
 
     def test_handle_forces(self) -> None:
-        self.control_closed_loop.calc_look_up_forces(59.06)
+        self.control_closed_loop.calc_look_up_forces(
+            lut_angle=59.06, enable_lut_temperature=True
+        )
 
         # No update of force now
         # Saturate the hardpoint correction

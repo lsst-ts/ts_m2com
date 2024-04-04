@@ -30,6 +30,7 @@ import numpy as np
 from lsst.ts import tcpip
 from lsst.ts.m2com import (
     DEFAULT_ENABLED_FAULTS_MASK,
+    NUM_ACTUATOR,
     NUM_INNER_LOOP_CONTROLLER,
     CommandActuator,
     CommandStatus,
@@ -149,6 +150,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(controller.client_command)
         self.assertIsNone(controller.client_telemetry)
         self.assertEqual(controller.last_command_status, CommandStatus.Unknown)
+        self.assertEqual(controller.ilc_bypassed, list())
 
     async def _callback_process_message(
         self, queue: asyncio.Queue, message: dict | None = None
@@ -174,6 +176,13 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         controller.ilc_modes = np.array(
             [MTM2.InnerLoopControlMode.Enabled] * NUM_INNER_LOOP_CONTROLLER
         )
+        self.assertTrue(controller.are_ilc_modes_enabled())
+
+    def test_are_ilc_modes_enabled_bypass_ilcs(self) -> None:
+        controller = Controller()
+        self.assertFalse(controller.are_ilc_modes_enabled())
+
+        controller.ilc_bypassed = list(range(NUM_INNER_LOOP_CONTROLLER))
         self.assertTrue(controller.are_ilc_modes_enabled())
 
     async def test_close(self) -> None:
@@ -410,6 +419,9 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             # Turn on the motor power
             await server.model.power_motor.power_on()
 
+            # Check the bypassed ILCs
+            self.assertEqual(controller.ilc_bypassed, [5])
+
             # Default is Standby state
             await controller.set_ilc_to_enabled()
 
@@ -512,6 +524,28 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             controller.control_parameters["max_angle_difference"], max_angle_difference
         )
+
+    async def test_switch_force_balance_system_exception(self) -> None:
+        async with self.make_server() as server, self.make_controller(
+            server
+        ) as controller:
+
+            controller.control_parameters["enable_lut_inclinometer"] = False
+            with self.assertRaises(RuntimeError):
+                await controller.switch_force_balance_system(True)
+
+            controller.control_parameters["enable_lut_inclinometer"] = True
+            with self.assertRaises(RuntimeError):
+                await controller.switch_force_balance_system(True)
+
+            controller.ilc_modes[:NUM_ACTUATOR] = MTM2.InnerLoopControlMode.Enabled
+            with self.assertRaises(RuntimeError):
+                await controller.switch_force_balance_system(True)
+
+            # Inclinometer ILC (ILC-84)
+            controller.ilc_modes[83] = MTM2.InnerLoopControlMode.Enabled
+            with self.assertRaises(RuntimeError):
+                await controller.switch_force_balance_system(True)
 
     async def test_enable_open_loop_max_limit_exception(self) -> None:
         async with self.make_server() as server, self.make_controller(

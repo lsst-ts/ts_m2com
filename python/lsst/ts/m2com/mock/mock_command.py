@@ -1002,6 +1002,14 @@ class MockCommand:
         control_parameters["enable_angle_comparison"] = message["enableAngleComparison"]
         control_parameters["max_angle_difference"] = message["maxAngleDifference"]
 
+        enable_lut_temperature = message["enableLutTemperature"]
+        control_parameters["enable_lut_temperature"] = enable_lut_temperature
+
+        # Update the temperature LUT force
+        model.control_closed_loop.calc_look_up_forces(
+            enable_lut_temperature=enable_lut_temperature
+        )
+
         # Publish the event
         await message_event.write_inclination_telemetry_source(is_external_source)
 
@@ -1095,5 +1103,8 @@ class MockCommand:
             (hardpoint + 1) for hardpoint in model.control_closed_loop.hardpoints
         ]
         await message_event.write_hardpoint_list(hardpoints)
+
+        # Only assume the first hardpoint is bypassed
+        await message_event.write_bypassed_actuator_ilcs(hardpoints[:1])
 
         return model, CommandStatus.Success

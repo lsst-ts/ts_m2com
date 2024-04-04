@@ -45,7 +45,8 @@ class TestMockControlLoop(unittest.TestCase):
         self.plant = self._get_plant(inclinometer_angle)
 
         self.control_closed_loop.calc_look_up_forces(
-            correct_inclinometer_angle(inclinometer_angle)
+            lut_angle=correct_inclinometer_angle(inclinometer_angle),
+            enable_lut_temperature=True,
         )
 
     def _get_control_closed_loop(self) -> MockControlClosedLoop:
