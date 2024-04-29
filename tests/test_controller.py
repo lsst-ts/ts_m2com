@@ -565,6 +565,28 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(RuntimeError):
                 await controller.command_actuator(CommandActuator.Stop)
 
+    def test_is_powered_on_communication(self) -> None:
+
+        controller = Controller()
+        self.assertFalse(controller.is_powered_on_communication())
+
+        controller.power_system_status["communication_power_is_on"] = True
+        controller.power_system_status["communication_power_state"] = (
+            MTM2.PowerSystemState.PoweredOn
+        )
+        self.assertTrue(controller.is_powered_on_communication())
+
+    def test_is_powered_on_motor(self) -> None:
+
+        controller = Controller()
+        self.assertFalse(controller.is_powered_on_motor())
+
+        controller.power_system_status["motor_power_is_on"] = True
+        controller.power_system_status["motor_power_state"] = (
+            MTM2.PowerSystemState.PoweredOn
+        )
+        self.assertTrue(controller.is_powered_on_motor())
+
 
 if __name__ == "__main__":
     # Do the unit test

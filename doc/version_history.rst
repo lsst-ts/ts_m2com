@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.5.1
+------
+
+* Add the functions to get the power status.
+
 v1.5.0
 ------
 

@@ -1855,3 +1855,31 @@ class Controller:
             message_details={"actuators": hardpoints},
             timeout=timeout,
         )
+
+    def is_powered_on_communication(self) -> bool:
+        """Communication power is on or not.
+
+        Returns
+        -------
+        `bool`
+            True if powered on. Otherwise, False.
+        """
+
+        return self.power_system_status["communication_power_is_on"] and (
+            self.power_system_status["communication_power_state"]
+            == MTM2.PowerSystemState.PoweredOn
+        )
+
+    def is_powered_on_motor(self) -> bool:
+        """Motor power is on or not.
+
+        Returns
+        -------
+        `bool`
+            True if powered on. Otherwise, False.
+        """
+
+        return self.power_system_status["motor_power_is_on"] and (
+            self.power_system_status["motor_power_state"]
+            == MTM2.PowerSystemState.PoweredOn
+        )
