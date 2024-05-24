@@ -307,6 +307,19 @@ class MockServer:
 
         await self._message_event.write_configuration_files()
 
+        # Send the power status
+        power_communication = self.model.power_communication
+        await self._message_event.write_power_system_state(
+            MTM2.PowerType.Communication,
+            power_communication.is_power_on(),
+            power_communication.state,
+        )
+
+        power_motor = self.model.power_motor
+        await self._message_event.write_power_system_state(
+            MTM2.PowerType.Motor, power_motor.is_power_on(), power_motor.state
+        )
+
     async def _monitor_and_report_system_status(self) -> None:
         """Monitor the system status and report the specific events."""
 
