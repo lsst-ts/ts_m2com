@@ -416,8 +416,8 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-            # Turn on the motor power
-            await server.model.power_motor.power_on()
+            # Turn on the communication power
+            await server.model.power_communication.power_on()
 
             # Check the bypassed ILCs
             self.assertEqual(controller.ilc_bypassed, [5])
@@ -448,8 +448,8 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-            # Turn on the motor power
-            await server.model.power_motor.power_on()
+            # Turn on the communication power
+            await server.model.power_communication.power_on()
 
             # Put all ILCs to Fault state first
             self._change_ilc_mode(server.model, MTM2.InnerLoopControlMode.Fault)
@@ -468,8 +468,8 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-            # Turn on the motor power
-            await server.model.power_motor.power_on()
+            # Turn on the communication power
+            await server.model.power_communication.power_on()
 
             # Put all ILCs to FirmwareUpdate state first
             self._change_ilc_mode(
@@ -484,8 +484,8 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         async with self.make_server() as server, self.make_controller(
             server
         ) as controller:
-            # Turn on the motor power
-            await server.model.power_motor.power_on()
+            # Turn on the communication power
+            await server.model.power_communication.power_on()
 
             # Put all ILCs to Unknown state first
             self._change_ilc_mode(server.model, MTM2.InnerLoopControlMode.Unknown)

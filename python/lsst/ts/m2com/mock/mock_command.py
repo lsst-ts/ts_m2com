@@ -888,8 +888,8 @@ class MockCommand:
             Status of command execution.
         """
 
-        # Fail the command if the motor power is not on
-        if not model.power_motor.is_power_on():
+        # Fail the command if the communication power is not on
+        if not model.power_communication.is_power_on():
             return model, CommandStatus.Fail
 
         # Note the addresses are 0-based
@@ -930,8 +930,8 @@ class MockCommand:
             Status of command execution.
         """
 
-        # Fail the command if the motor power is not on
-        if not model.power_motor.is_power_on():
+        # Fail the command if the communication power is not on
+        if not model.power_communication.is_power_on():
             return model, CommandStatus.Fail
 
         # Note the addresses are 0-based
