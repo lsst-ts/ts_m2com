@@ -161,7 +161,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(server.are_servers_connected())
 
             # Check the one-time message (welcome messages)
-            self.assertGreaterEqual(self.queue_cmd.qsize(), 13)
+            self.assertGreaterEqual(self.queue_cmd.qsize(), 15)
 
             # Check the TCP/IP connection
             msg_tcpip = self.queue_cmd.get_nowait()
@@ -229,6 +229,22 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             msg_config_files = self.queue_cmd.get_nowait()
             self.assertEqual(msg_config_files["id"], "configurationFiles")
             self.assertEqual(len(msg_config_files["files"]), 4)
+
+            msg_power_communication = self.queue_cmd.get_nowait()
+            self.assertEqual(msg_power_communication["id"], "powerSystemState")
+            self.assertEqual(
+                msg_power_communication["powerType"], MTM2.PowerType.Communication
+            )
+            self.assertFalse(msg_power_communication["status"])
+            self.assertEqual(
+                msg_power_communication["state"], MTM2.PowerSystemState.Init
+            )
+
+            msg_power_motor = self.queue_cmd.get_nowait()
+            self.assertEqual(msg_power_motor["id"], "powerSystemState")
+            self.assertEqual(msg_power_motor["powerType"], MTM2.PowerType.Motor)
+            self.assertFalse(msg_power_motor["status"])
+            self.assertEqual(msg_power_motor["state"], MTM2.PowerSystemState.Init)
 
     async def test_monitor_msg_cmd_ack(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
@@ -447,16 +463,17 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 self.queue_cmd, "powerSystemState", flush=False
             )
 
-            self.assertEqual(len(msg_power_system_state), 2)
+            # The first two messages come from the welcome messages
+            self.assertEqual(len(msg_power_system_state), 4)
             self.assertEqual(
-                msg_power_system_state[0]["powerType"], MTM2.PowerType.Motor.value
+                msg_power_system_state[2]["powerType"], MTM2.PowerType.Motor.value
             )
-            self.assertTrue(msg_power_system_state[0]["status"])
+            self.assertTrue(msg_power_system_state[2]["status"])
             self.assertEqual(
-                msg_power_system_state[0]["state"], MTM2.PowerSystemState.PoweringOn
+                msg_power_system_state[2]["state"], MTM2.PowerSystemState.PoweringOn
             )
             self.assertEqual(
-                msg_power_system_state[1]["state"], MTM2.PowerSystemState.PoweredOn
+                msg_power_system_state[3]["state"], MTM2.PowerSystemState.PoweredOn
             )
 
             msg_summary_faults_status = get_queue_message_latest(
@@ -485,17 +502,18 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 self.queue_cmd, "powerSystemState"
             )
 
-            self.assertEqual(len(msg_power_system_state), 2)
+            # The first two messages come from the welcome messages
+            self.assertEqual(len(msg_power_system_state), 4)
             self.assertEqual(
-                msg_power_system_state[0]["powerType"],
+                msg_power_system_state[2]["powerType"],
                 MTM2.PowerType.Communication.value,
             )
-            self.assertFalse(msg_power_system_state[0]["status"])
+            self.assertFalse(msg_power_system_state[2]["status"])
             self.assertEqual(
-                msg_power_system_state[0]["state"], MTM2.PowerSystemState.PoweringOff
+                msg_power_system_state[2]["state"], MTM2.PowerSystemState.PoweringOff
             )
             self.assertEqual(
-                msg_power_system_state[1]["state"], MTM2.PowerSystemState.PoweredOff
+                msg_power_system_state[3]["state"], MTM2.PowerSystemState.PoweredOff
             )
 
     async def test_cmd_apply_forces(self) -> None:
