@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.5.2
+------
+
+* Send the power status in the welcome message.
+
 v1.5.1
 ------
 
