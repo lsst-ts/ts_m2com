@@ -173,6 +173,11 @@ class Controller:
             [MTM2.InnerLoopControlMode.Unknown] * NUM_INNER_LOOP_CONTROLLER
         )
 
+    def set_ilc_modes_to_nan(self) -> None:
+        """Set the inner-loop controller (ILC) modes to NaN."""
+
+        self.ilc_modes = np.array([np.nan] * NUM_INNER_LOOP_CONTROLLER)
+
     def are_ilc_modes_enabled(self) -> bool:
         """All the inner-loop controller (ILC) modes are enabled or not.
 
@@ -986,7 +991,10 @@ class Controller:
         return self.closed_loop_control_mode == expected_mode
 
     async def set_ilc_to_enabled(
-        self, retry_times: int = 3, timeout: float = 20.0
+        self,
+        reset_nan_first: bool = True,
+        retry_times: int = 3,
+        timeout: float = 20.0,
     ) -> None:
         """Set the inner-loop control (ILC) mode to Enabled.
 
@@ -1005,6 +1013,8 @@ class Controller:
 
         Parameters
         ----------
+        reset_nan_first : `bool`, optional
+            Reset all ILC states to NaN first. (the default is True)
         retry_times : `int`, optional
             Retry times. (the default is 3)
         timeout : `float`, optional
@@ -1024,7 +1034,8 @@ class Controller:
         self.log.debug(f"Bypassed ILCs are: {self.ilc_bypassed}.")
 
         # Set all the ILC modes to NaN first
-        self.ilc_modes = np.array([np.nan] * NUM_INNER_LOOP_CONTROLLER)
+        if reset_nan_first:
+            self.set_ilc_modes_to_nan()
 
         # Transition the ILCs to Enabled state
         addresses_nan = list()
@@ -1036,10 +1047,7 @@ class Controller:
             # try.
             addresses_nan = np.where(np.isnan(self.ilc_modes))[0].tolist()
             if len(addresses_nan) != 0:
-                await self.write_command_to_server(
-                    "getInnerLoopControlMode",
-                    message_details={"addresses": addresses_nan},
-                )
+                await self.get_ilc_modes(addresses_nan)
                 all_modes_are_received = await self._check_expected_value(
                     self._callback_check_ilc_mode_nan, timeout=timeout
                 )
@@ -1054,10 +1062,7 @@ class Controller:
                 ].tolist()
             )
             if len(addresses_unknown) != 0:
-                await self.write_command_to_server(
-                    "getInnerLoopControlMode",
-                    message_details={"addresses": addresses_unknown},
-                )
+                await self.get_ilc_modes(addresses_unknown)
                 all_modes_are_clear = await self._check_expected_value(
                     self._callback_check_ilc_mode_unknown, timeout=timeout
                 )
@@ -1137,7 +1142,7 @@ class Controller:
                 break
 
         # Raise the error if needed
-        if not all_modes_are_received:
+        if reset_nan_first and (not all_modes_are_received):
             addresses_nan = np.where(np.isnan(self.ilc_modes))[0].tolist()
             raise RuntimeError(
                 f"No response for the following ILCs: {addresses_nan} after "
@@ -1167,6 +1172,23 @@ class Controller:
             raise RuntimeError(
                 f"Following ILCs are not Enabled: {addresses_not_enabled}."
             )
+
+    async def get_ilc_modes(self, addresses: list[int], timeout: float = 10.0) -> None:
+        """Get the inner-loop controller (ILC) modes.
+
+        Parameters
+        ----------
+        addresses : `list` [`int`]
+            Addresses of ILCs.
+        timeout : `float`, optional
+            Timeout of command in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server(
+            "getInnerLoopControlMode",
+            message_details={"addresses": addresses},
+            timeout=timeout,
+        )
 
     def _get_available_ilcs(self, ilcs: list[int]) -> list[int]:
         """Get the available (aka. non-bypassed) inner-loop controllers (ILCs).
