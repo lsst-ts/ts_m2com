@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v1.5.3
+------
+
+* Add the ``Controller.get_ilc_modes()`` and ``Controller.set_ilc_modes_to_nan()``.
+* Fix the bug of ``MockCommand.get_inner_loop_control_mode()`` and ``MockCommand.set_inner_loop_control_mode()`` that the ILC is related to the communication power instead of the motor power.
+
 v1.5.2
 ------
 
