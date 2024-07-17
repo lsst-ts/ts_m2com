@@ -35,6 +35,7 @@ from lsst.ts.m2com import (
     CommandActuator,
     CommandStatus,
     Controller,
+    ErrorCodeWarning,
     MockErrorCode,
     MockModel,
     MockServer,
@@ -544,6 +545,15 @@ class TestController(unittest.IsolatedAsyncioTestCase):
 
             # Inclinometer ILC (ILC-84)
             controller.ilc_modes[83] = MTM2.InnerLoopControlMode.Enabled
+            with self.assertRaises(RuntimeError):
+                await controller.switch_force_balance_system(True)
+
+            controller.ilc_modes[:NUM_INNER_LOOP_CONTROLLER] = (
+                MTM2.InnerLoopControlMode.Enabled
+            )
+            controller.error_handler.add_new_warning(
+                ErrorCodeWarning.TemperatureSensorOutOfRange
+            )
             with self.assertRaises(RuntimeError):
                 await controller.switch_force_balance_system(True)
 

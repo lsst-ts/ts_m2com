@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.5.4
+------
+
+* Check the temperature sensor if the temperature LUT is applied.
+
 v1.5.3
 ------
 

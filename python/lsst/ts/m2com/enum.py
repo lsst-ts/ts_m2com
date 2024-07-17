@@ -33,6 +33,7 @@ __all__ = [
     "DigitalInput",
     "LimitSwitchType",
     "MockErrorCode",
+    "ErrorCodeWarning",
 ]
 
 
@@ -162,10 +163,20 @@ class LimitSwitchType(IntEnum):
     Extend = auto()
 
 
+class ErrorCodeWarning(IntEnum):
+    """Error code of the warning message.
+
+    The values here are based on the ts_config_mttcs/MTM2/v2/error_code.tsv.
+    """
+
+    NoWarning = 1
+    TemperatureSensorOutOfRange = 6081
+
+
 class MockErrorCode(IntEnum):
     """Mock error code used by the mock server.
 
-    The values here are based on the ts_m2gui/policy/error_code_m2.tsv.
+    The values here are based on the ts_config_mttcs/MTM2/v2/error_code.tsv.
     """
 
     NoError = 1
