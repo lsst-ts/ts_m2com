@@ -40,6 +40,7 @@ from .enum import (
     CommandScript,
     CommandStatus,
     DigitalOutputStatus,
+    ErrorCodeWarning,
     MsgType,
 )
 from .error_handler import ErrorHandler
@@ -1589,6 +1590,8 @@ class Controller:
             If the inclinometer ILC is not enabled.
         `RuntimeError`
             If not all temperature ILCs enabled.
+        `RuntimeError`
+            If temperature sensor is out of range.
         """
 
         # Check the system can transition to the closed-loop control mode or
@@ -1618,6 +1621,14 @@ class Controller:
                 not np.all(self.ilc_modes[78:81] == MTM2.InnerLoopControlMode.Enabled)
             ):
                 raise RuntimeError("All temperature ILCs need to be Enabled.")
+
+            # Check the warning of temperature sensor
+            if self.control_parameters["enable_lut_temperature"] and (
+                self.error_handler.has_warning(
+                    ErrorCodeWarning.TemperatureSensorOutOfRange
+                )
+            ):
+                raise RuntimeError("Temperature sensor is out of range.")
 
         await self.write_command_to_server(
             "switchForceBalanceSystem",

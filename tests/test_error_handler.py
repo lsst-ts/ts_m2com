@@ -34,7 +34,7 @@ class TestErrorHandler(unittest.TestCase):
     def test_init(self) -> None:
         self.assertEqual(len(self.error_handler.list_code_total), 64)
         self.assertEqual(len(self.error_handler._list_code_error), 25)
-        self.assertEqual(len(self.error_handler._list_code_warning), 11)
+        self.assertEqual(len(self.error_handler._list_code_warning), 12)
 
     def test_clear(self) -> None:
         self.error_handler._errors_new.add(1)
