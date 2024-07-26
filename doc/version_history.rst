@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.5.5
+------
+
+* Update the ``ErrorHandler.__init__()`` to have the optional argument to read the error code file.
+
 v1.5.4
 ------
 

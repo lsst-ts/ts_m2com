@@ -30,6 +30,11 @@ from .utility import read_error_code_file
 class ErrorHandler:
     """Error Handler class to manage the errors.
 
+    Parameters
+    ----------
+    filepath : `str` or `pathlib.PosixPath` or None
+        Error list file path. (the default is None)
+
     Attributes
     ----------
     list_code_total : `list`
@@ -37,7 +42,7 @@ class ErrorHandler:
         summary faults status in cell controller with the related code.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, filepath: str | Path | None = None) -> None:
         self.list_code_total: list[int] = list()
 
         # List of the defined error code
@@ -57,6 +62,10 @@ class ErrorHandler:
 
         # Warnings that had been reported
         self._warnings_reported: set[int] = set()
+
+        # Read the file
+        if filepath is not None:
+            self.read_error_list_file(filepath)
 
     def read_error_list_file(self, filepath: str | Path) -> None:
         """Read the tsv file of error list.

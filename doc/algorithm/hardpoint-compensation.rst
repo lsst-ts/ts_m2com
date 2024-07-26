@@ -112,7 +112,7 @@ This equals to a system that has the force, :math:`f_{t, i} - f_{t, m}`, on (A1,
 
   Equipollent system of the tangent links.
 
-For the active tagent links (A2, A4, A5) to maintain this :math:`z`-moment while keeping the hardpoints to be passive, we need:
+For the active tagent links (A2, A4, A6) to maintain this :math:`z`-moment while keeping the hardpoints to be passive, we need:
 
 .. math::
     \begin{aligned}
