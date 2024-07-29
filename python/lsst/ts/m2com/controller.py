@@ -95,7 +95,7 @@ class Controller:
         else:
             self.log = log.getChild(type(self).__name__)
 
-        self.error_handler = self._get_error_handler()
+        self.error_handler = ErrorHandler(filepath=get_config_dir() / "error_code.tsv")
 
         self.client_command: TcpClient | None = None
         self.client_telemetry: TcpClient | None = None
@@ -147,25 +147,6 @@ class Controller:
             typing.Callable[..., typing.Coroutine] | None
         ) = None
         self._args_callback_process_lost_connection: typing.Any = None
-
-    def _get_error_handler(self, filename: str = "error_code.tsv") -> ErrorHandler:
-        """Get the error handler.
-
-        Parameters
-        ----------
-        filename : `str`, optional
-            Name of the error code file. (the default is "error_code.tsv")
-
-        Returns
-        -------
-        error_handler : `ErrorHandler`
-            Error handler.
-        """
-
-        error_handler = ErrorHandler()
-        error_handler.read_error_list_file(get_config_dir() / filename)
-
-        return error_handler
 
     def set_ilc_modes_to_unknown(self) -> None:
         """Set the inner-loop controller (ILC) modes to unknown."""

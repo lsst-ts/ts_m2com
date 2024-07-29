@@ -23,6 +23,8 @@ import typing
 
 __all__ = ["MockErrorHandler"]
 
+from pathlib import Path
+
 from ..constant import DEFAULT_ENABLED_FAULTS_MASK, NUM_ACTUATOR
 from ..enum import LimitSwitchType
 from ..error_handler import ErrorHandler
@@ -31,14 +33,19 @@ from ..error_handler import ErrorHandler
 class MockErrorHandler(ErrorHandler):
     """Mock Error Handler class to manage the errors.
 
+    Parameters
+    ----------
+    filepath : `str` or `pathlib.PosixPath` or None
+        Error list file path. (the default is None)
+
     Attributes
     ----------
     enabled_faults_mask : `int`
         Enabled faults mask.
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, filepath: str | Path | None = None) -> None:
+        super().__init__(filepath=filepath)
 
         self.enabled_faults_mask = DEFAULT_ENABLED_FAULTS_MASK
 
