@@ -66,14 +66,11 @@ MIRROR_WEIGHT_KG = 1588.65
 # Limits of force in Newton
 LIMIT_FORCE_AXIAL_CLOSED_LOOP = 444.82  # 100 lbf
 
-# This value is ~ (MIRROR_WEIGHT_KG * 9.8 / 4 + TANGENT_LINK_LOAD_BEARING_LINK)
-# under the condition that only tangent links bear the mirror's weight.
-LIMIT_FORCE_TANGENT_CLOSED_LOOP = 4893.04  # 1100 lbf
+# Smaller than LIMIT_FORCE_TANGENT_OPEN_LOOP by ~200 N to give some buffer
+LIMIT_FORCE_TANGENT_CLOSED_LOOP = 5800.0
 
 LIMIT_FORCE_AXIAL_OPEN_LOOP = 489.3  # 110 lbf
 
-# Add the buffer of (1000 lbf / 4) to each tangent link
-# compared with LIMIT_FORCE_TANGENT_CLOSED_LOOP.
 LIMIT_FORCE_TANGENT_OPEN_LOOP = 6005.1  # 1350 lbf
 
 MAX_LIMIT_FORCE_AXIAL_OPEN_LOOP = 622.75  # 140 lbf
