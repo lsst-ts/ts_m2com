@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.5.6
+------
+
+* Update the **LIMIT_FORCE_TANGENT_CLOSED_LOOP** in ``constant.py`` to be 5800.0 N
+
 v1.5.5
 ------
 
