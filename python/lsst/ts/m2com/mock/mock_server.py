@@ -27,6 +27,7 @@ from lsst.ts import tcpip
 from lsst.ts.utils import make_done_future
 from lsst.ts.xml.enums import MTM2
 
+from ..constant import NUM_INNER_LOOP_CONTROLLER
 from ..enum import CommandStatus, LimitSwitchType, MockErrorCode
 from ..utility import cancel_task_and_wait, correct_inclinometer_angle
 from .mock_command import MockCommand
@@ -319,6 +320,12 @@ class MockServer:
         await self._message_event.write_power_system_state(
             MTM2.PowerType.Motor, power_motor.is_power_on(), power_motor.state
         )
+
+        # Send the current ILC modes to be unknown
+        for address in range(NUM_INNER_LOOP_CONTROLLER):
+            await self._message_event.write_inner_loop_control_mode(
+                address, MTM2.InnerLoopControlMode.Unknown
+            )
 
     async def _monitor_and_report_system_status(self) -> None:
         """Monitor the system status and report the specific events."""

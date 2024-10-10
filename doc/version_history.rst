@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.5.7
+------
+
+* Send the ILC modes in the ``MockServer._send_welcome_message()``.
+
 v1.5.6
 ------
 
