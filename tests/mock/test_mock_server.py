@@ -31,6 +31,7 @@ from lsst.ts import tcpip
 from lsst.ts.m2com import (
     DEFAULT_ENABLED_FAULTS_MASK,
     NUM_ACTUATOR,
+    NUM_INNER_LOOP_CONTROLLER,
     NUM_TANGENT_LINK,
     NUM_TEMPERATURE_EXHAUST,
     NUM_TEMPERATURE_INTAKE,
@@ -161,7 +162,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(server.are_servers_connected())
 
             # Check the one-time message (welcome messages)
-            self.assertGreaterEqual(self.queue_cmd.qsize(), 15)
+            self.assertGreaterEqual(self.queue_cmd.qsize(), 99)
 
             # Check the TCP/IP connection
             msg_tcpip = self.queue_cmd.get_nowait()
@@ -245,6 +246,14 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(msg_power_motor["powerType"], MTM2.PowerType.Motor)
             self.assertFalse(msg_power_motor["status"])
             self.assertEqual(msg_power_motor["state"], MTM2.PowerSystemState.Init)
+
+            for address in range(NUM_INNER_LOOP_CONTROLLER):
+                msg_ilc = self.queue_cmd.get_nowait()
+                self.assertEqual(msg_ilc["id"], "innerLoopControlMode")
+                self.assertEqual(msg_ilc["address"], address)
+                self.assertEqual(
+                    msg_ilc["mode"], MTM2.InnerLoopControlMode.Unknown.value
+                )
 
     async def test_monitor_msg_cmd_ack(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
