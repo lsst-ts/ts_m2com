@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.5.8
+------
+
+* Remove the **ts_idl**.
+
 v1.5.7
 ------
 
