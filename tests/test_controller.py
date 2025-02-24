@@ -39,7 +39,6 @@ from lsst.ts.m2com import (
     MockErrorCode,
     MockModel,
     MockServer,
-    MsgType,
     get_config_dir,
 )
 from lsst.ts.xml.enums import MTM2
@@ -150,7 +149,6 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(controller._start_connection)
         self.assertIsNone(controller.client_command)
         self.assertIsNone(controller.client_telemetry)
-        self.assertEqual(controller.last_command_status, CommandStatus.Unknown)
         self.assertEqual(controller.ilc_bypassed, list())
 
     async def _callback_process_message(
@@ -263,25 +261,6 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(SLEEP_TIME_SHORT)
             self.assertGreaterEqual(self.queue_evt.qsize(), 11)
 
-    async def test_last_command_status_ack_success(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
-            await server.model.power_communication.power_on()
-            await controller.client_command.write_message(
-                MsgType.Command,
-                "power",
-                msg_details={"powerType": MTM2.PowerType.Motor, "status": True},
-            )
-
-            # Wait a little time to collect the messages
-            await asyncio.sleep(SLEEP_TIME_SHORT)
-            self.assertEqual(controller.last_command_status, CommandStatus.Ack)
-
-            # Wait a little time to collect the messages
-            await asyncio.sleep(7)
-            self.assertEqual(controller.last_command_status, CommandStatus.Success)
-
     async def test_write_command_to_server_short_timeout(self) -> None:
         async with self.make_server() as server, self.make_controller(
             server
@@ -383,7 +362,9 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         ) as controller:
             await controller.reset_force_offsets()
 
-            self.assertEqual(controller.last_command_status, CommandStatus.Success)
+            self.assertEqual(
+                controller._task_check_command_status.result(), CommandStatus.Success
+            )
 
     async def test_reset_actuator_steps(self) -> None:
         async with self.make_server() as server, self.make_controller(
@@ -391,7 +372,9 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         ) as controller:
             await controller.reset_actuator_steps()
 
-            self.assertEqual(controller.last_command_status, CommandStatus.Success)
+            self.assertEqual(
+                controller._task_check_command_status.result(), CommandStatus.Success
+            )
 
     async def test_set_closed_loop_control_mode(self) -> None:
         async with self.make_server() as server, self.make_controller(
