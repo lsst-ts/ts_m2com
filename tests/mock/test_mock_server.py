@@ -305,24 +305,6 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             self.assertTrue(msg_high_temp["hiWarning"])
 
-    async def test_cmd_power_noack_success(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
-        ):
-            await client_cmd.write_message(
-                MsgType.Command,
-                "power",
-                msg_details={"powerType": MTM2.PowerType.Motor, "status": True},
-            )
-            await asyncio.sleep(0.5)
-
-            # The above short sleep time will not get the acknowledgement of
-            # success
-            msg_success = collect_queue_messages(self.queue_cmd, "success")
-
-            self.assertEqual(len(msg_success), 0)
-
     async def test_cmd_reset_breakers_fail(self) -> None:
         async with self.make_server() as server, self.make_clients(server) as (
             client_cmd,
@@ -352,7 +334,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 "power",
                 msg_details={"powerType": MTM2.PowerType.Motor, "status": True},
             )
-            await asyncio.sleep(8)
+            await asyncio.sleep(1)
 
             # Get the success of command because of sleeping time in power
             # command
@@ -396,7 +378,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 "power",
                 msg_details={"powerType": MTM2.PowerType.Motor, "status": False},
             )
-            await asyncio.sleep(8)
+            await asyncio.sleep(1)
 
             msg_fb = get_queue_message_latest(
                 self.queue_cmd, "forceBalanceSystemStatus", flush=False
@@ -438,7 +420,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                     "status": False,
                 },
             )
-            await asyncio.sleep(3)
+            await asyncio.sleep(1)
 
             msg_success = get_queue_message_latest(
                 self.queue_cmd, "success", flush=False
@@ -466,7 +448,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 msg_details={"powerType": int(MTM2.PowerType.Motor), "status": True},
             )
 
-            await asyncio.sleep(5)
+            await asyncio.sleep(1)
 
             msg_power_system_state = collect_queue_messages(
                 self.queue_cmd, "powerSystemState", flush=False
@@ -505,7 +487,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 },
             )
 
-            await asyncio.sleep(5)
+            await asyncio.sleep(1)
 
             msg_power_system_state = collect_queue_messages(
                 self.queue_cmd, "powerSystemState"

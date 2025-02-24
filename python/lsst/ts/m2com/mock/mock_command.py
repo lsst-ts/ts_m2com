@@ -19,8 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import asyncio
-
 import numpy as np
 from lsst.ts.xml.enums import MTM2
 
@@ -43,9 +41,6 @@ __all__ = ["MockCommand"]
 
 class MockCommand:
     """Mock command to simulate the execution of command in real hardware."""
-
-    SLEEP_TIME_SHORT = 0.01
-    SLEEP_TIME_NORMAL = 5
 
     def __init__(self) -> None:
         self._digital_output = 0
@@ -558,9 +553,6 @@ class MockCommand:
                 power_system.is_power_on(),
                 MTM2.PowerSystemState.ResettingBreakers,
             )
-
-            # Sleep a short time to simulate the reset process
-            await asyncio.sleep(self.SLEEP_TIME_NORMAL)
 
             await message_event.write_digital_output(digital_output_default)
             await self.report_interlock(model, message_event)
