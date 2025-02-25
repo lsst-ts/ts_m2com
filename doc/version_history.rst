@@ -2,6 +2,12 @@
 Version History
 ===============
 
+v1.5.9
+------
+
+* Remove the sleep times in **MockCommand** and **MockPowerSystem**.
+* Refactor the checking of command status in **Controller**.
+
 v1.5.8
 ------
 

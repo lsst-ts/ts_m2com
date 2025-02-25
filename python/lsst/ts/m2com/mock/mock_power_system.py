@@ -19,8 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import asyncio
-
 import numpy as np
 from lsst.ts.xml.enums import MTM2
 
@@ -43,10 +41,6 @@ class MockPowerSystem:
         State of the power system.
     """
 
-    # Sleep times in second
-    SLEEP_TIME_SHORT = 0.5
-    SLEEP_TIME_LONG = 3
-
     def __init__(self, default_voltage: float, default_current: float) -> None:
         # Power is on or not
         self._is_power_on = False
@@ -62,14 +56,12 @@ class MockPowerSystem:
 
         self._is_power_on = True
 
-        await asyncio.sleep(self.SLEEP_TIME_SHORT)
         self.state = MTM2.PowerSystemState.PoweringOn
 
     async def wait_power_fully_on(self) -> None:
         """Wait the power to be fully on."""
 
         if self.state == MTM2.PowerSystemState.PoweringOn:
-            await asyncio.sleep(self.SLEEP_TIME_LONG)
             self.state = MTM2.PowerSystemState.PoweredOn
 
     async def power_off(self) -> None:
@@ -77,14 +69,12 @@ class MockPowerSystem:
 
         self._is_power_on = False
 
-        await asyncio.sleep(self.SLEEP_TIME_SHORT)
         self.state = MTM2.PowerSystemState.PoweringOff
 
     async def wait_power_fully_off(self) -> None:
         """Wait the power to be fully off."""
 
         if self.state == MTM2.PowerSystemState.PoweringOff:
-            await asyncio.sleep(self.SLEEP_TIME_SHORT)
             self.state = MTM2.PowerSystemState.PoweredOff
 
     def is_power_on(self) -> bool:

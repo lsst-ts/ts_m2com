@@ -69,8 +69,6 @@ class Controller:
         Command client.
     client_telemetry : `TcpClient` or None
         Telemetry client.
-    last_command_status : `CommandStatus`
-        Last command status.
     timeout : `float`
         Time limit for reading data from the TCP/IP interface (sec).
     power_system_status : `dict`
@@ -100,8 +98,6 @@ class Controller:
         self.client_command: TcpClient | None = None
         self.client_telemetry: TcpClient | None = None
 
-        self.last_command_status = CommandStatus.Unknown
-
         self.power_system_status = {
             "motor_power_is_on": False,
             "motor_power_state": MTM2.PowerSystemState.Init,
@@ -129,6 +125,9 @@ class Controller:
 
         # Task to do the connection (asyncio.Future)
         self._task_connection = make_done_future()
+
+        # Task to check the command status (asyncio.Future)
+        self._task_check_command_status = make_done_future()
 
         # Callback functions and related arguments to process the
         # event and telemetry
@@ -370,7 +369,10 @@ class Controller:
             self.log.debug(f"Receive the event message: {message}")
 
             if self._is_command_status(message):
-                self.last_command_status = self._get_command_status(message)
+                command_status = self._get_command_status(message)
+                if not self._task_check_command_status.done():
+                    if command_status != CommandStatus.Ack:
+                        self._task_check_command_status.set_result(command_status)
                 return
 
             # Check and update the power status
@@ -660,10 +662,9 @@ class Controller:
 
         self._start_connection = False
         await cancel_task_and_wait(self._task_connection)
+        await cancel_task_and_wait(self._task_check_command_status)
 
         await self._close_clients()
-
-        self.last_command_status = CommandStatus.Unknown
 
         self.power_system_status = {
             "motor_power_is_on": False,
@@ -734,7 +735,8 @@ class Controller:
         assert self.client_command is not None
 
         # Send the command
-        self.last_command_status = CommandStatus.Unknown
+        await cancel_task_and_wait(self._task_check_command_status)
+        self._task_check_command_status = asyncio.Future()
         await self.client_command.write_message(
             MsgType.Command, message_name, msg_details=message_details
         )
@@ -760,24 +762,16 @@ class Controller:
             True if the command succeeds. Else, False.
         """
 
-        # Track the command status
-        time_wait_command_status_update = 0.5
-        time_start = time.monotonic()
-        while (time.monotonic() - time_start) < timeout:
-            last_command_status = self.last_command_status
+        try:
+            command_status = await asyncio.wait_for(
+                self._task_check_command_status, timeout=timeout
+            )
 
-            if last_command_status == CommandStatus.Success:
-                return True
+        except TimeoutError:
+            self.log.debug(f"Timeout to wait for the command status of {command_name}.")
+            return False
 
-            elif last_command_status in (CommandStatus.Fail, CommandStatus.NoAck):
-                return False
-
-            await asyncio.sleep(time_wait_command_status_update)
-
-        if last_command_status == CommandStatus.Ack:
-            self.log.debug(f"Only get the acknowledgement of {command_name}.")
-
-        return False
+        return command_status == CommandStatus.Success
 
     async def power(
         self,

@@ -45,6 +45,7 @@ from lsst.ts.m2com import (
 from lsst.ts.xml.enums import MTM2
 
 SLEEP_TIME_SHORT = 1
+SLEEP_TIME_MEDIUM = 5
 SLEEP_TIME_LONG = 10
 
 
@@ -376,7 +377,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                 },
             )
 
-            await asyncio.sleep(SLEEP_TIME_SHORT)
+            await asyncio.sleep(SLEEP_TIME_MEDIUM)
 
             # Check the result
             message_axial_steps = get_queue_message_latest(
@@ -554,9 +555,9 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         ) as controller:
             await controller.write_command_to_server("saveMirrorPosition")
 
-            # Wait a little time to collect the messages
-            await asyncio.sleep(SLEEP_TIME_SHORT)
-            self.assertEqual(controller.last_command_status, CommandStatus.Success)
+            self.assertEqual(
+                controller._task_check_command_status.result(), CommandStatus.Success
+            )
 
     async def test_set_mirror_home(self) -> None:
         async with self.make_server() as server, self.make_controller(
