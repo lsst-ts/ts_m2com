@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.5.10
+-------
+
+* Improve the ``setup.py`` to support the version of Python 3.11 and 3.12.
+
 v1.5.9
 ------
 
