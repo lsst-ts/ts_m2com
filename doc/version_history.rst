@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.5.11
+-------
+
+* Fix the import of version.
+
 v1.5.10
 -------
 
