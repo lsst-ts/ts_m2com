@@ -218,7 +218,12 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(controller.are_clients_connected())
 
             # Wait a little time to reconstruct the connection
-            await asyncio.sleep(SLEEP_TIME_SHORT)
+            max_tries = 10
+            for _ in range(max_tries):
+                if controller.are_clients_connected():
+                    break
+                await asyncio.sleep(SLEEP_TIME_SHORT)
+
             self.assertTrue(controller.are_clients_connected())
 
             # Capture the previous connection lost

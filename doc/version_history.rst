@@ -2,6 +2,11 @@
 Version History
 ===============
 
+v1.5.12
+-------
+
+* Improve the unit test.
+
 v1.5.11
 -------
 
