@@ -1,0 +1,3 @@
+Improve the unit test.
+Update the ``setup.py`` to support the Python 3.12 only.
+Support the towncrier.

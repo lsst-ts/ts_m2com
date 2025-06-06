@@ -2,13 +2,6 @@
 Version History
 ===============
 
-v1.5.12
--------
-
-* Improve the unit test.
-* Update the ``setup.py`` to support the Python 3.12 only.
-* Support the towncrier.
-
 v1.5.11
 -------
 
