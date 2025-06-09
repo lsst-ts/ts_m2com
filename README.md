@@ -53,6 +53,11 @@ You can use the [PlantUML](https://plantuml.com) to read them.
 The environment variable **PATH_PLANTUML** is required to indicate the position of **plantuml.jar**.
 Otherwise, the default position will be used.
 
+## Version History
+
+The version history is maintained with the `towncrier` system.
+See [here](doc/news/README.rst) for the details.
+
 ## Note
 
 The environment variable of `TS_CONFIG_MTTCS_DIR` is used to reach the disk position of test data (`ts_config_mttcs`) to adapt both package managers: `conda` and `eups`.
