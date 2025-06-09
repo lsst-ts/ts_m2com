@@ -2,6 +2,21 @@
 Version History
 ===============
 
+v1.5.12 (2025-06-09)
+====================
+
+New Features
+------------
+
+- Support the towncrier. (`OSW-498 <https://rubinobs.atlassian.net//browse/OSW-498>`_)
+- Update the setup.py to support the Python 3.12 only. (`OSW-498 <https://rubinobs.atlassian.net//browse/OSW-498>`_)
+
+
+Bug Fixes
+---------
+
+- Improve the unit test. (`OSW-498 <https://rubinobs.atlassian.net//browse/OSW-498>`_)
+
 v1.5.11
 -------
 
