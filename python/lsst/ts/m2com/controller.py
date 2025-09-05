@@ -803,6 +803,7 @@ class Controller:
         await self.write_command_to_server(
             "power",
             message_details={"powerType": int(power_type), "status": status},
+            timeout=timeout,
         )
 
         if expected_state is None:
@@ -937,6 +938,7 @@ class Controller:
         await self.write_command_to_server(
             "setClosedLoopControlMode",
             message_details={"mode": int(mode)},
+            timeout=timeout,
         )
 
         is_expected = await self._check_expected_value(
@@ -1261,6 +1263,7 @@ class Controller:
                     "addresses": addresses,
                     "mode": int(mode_command),
                 },
+                timeout=timeout,
             )
             return await self._check_expected_value(
                 self._callback_check_ilc_mode,

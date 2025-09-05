@@ -1,0 +1,1 @@
+Add the timeout argument when commanding the power, closed-loop control mode, and ILC mode.
