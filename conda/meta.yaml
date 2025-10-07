@@ -9,11 +9,12 @@ source:
 build:
   noarch: generic
   script: {{ PYTHON }} -m pip install --no-deps --ignore-installed .
+  string: "py{{ PY_VER | replace('.', '') }}{{ PKG_HASH }}_{{ PKG_BUILDNUM }}"
 
 test:
   requires:
     - scipy
-    - ts-conda-build =0.4
+    - ts-conda-build =0.5
     - ts-simactuators
     - ts-xml
     - ts-tcpip
@@ -37,7 +38,7 @@ requirements:
     - python {{ python }}
     - setuptools_scm
     - setuptools
-    - ts-conda-build =0.4
+    - ts-conda-build =0.5
   run:
     - python {{ python }}
     - setuptools
