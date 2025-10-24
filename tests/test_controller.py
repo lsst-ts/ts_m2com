@@ -66,9 +66,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         cls.host = tcpip.LOCALHOST_IPV4
         cls.timeout_in_second = 0.05
 
-        logging.basicConfig(
-            level=logging.INFO, handlers=[logging.StreamHandler(sys.stdout)]
-        )
+        logging.basicConfig(level=logging.INFO, handlers=[logging.StreamHandler(sys.stdout)])
         cls.log = logging.getLogger()
         cls.maxsize_queue = 1000
 
@@ -119,15 +117,9 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         self.lost_connection = False
 
         controller = Controller(log=self.log)
-        controller.set_callback_process_event(
-            self._callback_process_message, self.queue_evt
-        )
-        controller.set_callback_process_telemetry(
-            self._callback_process_message, self.queue_tel
-        )
-        controller.set_callback_process_lost_connection(
-            self._callback_process_lost_connection
-        )
+        controller.set_callback_process_event(self._callback_process_message, self.queue_evt)
+        controller.set_callback_process_telemetry(self._callback_process_message, self.queue_tel)
+        controller.set_callback_process_lost_connection(self._callback_process_lost_connection)
 
         controller.start(
             server.server_command.host,
@@ -151,9 +143,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(controller.client_telemetry)
         self.assertEqual(controller.ilc_bypassed, list())
 
-    async def _callback_process_message(
-        self, queue: asyncio.Queue, message: dict | None = None
-    ) -> None:
+    async def _callback_process_message(self, queue: asyncio.Queue, message: dict | None = None) -> None:
         if message is not None:
             queue.put_nowait(message)
 
@@ -172,9 +162,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         controller = Controller()
         self.assertFalse(controller.are_ilc_modes_enabled())
 
-        controller.ilc_modes = np.array(
-            [MTM2.InnerLoopControlMode.Enabled] * NUM_INNER_LOOP_CONTROLLER
-        )
+        controller.ilc_modes = np.array([MTM2.InnerLoopControlMode.Enabled] * NUM_INNER_LOOP_CONTROLLER)
         self.assertTrue(controller.are_ilc_modes_enabled())
 
     def test_are_ilc_modes_enabled_bypass_ilcs(self) -> None:
@@ -192,9 +180,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         await controller.close()
 
     async def test_are_clients_connected(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             self.assertTrue(controller.are_clients_connected())
 
     def test_are_clients_connected_no_connection(self) -> None:
@@ -203,9 +189,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(controller.are_clients_connected())
 
     async def test_task_connection(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             # Connection is on in the initial beginning
             self.assertTrue(controller.are_clients_connected())
             self.assertTrue(controller._start_connection)
@@ -232,15 +216,9 @@ class TestController(unittest.IsolatedAsyncioTestCase):
     async def test_task_connection_timeout(self) -> None:
         # Let the controller connects to the wrong host position
         controller = Controller(log=self.log)
-        controller.set_callback_process_event(
-            self._callback_process_message, self.queue_evt
-        )
-        controller.set_callback_process_telemetry(
-            self._callback_process_message, self.queue_tel
-        )
-        controller.set_callback_process_lost_connection(
-            self._callback_process_lost_connection
-        )
+        controller.set_callback_process_event(self._callback_process_message, self.queue_evt)
+        controller.set_callback_process_telemetry(self._callback_process_message, self.queue_tel)
+        controller.set_callback_process_lost_connection(self._callback_process_lost_connection)
 
         controller.start(
             "127.0.0.2",
@@ -267,25 +245,19 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             self.assertGreaterEqual(self.queue_evt.qsize(), 11)
 
     async def test_write_command_to_server_short_timeout(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             with self.assertRaises(RuntimeError):
                 await controller.set_ilc_to_enabled(retry_times=0, timeout=1.0)
 
     async def test_write_command_to_server_fail(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             with self.assertRaises(RuntimeError):
                 await controller.write_command_to_server(
                     "switchForceBalanceSystem", message_details={"status": True}
                 )
 
     async def test_write_command_to_closed_server(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             await server.close()
 
             with self.assertRaises(OSError):
@@ -294,9 +266,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
                 )
 
     async def test_write_command_to_server_no_this_command(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             with self.assertRaises(RuntimeError):
                 await controller.write_command_to_server("noThisCommand")
 
@@ -306,9 +276,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             await controller.write_command_to_server("noConnection")
 
     async def test_clear_errors(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             # Fake the error
             server.model.fault(MockErrorCode.LimitSwitchTriggeredClosedloop)
             await asyncio.sleep(SLEEP_TIME_SHORT)
@@ -320,9 +288,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(server.model.error_handler.exists_error())
 
     async def test_power_communication(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             # Power on
             await controller.power(MTM2.PowerType.Communication, True)
 
@@ -340,9 +306,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             )
 
     async def test_power_motor(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             await controller.power(MTM2.PowerType.Motor, True)
 
             self.assertEqual(
@@ -351,9 +315,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             )
 
     async def test_power_wrong_expected_state(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             with self.assertRaises(RuntimeError):
                 await controller.power(
                     MTM2.PowerType.Motor,
@@ -362,32 +324,20 @@ class TestController(unittest.IsolatedAsyncioTestCase):
                 )
 
     async def test_reset_force_offsets(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             await controller.reset_force_offsets()
 
-            self.assertEqual(
-                controller._task_check_command_status.result(), CommandStatus.Success
-            )
+            self.assertEqual(controller._task_check_command_status.result(), CommandStatus.Success)
 
     async def test_reset_actuator_steps(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             await controller.reset_actuator_steps()
 
-            self.assertEqual(
-                controller._task_check_command_status.result(), CommandStatus.Success
-            )
+            self.assertEqual(controller._task_check_command_status.result(), CommandStatus.Success)
 
     async def test_set_closed_loop_control_mode(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
-            await controller.set_closed_loop_control_mode(
-                MTM2.ClosedLoopControlMode.TelemetryOnly
-            )
+        async with self.make_server() as server, self.make_controller(server) as controller:
+            await controller.set_closed_loop_control_mode(MTM2.ClosedLoopControlMode.TelemetryOnly)
 
             self.assertEqual(
                 controller.closed_loop_control_mode,
@@ -395,16 +345,12 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             )
 
     async def test_set_ilc_to_enabled_fail_no_power(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             with self.assertRaises(RuntimeError):
                 await controller.set_ilc_to_enabled()
 
     async def test_set_ilc_to_enabled(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             # Turn on the communication power
             await server.model.power_communication.power_on()
 
@@ -434,9 +380,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(ilc.mode, MTM2.InnerLoopControlMode.Enabled)
 
     async def test_set_ilc_to_enabled_from_fault(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             # Turn on the communication power
             await server.model.power_communication.power_on()
 
@@ -447,32 +391,24 @@ class TestController(unittest.IsolatedAsyncioTestCase):
 
             self._assert_ilc_enabled(server.model)
 
-    def _change_ilc_mode(
-        self, model: MockModel, mode: MTM2.InnerLoopControlMode
-    ) -> None:
+    def _change_ilc_mode(self, model: MockModel, mode: MTM2.InnerLoopControlMode) -> None:
         for ilc in model.list_ilc:
             ilc.mode = mode
 
     async def test_set_ilc_to_enabled_from_firmware_update(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             # Turn on the communication power
             await server.model.power_communication.power_on()
 
             # Put all ILCs to FirmwareUpdate state first
-            self._change_ilc_mode(
-                server.model, MTM2.InnerLoopControlMode.FirmwareUpdate
-            )
+            self._change_ilc_mode(server.model, MTM2.InnerLoopControlMode.FirmwareUpdate)
 
             await controller.set_ilc_to_enabled()
 
             self._assert_ilc_enabled(server.model)
 
     async def test_set_ilc_to_enabled_from_unknown(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             # Turn on the communication power
             await server.model.power_communication.power_on()
 
@@ -483,9 +419,7 @@ class TestController(unittest.IsolatedAsyncioTestCase):
                 await controller.set_ilc_to_enabled()
 
     async def test_reset_enabled_faults_mask(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             server.model.error_handler.enabled_faults_mask = 0
 
             await controller.reset_enabled_faults_mask()
@@ -510,15 +444,10 @@ class TestController(unittest.IsolatedAsyncioTestCase):
         # enabled.
         self.assertTrue(controller.control_parameters["use_external_elevation_angle"])
         self.assertTrue(controller.control_parameters["enable_angle_comparison"])
-        self.assertEqual(
-            controller.control_parameters["max_angle_difference"], max_angle_difference
-        )
+        self.assertEqual(controller.control_parameters["max_angle_difference"], max_angle_difference)
 
     async def test_switch_force_balance_system_exception(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
-
+        async with self.make_server() as server, self.make_controller(server) as controller:
             controller.control_parameters["enable_lut_inclinometer"] = False
             with self.assertRaises(RuntimeError):
                 await controller.switch_force_balance_system(True)
@@ -536,27 +465,19 @@ class TestController(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(RuntimeError):
                 await controller.switch_force_balance_system(True)
 
-            controller.ilc_modes[:NUM_INNER_LOOP_CONTROLLER] = (
-                MTM2.InnerLoopControlMode.Enabled
-            )
-            controller.error_handler.add_new_warning(
-                ErrorCodeWarning.TemperatureSensorOutOfRange
-            )
+            controller.ilc_modes[:NUM_INNER_LOOP_CONTROLLER] = MTM2.InnerLoopControlMode.Enabled
+            controller.error_handler.add_new_warning(ErrorCodeWarning.TemperatureSensorOutOfRange)
             with self.assertRaises(RuntimeError):
                 await controller.switch_force_balance_system(True)
 
     async def test_enable_open_loop_max_limit_exception(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             controller.closed_loop_control_mode = MTM2.ClosedLoopControlMode.ClosedLoop
             with self.assertRaises(RuntimeError):
                 await controller.enable_open_loop_max_limit(True)
 
     async def test_command_actuator_exception(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             with self.assertRaises(RuntimeError):
                 await controller.command_actuator(CommandActuator.Start, actuators=[])
 
@@ -564,25 +485,19 @@ class TestController(unittest.IsolatedAsyncioTestCase):
                 await controller.command_actuator(CommandActuator.Stop)
 
     def test_is_powered_on_communication(self) -> None:
-
         controller = Controller()
         self.assertFalse(controller.is_powered_on_communication())
 
         controller.power_system_status["communication_power_is_on"] = True
-        controller.power_system_status["communication_power_state"] = (
-            MTM2.PowerSystemState.PoweredOn
-        )
+        controller.power_system_status["communication_power_state"] = MTM2.PowerSystemState.PoweredOn
         self.assertTrue(controller.is_powered_on_communication())
 
     def test_is_powered_on_motor(self) -> None:
-
         controller = Controller()
         self.assertFalse(controller.is_powered_on_motor())
 
         controller.power_system_status["motor_power_is_on"] = True
-        controller.power_system_status["motor_power_state"] = (
-            MTM2.PowerSystemState.PoweredOn
-        )
+        controller.power_system_status["motor_power_state"] = MTM2.PowerSystemState.PoweredOn
         self.assertTrue(controller.is_powered_on_motor())
 
 

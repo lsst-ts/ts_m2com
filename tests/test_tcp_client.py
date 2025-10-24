@@ -126,9 +126,7 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(client.connected)
 
     async def test_write_no_connection(self) -> None:
-        tcp_client = TcpClient(
-            self.host, 0, self._callback_process_message, log=self.log
-        )
+        tcp_client = TcpClient(self.host, 0, self._callback_process_message, log=self.log)
 
         with self.assertRaises(RuntimeError):
             await tcp_client.write_message(MsgType.Event, "inPosition")
@@ -139,9 +137,7 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
 
             msg_name = "move"
             msg_details = {"x": 1, "y": 2, "z": 3}
-            await client.write_message(
-                MsgType.Command, msg_name, msg_details=msg_details
-            )
+            await client.write_message(MsgType.Command, msg_name, msg_details=msg_details)
 
             message = await self._read_msg_in_server(server, READ_TIMEOUT)
 
@@ -153,9 +149,7 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(client.last_sequence_id, self.times_previous_command + 1)
 
-    async def _read_msg_in_server(
-        self, server: tcpip.OneClientServer, timeout: float
-    ) -> dict:
+    async def _read_msg_in_server(self, server: tcpip.OneClientServer, timeout: float) -> dict:
         """Read the received message in server.
 
         Parameters
@@ -179,9 +173,7 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
             msg_name = "move"
             msg_details = {"x": 1, "y": 2, "z": 3}
             for count in range(3):
-                await client.write_message(
-                    MsgType.Command, msg_name, msg_details=msg_details
-                )
+                await client.write_message(MsgType.Command, msg_name, msg_details=msg_details)
 
                 message = await self._read_msg_in_server(server, READ_TIMEOUT)
 
@@ -204,18 +196,14 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
             msg_name = "move"
             msg_details = {"id": "cmd_name"}
             with self.assertRaises(ValueError):
-                await client.write_message(
-                    MsgType.Command, msg_name, msg_details=msg_details
-                )
+                await client.write_message(MsgType.Command, msg_name, msg_details=msg_details)
 
     async def test_write_evt(self) -> None:
         async with self.make_server() as server, self.make_client(server) as client:
             msg_name = "inPosition"
             msg_details = {"status": True}
             comp_name = "MTMount"
-            await client.write_message(
-                MsgType.Event, msg_name, msg_details=msg_details, comp_name=comp_name
-            )
+            await client.write_message(MsgType.Event, msg_name, msg_details=msg_details, comp_name=comp_name)
 
             message = await self._read_msg_in_server(server, READ_TIMEOUT)
 
@@ -279,9 +267,7 @@ class TestTcpClient(unittest.IsolatedAsyncioTestCase):
     async def test_run_monitor_loop(self) -> None:
         async with self.make_server() as server, self.make_client(server) as _:
             input_msg = {"val": 1}
-            await self._write_msg_continuously_at_specific_time(
-                2, server, input_msg, 5, 1
-            )
+            await self._write_msg_continuously_at_specific_time(2, server, input_msg, 5, 1)
 
             self.assertEqual(self.queue.qsize(), 5)
 

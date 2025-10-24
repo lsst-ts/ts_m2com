@@ -190,9 +190,7 @@ def collect_queue_messages(queue: asyncio.Queue, name: str, flush: bool = True) 
     return messages
 
 
-def get_queue_message_latest(
-    queue: asyncio.Queue, name: str, flush: bool = True
-) -> dict:
+def get_queue_message_latest(queue: asyncio.Queue, name: str, flush: bool = True) -> dict:
     """Get the latest message in queue.
 
     This function is used in the unit test only.
@@ -291,36 +289,24 @@ def check_limit_switches(
     # Check the number of actuators is correct
     num_actuator_forces = len(actuator_forces)
     if num_actuator_forces != NUM_ACTUATOR:
-        raise ValueError(
-            f"Number of actuator_forces ({num_actuator_forces}) should be {NUM_ACTUATOR}."
-        )
+        raise ValueError(f"Number of actuator_forces ({num_actuator_forces}) should be {NUM_ACTUATOR}.")
 
     # Get the triggered limit switches
     num_actuator_axial = NUM_ACTUATOR - NUM_TANGENT_LINK
 
-    limit_switch_axial_retract = np.where(
-        actuator_forces[:num_actuator_axial] >= limit_force_axial
-    )[0]
-    limit_switch_axial_extend = np.where(
-        actuator_forces[:num_actuator_axial] <= -limit_force_axial
-    )[0]
+    limit_switch_axial_retract = np.where(actuator_forces[:num_actuator_axial] >= limit_force_axial)[0]
+    limit_switch_axial_extend = np.where(actuator_forces[:num_actuator_axial] <= -limit_force_axial)[0]
 
     limit_switch_tangent_retract = (
-        np.where(actuator_forces[-NUM_TANGENT_LINK:] >= limit_force_tangent)[0]
-        + num_actuator_axial
+        np.where(actuator_forces[-NUM_TANGENT_LINK:] >= limit_force_tangent)[0] + num_actuator_axial
     )
     limit_switch_tangent_extend = (
-        np.where(actuator_forces[-NUM_TANGENT_LINK:] <= -limit_force_tangent)[0]
-        + num_actuator_axial
+        np.where(actuator_forces[-NUM_TANGENT_LINK:] <= -limit_force_tangent)[0] + num_actuator_axial
     )
 
-    limit_switch_retract = np.append(
-        limit_switch_axial_retract, limit_switch_tangent_retract
-    ).astype(int)
+    limit_switch_retract = np.append(limit_switch_axial_retract, limit_switch_tangent_retract).astype(int)
 
-    limit_switch_extend = np.append(
-        limit_switch_axial_extend, limit_switch_tangent_extend
-    ).astype(int)
+    limit_switch_extend = np.append(limit_switch_axial_extend, limit_switch_tangent_extend).astype(int)
 
     is_triggered = (len(limit_switch_retract) != 0) or (len(limit_switch_extend) != 0)
 
@@ -380,24 +366,17 @@ def check_hardpoints(
     # Axial hardpoints
 
     # Check the hardpoints by comparing with the expectation
-    if (
-        select_axial_hardpoints(location_axial_actuator, hardpoints_axial[0])
-        != hardpoints_axial
-    ):
+    if select_axial_hardpoints(location_axial_actuator, hardpoints_axial[0]) != hardpoints_axial:
         raise ValueError("Bad selection of axial hardpoints.")
 
     # Tangent hardpoints
     option_one = [72, 74, 76]
     option_two = [73, 75, 77]
     if hardpoints_tangent not in (option_one, option_two):
-        raise ValueError(
-            f"Tangential hardpoints can only be {option_one} or {option_two}."
-        )
+        raise ValueError(f"Tangential hardpoints can only be {option_one} or {option_two}.")
 
 
-def select_axial_hardpoints(
-    location_axial_actuator: list[list], specific_axial_hardpoint: int
-) -> list[int]:
+def select_axial_hardpoints(location_axial_actuator: list[list], specific_axial_hardpoint: int) -> list[int]:
     """Select the axial hardpoints based on the specific axial hardpoint.
 
     Notes
@@ -546,8 +525,8 @@ def get_forces_mirror_weight(angle: float) -> numpy.typing.NDArray[np.float64]:
     # Tangent actuators A1 and A4 do not bear the weight of mirror.
     # A2 and A3 have the reversed direction compared with A5 and A6.
     index_tangent_link = num_axial_actuators + np.array([1, 2, 4, 5])
-    forces[index_tangent_link] = (
-        force_mirror_weight * np.cos(np.deg2rad(angle_correct)) / 4
-    ) * np.array([-1, -1, 1, 1])
+    forces[index_tangent_link] = (force_mirror_weight * np.cos(np.deg2rad(angle_correct)) / 4) * np.array(
+        [-1, -1, 1, 1]
+    )
 
     return forces

@@ -75,9 +75,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertEqual(control_loop.kinfl.shape, (72, 72))
 
     def test_update_hardpoints(self) -> None:
-        self.control_closed_loop.calc_look_up_forces(
-            lut_angle=59.06, enable_lut_temperature=True
-        )
+        self.control_closed_loop.calc_look_up_forces(lut_angle=59.06, enable_lut_temperature=True)
 
         hardpoints = [4, 14, 24, 72, 74, 76]
         self.control_closed_loop.update_hardpoints(hardpoints)
@@ -87,13 +85,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
         self.assertEqual(self.control_closed_loop.hardpoints, hardpoints)
 
-        self.assertEqual(
-            self.control_closed_loop.axial_forces["hardpointCorrection"][4], 0.0
-        )
+        self.assertEqual(self.control_closed_loop.axial_forces["hardpointCorrection"][4], 0.0)
 
-        hardpoint_correction_tangent = self.control_closed_loop.tangent_forces[
-            "hardpointCorrection"
-        ]
+        hardpoint_correction_tangent = self.control_closed_loop.tangent_forces["hardpointCorrection"]
         self.assertEqual(hardpoint_correction_tangent[0], 0.0)
         self.assertAlmostEqual(hardpoint_correction_tangent[1], -2012.1470437)
         self.assertAlmostEqual(hardpoint_correction_tangent[3], 14.10966667)
@@ -165,9 +159,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
             [0.0, 0.0, 0.968, 0.032, 0.0, 0.0],
         )
         np.testing.assert_array_equal(
-            MockControlClosedLoop.calc_cmd_delay_filter_params(
-                is_mirror=False, bypass_delay=True
-            ),
+            MockControlClosedLoop.calc_cmd_delay_filter_params(is_mirror=False, bypass_delay=True),
             [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         )
 
@@ -179,9 +171,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
     def test_calc_force_control_filter_params(self) -> None:
         # Surrogate
-        gain, coefficients = MockControlClosedLoop.calc_force_control_filter_params(
-            is_mirror=False
-        )
+        gain, coefficients = MockControlClosedLoop.calc_force_control_filter_params(is_mirror=False)
 
         self.assertAlmostEqual(gain, 0.33872249)
         np.testing.assert_array_almost_equal(coefficients, [0.0] * 32)
@@ -239,18 +229,16 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertAlmostEqual(displacments_rxryrz[73], -0.5260820)
 
         # Test (x, y, z, rx, ry, rz)
-        displacments_xyzrxryrz = (
-            MockControlClosedLoop.rigid_body_to_actuator_displacement(
-                self.control_closed_loop.get_actuator_location_axial(),
-                self.control_closed_loop.get_actuator_location_tangent(),
-                self.control_closed_loop.get_radius(),
-                2,
-                -1,
-                0.5,
-                -0.3,
-                0.2,
-                -0.1,
-            )
+        displacments_xyzrxryrz = MockControlClosedLoop.rigid_body_to_actuator_displacement(
+            self.control_closed_loop.get_actuator_location_axial(),
+            self.control_closed_loop.get_actuator_location_tangent(),
+            self.control_closed_loop.get_radius(),
+            2,
+            -1,
+            0.5,
+            -0.3,
+            0.2,
+            -0.1,
         )
 
         self.assertAlmostEqual(displacments_xyzrxryrz[0], -0.0595715)
@@ -379,15 +367,9 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
         temperature_updated = self.control_closed_loop.temperature
 
-        self.assertNotEqual(
-            temperature_updated["ring"][0], temperature_original["ring"][0]
-        )
-        self.assertNotEqual(
-            temperature_updated["intake"][0], temperature_original["intake"][0]
-        )
-        self.assertNotEqual(
-            temperature_updated["exhaust"][0], temperature_original["exhaust"][0]
-        )
+        self.assertNotEqual(temperature_updated["ring"][0], temperature_original["ring"][0])
+        self.assertNotEqual(temperature_updated["intake"][0], temperature_original["intake"][0])
+        self.assertNotEqual(temperature_updated["exhaust"][0], temperature_original["exhaust"][0])
 
     def test_set_measured_forces_exception(self) -> None:
         # Wrong dimension of axail actuators
@@ -432,12 +414,8 @@ class TestMockControlClosedLoop(unittest.TestCase):
     def test_apply_forces(self) -> None:
         force_axial, force_tangent = self._apply_forces()
 
-        np.testing.assert_array_equal(
-            self.control_closed_loop.axial_forces["applied"], force_axial
-        )
-        np.testing.assert_array_equal(
-            self.control_closed_loop.tangent_forces["applied"], force_tangent
-        )
+        np.testing.assert_array_equal(self.control_closed_loop.axial_forces["applied"], force_axial)
+        np.testing.assert_array_equal(self.control_closed_loop.tangent_forces["applied"], force_tangent)
 
     def _apply_forces(self) -> tuple[list, list]:
         force_axial = [1] * (NUM_ACTUATOR - NUM_TANGENT_LINK)
@@ -448,9 +426,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
     def test_get_demanded_force_axial(self) -> None:
         # Without the applying of force
-        self.control_closed_loop.calc_look_up_forces(
-            lut_angle=59.06, enable_lut_temperature=True
-        )
+        self.control_closed_loop.calc_look_up_forces(lut_angle=59.06, enable_lut_temperature=True)
         demanded_force = self.control_closed_loop.get_demanded_force()
 
         self.assertAlmostEqual(demanded_force[0], 130.3581281)
@@ -464,9 +440,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
     def test_get_demanded_force_tangent(self) -> None:
         # Without the applying of force
-        self.control_closed_loop.calc_look_up_forces(
-            lut_angle=59.06, enable_lut_temperature=True
-        )
+        self.control_closed_loop.calc_look_up_forces(lut_angle=59.06, enable_lut_temperature=True)
         demanded_force = self.control_closed_loop.get_demanded_force()
 
         self.assertAlmostEqual(demanded_force[72], 16.113)
@@ -484,24 +458,14 @@ class TestMockControlClosedLoop(unittest.TestCase):
         applied_force_axial[2] = 999
 
         self.assertTrue(
-            self.control_closed_loop.is_actuator_force_out_limit(
-                applied_force_axial=applied_force_axial
-            )[0]
+            self.control_closed_loop.is_actuator_force_out_limit(applied_force_axial=applied_force_axial)[0]
         )
 
         # Check the measured force
-        self.assertFalse(
-            self.control_closed_loop.is_actuator_force_out_limit(
-                use_measured_force=True
-            )[0]
-        )
+        self.assertFalse(self.control_closed_loop.is_actuator_force_out_limit(use_measured_force=True)[0])
 
         self.control_closed_loop.axial_forces["measured"][0] = 1000.0
-        self.assertTrue(
-            self.control_closed_loop.is_actuator_force_out_limit(
-                use_measured_force=True
-            )[0]
-        )
+        self.assertTrue(self.control_closed_loop.is_actuator_force_out_limit(use_measured_force=True)[0])
 
     def test_is_actuator_force_out_limit_tangent(self) -> None:
         # Check the demanded force
@@ -509,24 +473,16 @@ class TestMockControlClosedLoop(unittest.TestCase):
         applied_force_tangent[2] = 9999
 
         self.assertTrue(
-            self.control_closed_loop.is_actuator_force_out_limit(
-                applied_force_tangent=applied_force_tangent
-            )[0]
+            self.control_closed_loop.is_actuator_force_out_limit(applied_force_tangent=applied_force_tangent)[
+                0
+            ]
         )
 
         # Check the measured force
-        self.assertFalse(
-            self.control_closed_loop.is_actuator_force_out_limit(
-                use_measured_force=True
-            )[0]
-        )
+        self.assertFalse(self.control_closed_loop.is_actuator_force_out_limit(use_measured_force=True)[0])
 
         self.control_closed_loop.tangent_forces["measured"][0] = 10000.0
-        self.assertTrue(
-            self.control_closed_loop.is_actuator_force_out_limit(
-                use_measured_force=True
-            )[0]
-        )
+        self.assertTrue(self.control_closed_loop.is_actuator_force_out_limit(use_measured_force=True)[0])
 
     def test_reset_force_offsets(self) -> None:
         self._apply_forces()
@@ -543,9 +499,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
     def test_get_net_forces_total(self) -> None:
         self.control_closed_loop.axial_forces["measured"][1:3] = np.array([1, 2])
-        self.control_closed_loop.tangent_forces["measured"] = np.array(
-            [1, 2, 3, 4, 5, 6]
-        )
+        self.control_closed_loop.tangent_forces["measured"] = np.array([1, 2, 3, 4, 5, 6])
 
         net_forces_total = self.control_closed_loop.get_net_forces_total()
 
@@ -555,9 +509,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
 
     def test_get_net_moments_total(self) -> None:
         self.control_closed_loop.axial_forces["measured"][1:4] = np.array([1, 2, 3])
-        self.control_closed_loop.tangent_forces["measured"] = np.array(
-            [1, 2, 3, 4, 5, 6]
-        )
+        self.control_closed_loop.tangent_forces["measured"] = np.array([1, 2, 3, 4, 5, 6])
 
         net_moments_total = self.control_closed_loop.get_net_moments_total()
 
@@ -570,9 +522,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertEqual(len(force_balance), 6)
 
     def test_calc_look_up_forces(self) -> None:
-        self.control_closed_loop.calc_look_up_forces(
-            lut_angle=59.06, enable_lut_temperature=True
-        )
+        self.control_closed_loop.calc_look_up_forces(lut_angle=59.06, enable_lut_temperature=True)
 
         # Check the length
         num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
@@ -590,32 +540,20 @@ class TestMockControlClosedLoop(unittest.TestCase):
             len(self.control_closed_loop.axial_forces["lutGravity"]),
             num_axial_actuators,
         )
-        self.assertEqual(
-            len(self.control_closed_loop.tangent_forces["lutGravity"]), NUM_TANGENT_LINK
-        )
+        self.assertEqual(len(self.control_closed_loop.tangent_forces["lutGravity"]), NUM_TANGENT_LINK)
         self.assertEqual(
             len(self.control_closed_loop.tangent_forces["hardpointCorrection"]),
             NUM_TANGENT_LINK,
         )
 
         # Check the value
-        self.assertAlmostEqual(
-            self.control_closed_loop.axial_forces["lutTemperature"][0], 3.5022743
-        )
-        self.assertAlmostEqual(
-            self.control_closed_loop.axial_forces["lutGravity"][0], 126.8558538
-        )
+        self.assertAlmostEqual(self.control_closed_loop.axial_forces["lutTemperature"][0], 3.5022743)
+        self.assertAlmostEqual(self.control_closed_loop.axial_forces["lutGravity"][0], 126.8558538)
 
-        self.assertAlmostEqual(
-            self.control_closed_loop.tangent_forces["lutGravity"][0], 16.113
-        )
-        self.assertAlmostEqual(
-            self.control_closed_loop.tangent_forces["lutGravity"][1], -131.72
-        )
+        self.assertAlmostEqual(self.control_closed_loop.tangent_forces["lutGravity"][0], 16.113)
+        self.assertAlmostEqual(self.control_closed_loop.tangent_forces["lutGravity"][1], -131.72)
 
-        np.testing.assert_array_equal(
-            self.control_closed_loop.tangent_forces["lutTemperature"], np.array([])
-        )
+        np.testing.assert_array_equal(self.control_closed_loop.tangent_forces["lutTemperature"], np.array([]))
 
     def test_calc_look_up_forces_disable_lut_temperature(self) -> None:
         self.control_closed_loop.calc_look_up_forces(enable_lut_temperature=False)
@@ -631,9 +569,7 @@ class TestMockControlClosedLoop(unittest.TestCase):
             force_x,
             force_y,
             force_u,
-        ) = self.control_closed_loop._calc_look_up_forces_temperature(
-            lut_temperature, 21 * np.ones(12)
-        )
+        ) = self.control_closed_loop._calc_look_up_forces_temperature(lut_temperature, 21 * np.ones(12))
 
         num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
 
@@ -704,19 +640,13 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertAlmostEqual(force_factory_offset[2], 0.0)
 
     def test_calc_force_hardpoint(self) -> None:
-        self.control_closed_loop.calc_look_up_forces(
-            lut_angle=59.06, enable_lut_temperature=True
-        )
+        self.control_closed_loop.calc_look_up_forces(lut_angle=59.06, enable_lut_temperature=True)
 
         for idx in range(5):
             self.control_closed_loop.handle_forces(False, plant=self.plant)
 
-        force_hardpoint_axial = self.control_closed_loop.axial_forces[
-            "hardpointCorrection"
-        ]
-        force_hardpoint_tangent = self.control_closed_loop.tangent_forces[
-            "hardpointCorrection"
-        ]
+        force_hardpoint_axial = self.control_closed_loop.axial_forces["hardpointCorrection"]
+        force_hardpoint_tangent = self.control_closed_loop.tangent_forces["hardpointCorrection"]
 
         self.assertAlmostEqual(force_hardpoint_axial[0], 58.5897286)
         self.assertAlmostEqual(force_hardpoint_axial[1], 58.0630028)
@@ -730,16 +660,12 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertAlmostEqual(force_hardpoint_tangent[4], 1996.7958437)
 
     def test_handle_forces_function(self) -> None:
-        self.control_closed_loop.calc_look_up_forces(
-            lut_angle=59.06, enable_lut_temperature=True
-        )
+        self.control_closed_loop.calc_look_up_forces(lut_angle=59.06, enable_lut_temperature=True)
 
         # No update of force now
         in_position = False
         for idx in range(5):
-            in_position = self.control_closed_loop.handle_forces(
-                in_position, plant=self.plant
-            )
+            in_position = self.control_closed_loop.handle_forces(in_position, plant=self.plant)
 
         value_original = self.control_closed_loop.tangent_forces["measured"][0]
         self.assertEqual(value_original, 0.0)
@@ -752,39 +678,27 @@ class TestMockControlClosedLoop(unittest.TestCase):
         self.assertNotEqual(value_updated, 0.0)
 
     def test_handle_forces(self) -> None:
-        self.control_closed_loop.calc_look_up_forces(
-            lut_angle=59.06, enable_lut_temperature=True
-        )
+        self.control_closed_loop.calc_look_up_forces(lut_angle=59.06, enable_lut_temperature=True)
 
         # No update of force now
         # Saturate the hardpoint correction
         in_position = False
         for idx in range(10):
-            in_position = self.control_closed_loop.handle_forces(
-                in_position, plant=self.plant
-            )
+            in_position = self.control_closed_loop.handle_forces(in_position, plant=self.plant)
 
         # Run the closed-loop control
         self.assertFalse(in_position)
 
         self.control_closed_loop.is_running = True
         for counter in range(60):
-            in_position = self.control_closed_loop.handle_forces(
-                in_position, plant=self.plant
-            )
+            in_position = self.control_closed_loop.handle_forces(in_position, plant=self.plant)
 
         self.assertTrue(in_position)
 
-        self.assertAlmostEqual(
-            self.control_closed_loop.axial_forces["measured"][0], 110.5328014
-        )
-        self.assertAlmostEqual(
-            self.control_closed_loop.tangent_forces["measured"][0], 56.77537631
-        )
+        self.assertAlmostEqual(self.control_closed_loop.axial_forces["measured"][0], 110.5328014)
+        self.assertAlmostEqual(self.control_closed_loop.tangent_forces["measured"][0], 56.77537631)
 
-        np.testing.assert_array_equal(
-            self.plant.actuator_steps[self.control_closed_loop.hardpoints], [0] * 6
-        )
+        np.testing.assert_array_equal(self.plant.actuator_steps[self.control_closed_loop.hardpoints], [0] * 6)
 
         # Do the rigid body movement
         steps_hardpoints = np.array([100] * 6)
@@ -796,12 +710,8 @@ class TestMockControlClosedLoop(unittest.TestCase):
             steps_hardpoints,
         )
 
-        self.assertAlmostEqual(
-            self.control_closed_loop.axial_forces["measured"][0], 110.6296258
-        )
-        self.assertAlmostEqual(
-            self.control_closed_loop.tangent_forces["measured"][0], 48.3822856
-        )
+        self.assertAlmostEqual(self.control_closed_loop.axial_forces["measured"][0], 110.6296258)
+        self.assertAlmostEqual(self.control_closed_loop.tangent_forces["measured"][0], 48.3822856)
 
 
 if __name__ == "__main__":

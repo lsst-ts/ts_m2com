@@ -33,19 +33,13 @@ class TestMockInnerLoopController(unittest.TestCase):
 
     def test_set_mode(self) -> None:
         self.inner_loop_controller.set_mode(MTM2.InnerLoopControlMode.Fault)
-        self.assertEqual(
-            self.inner_loop_controller.mode, MTM2.InnerLoopControlMode.Fault
-        )
+        self.assertEqual(self.inner_loop_controller.mode, MTM2.InnerLoopControlMode.Fault)
 
         self.inner_loop_controller.set_mode(MTM2.InnerLoopControlMode.ClearFaults)
-        self.assertEqual(
-            self.inner_loop_controller.mode, MTM2.InnerLoopControlMode.Standby
-        )
+        self.assertEqual(self.inner_loop_controller.mode, MTM2.InnerLoopControlMode.Standby)
 
         self.inner_loop_controller.set_mode(MTM2.InnerLoopControlMode.NoChange)
-        self.assertEqual(
-            self.inner_loop_controller.mode, MTM2.InnerLoopControlMode.Standby
-        )
+        self.assertEqual(self.inner_loop_controller.mode, MTM2.InnerLoopControlMode.Standby)
 
 
 if __name__ == "__main__":

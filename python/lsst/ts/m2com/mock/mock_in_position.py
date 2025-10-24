@@ -100,12 +100,8 @@ class MockInPosition:
         num_axial_active = NUM_ACTUATOR - NUM_TANGENT_LINK - NUM_HARDPOINTS_AXIAL
         num_queue = len(self._queue)
         return np.all(
-            self._running_sum[:num_axial_active]
-            <= (num_queue * self.threshold_squared_axial)
-        ) and np.all(
-            self._running_sum[num_axial_active:]
-            <= (num_queue * self.threshold_squared_tangent)
-        )
+            self._running_sum[:num_axial_active] <= (num_queue * self.threshold_squared_axial)
+        ) and np.all(self._running_sum[num_axial_active:] <= (num_queue * self.threshold_squared_tangent))
 
     def reset(self) -> None:
         """Reset the internal data."""

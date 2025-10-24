@@ -55,9 +55,7 @@ class SimpleDelayFilter:
 
         self._delay_history = np.zeros(self._delay_history.shape)
 
-    def filter(
-        self, value: numpy.typing.NDArray[np.float64]
-    ) -> numpy.typing.NDArray[np.float64]:
+    def filter(self, value: numpy.typing.NDArray[np.float64]) -> numpy.typing.NDArray[np.float64]:
         """Filter the input value.
 
         Parameters

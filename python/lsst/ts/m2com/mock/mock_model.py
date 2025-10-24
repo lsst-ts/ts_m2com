@@ -136,9 +136,7 @@ class MockModel:
         self.telemetry_interval = telemetry_interval
 
         self.inclinometer_angle = inclinometer_angle
-        self.inclinometer_angle_external = correct_inclinometer_angle(
-            inclinometer_angle
-        )
+        self.inclinometer_angle_external = correct_inclinometer_angle(inclinometer_angle)
 
         self.control_parameters = {
             "enable_lut_temperature": True,
@@ -153,9 +151,7 @@ class MockModel:
         self.power_communication: MockPowerSystem = MockPowerSystem(
             communication_voltage, communication_current
         )
-        self.power_motor: MockPowerSystem = MockPowerSystem(
-            motor_voltage, motor_current
-        )
+        self.power_motor: MockPowerSystem = MockPowerSystem(motor_voltage, motor_current)
 
         self.in_position: bool = False
 
@@ -384,9 +380,7 @@ class MockModel:
                 is_out_limit,
                 limit_switches_retract,
                 limit_switches_extend,
-            ) = self.control_closed_loop.is_actuator_force_out_limit(
-                use_measured_force=True
-            )
+            ) = self.control_closed_loop.is_actuator_force_out_limit(use_measured_force=True)
 
             if is_out_limit:
                 error_code = MockErrorCode.LimitSwitchTriggeredClosedloop
@@ -428,9 +422,7 @@ class MockModel:
         force_is_out_limit_total_weight = (
             np.abs(force_error_tangent["weight"]) >= TANGENT_LINK_TOTAL_WEIGHT_ERROR
         )
-        force_is_out_limit_theta_z = (
-            np.abs(force_error_tangent["sum"]) >= TANGENT_LINK_THETA_Z_MOMENT
-        )
+        force_is_out_limit_theta_z = np.abs(force_error_tangent["sum"]) >= TANGENT_LINK_THETA_Z_MOMENT
 
         force_error_individual = np.array(force_error_tangent["force"])
 
@@ -441,8 +433,7 @@ class MockModel:
 
         # Tangent link: A2, A3, A5, A6
         force_is_out_limit_load = np.any(
-            np.abs(force_error_individual[[1, 2, 4, 5]])
-            >= TANGENT_LINK_LOAD_BEARING_LINK
+            np.abs(force_error_individual[[1, 2, 4, 5]]) >= TANGENT_LINK_LOAD_BEARING_LINK
         )
 
         # Decide the error code
@@ -452,11 +443,7 @@ class MockModel:
             or force_is_out_limit_non_load
             or force_is_out_limit_load
         )
-        error_code = (
-            MockErrorCode.TangentLoadCellFault
-            if force_is_out_limit
-            else MockErrorCode.NoError
-        )
+        error_code = MockErrorCode.TangentLoadCellFault if force_is_out_limit else MockErrorCode.NoError
 
         return force_is_out_limit, error_code
 
@@ -534,12 +521,8 @@ class MockModel:
         position_ims = None
         if self.power_motor.is_power_on():
             telemetry_data["ilcData"] = self._get_ilc_data()
-            telemetry_data["netForcesTotal"] = (
-                self.control_closed_loop.get_net_forces_total()
-            )
-            telemetry_data["netMomentsTotal"] = (
-                self.control_closed_loop.get_net_moments_total()
-            )
+            telemetry_data["netForcesTotal"] = self.control_closed_loop.get_net_forces_total()
+            telemetry_data["netMomentsTotal"] = self.control_closed_loop.get_net_moments_total()
 
             # Get the force data
             telemetry_data["axialForce"] = self.control_closed_loop.axial_forces
@@ -547,9 +530,7 @@ class MockModel:
             telemetry_data["forceErrorTangent"] = self._calculate_force_error_tangent(
                 self.control_closed_loop.tangent_forces["measured"]
             )
-            telemetry_data["forceBalance"] = (
-                self.control_closed_loop.get_force_balance()
-            )
+            telemetry_data["forceBalance"] = self.control_closed_loop.get_force_balance()
 
             # Get the position data
             telemetry_data["position"] = self.mirror_position
@@ -570,19 +551,11 @@ class MockModel:
 
             num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
 
-            telemetry_data["axialActuatorSteps"] = {
-                "steps": steps[:num_axial_actuators].tolist()
-            }
-            telemetry_data["axialEncoderPositions"] = {
-                "position": positions[:num_axial_actuators].tolist()
-            }
+            telemetry_data["axialActuatorSteps"] = {"steps": steps[:num_axial_actuators].tolist()}
+            telemetry_data["axialEncoderPositions"] = {"position": positions[:num_axial_actuators].tolist()}
 
-            telemetry_data["tangentActuatorSteps"] = {
-                "steps": steps[-NUM_TANGENT_LINK:].tolist()
-            }
-            telemetry_data["tangentEncoderPositions"] = {
-                "position": positions[-NUM_TANGENT_LINK:].tolist()
-            }
+            telemetry_data["tangentActuatorSteps"] = {"steps": steps[-NUM_TANGENT_LINK:].tolist()}
+            telemetry_data["tangentEncoderPositions"] = {"position": positions[-NUM_TANGENT_LINK:].tolist()}
 
             # Update the internal data
             self._force_error_tangent = telemetry_data["forceErrorTangent"]
@@ -590,13 +563,9 @@ class MockModel:
         telemetry_data["powerStatus"] = self._get_power_status()
         telemetry_data["powerStatusRaw"] = self._get_power_status()
 
-        telemetry_data["inclinometerAngleTma"] = {
-            "inclinometerRaw": self.inclinometer_angle_external
-        }
+        telemetry_data["inclinometerAngleTma"] = {"inclinometerRaw": self.inclinometer_angle_external}
 
-        telemetry_data["displacementSensors"] = self._get_displacement_sensors(
-            mirror_position=position_ims
-        )
+        telemetry_data["displacementSensors"] = self._get_displacement_sensors(mirror_position=position_ims)
 
         return telemetry_data
 
@@ -614,9 +583,7 @@ class MockModel:
             Power status.
         """
 
-        comm_voltage_update, comm_current_update = self.power_communication.get_power(
-            rms=rms
-        )
+        comm_voltage_update, comm_current_update = self.power_communication.get_power(rms=rms)
         motor_voltage_update, motor_current_update = self.power_motor.get_power(rms=rms)
 
         return {
@@ -637,9 +604,7 @@ class MockModel:
 
         return {"status": [next(self._ilc_status)] * NUM_ACTUATOR}
 
-    def _calculate_force_error_tangent(
-        self, tangent_force_current: numpy.typing.NDArray[np.float64]
-    ) -> dict:
+    def _calculate_force_error_tangent(self, tangent_force_current: numpy.typing.NDArray[np.float64]) -> dict:
         """Calculate the tangent force error.
 
         This function is translated from TangentLoadCellFaultDetection.vi in
@@ -665,17 +630,13 @@ class MockModel:
         # The orientation of tangent links is hexagon. Therefore, the
         # projection angle is 30 degree.
         projection_angle = 30
-        tangent_force_support = tangent_force_current[indexes] * np.cos(
-            np.deg2rad(projection_angle)
-        )
+        tangent_force_support = tangent_force_current[indexes] * np.cos(np.deg2rad(projection_angle))
 
         gravitational_acceleration = 9.8
 
         angle_correct = correct_inclinometer_angle(self.inclinometer_angle)
         mirror_weight_projection = (
-            MIRROR_WEIGHT_KG
-            * gravitational_acceleration
-            * np.sin(np.deg2rad(90 - angle_correct))
+            MIRROR_WEIGHT_KG * gravitational_acceleration * np.sin(np.deg2rad(90 - angle_correct))
         )
         divided_mirror_division = mirror_weight_projection / len(indexes)
 
@@ -737,9 +698,7 @@ class MockModel:
 
         return {"thetaZ": theta_z, "deltaZ": delta_z}
 
-    def balance_forces_and_steps(
-        self, do_update: bool = True, steps_rigid_body: int = 100
-    ) -> bool:
+    def balance_forces_and_steps(self, do_update: bool = True, steps_rigid_body: int = 100) -> bool:
         """Balance the forces and steps.
 
         Notes
@@ -763,9 +722,7 @@ class MockModel:
         """
 
         if self.control_open_loop.is_running and self.control_closed_loop.is_running:
-            raise RuntimeError(
-                "The open-loop and closed-loop controls are running at the same time."
-            )
+            raise RuntimeError("The open-loop and closed-loop controls are running at the same time.")
 
         if do_update:
             no_rigid_body_movement = np.all(self.steps_hardpoints_offset == 0)
@@ -773,9 +730,7 @@ class MockModel:
             steps_hardpoints = (
                 None
                 if no_rigid_body_movement
-                else np.clip(
-                    self.steps_hardpoints_offset, -steps_rigid_body, steps_rigid_body
-                ).astype(int)
+                else np.clip(self.steps_hardpoints_offset, -steps_rigid_body, steps_rigid_body).astype(int)
             )
             if not no_rigid_body_movement:
                 self.steps_hardpoints_offset -= steps_hardpoints
@@ -824,14 +779,9 @@ class MockModel:
         assert self.plant is not None
 
         # Change the unit from millimeter to meter.
-        return (
-            self.plant.get_actuator_positions()[self.control_closed_loop.hardpoints]
-            * 1e-3
-        )
+        return self.plant.get_actuator_positions()[self.control_closed_loop.hardpoints] * 1e-3
 
-    def _simulate_position_mirror(
-        self, position_rms: float = 0.05, angle_rms: float = 0.05
-    ) -> dict:
+    def _simulate_position_mirror(self, position_rms: float = 0.05, angle_rms: float = 0.05) -> dict:
         """Simulate the position of mirror.
 
         Parameters
@@ -874,15 +824,11 @@ class MockModel:
             Zenith angle data. The unit is degree.
         """
 
-        inclinometer_value = self.inclinometer_angle + np.random.normal(
-            scale=inclinometer_rms
-        )
+        inclinometer_value = self.inclinometer_angle + np.random.normal(scale=inclinometer_rms)
 
         zenith_angle = dict()
         zenith_angle["inclinometerRaw"] = inclinometer_value
-        zenith_angle["inclinometerProcessed"] = correct_inclinometer_angle(
-            inclinometer_value
-        )
+        zenith_angle["inclinometerProcessed"] = correct_inclinometer_angle(inclinometer_value)
         zenith_angle["measured"] = 90 - zenith_angle["inclinometerProcessed"]
 
         return zenith_angle
@@ -941,12 +887,8 @@ class MockModel:
             True if all check pass. Otherwise, False.
         """
 
-        if (not self.power_motor.is_power_on()) or (
-            self.control_closed_loop.is_running is False
-        ):
-            self.log.debug(
-                "Motor power needs to be on and system is in closed-loop control."
-            )
+        if (not self.power_motor.is_power_on()) or (self.control_closed_loop.is_running is False):
+            self.log.debug("Motor power needs to be on and system is in closed-loop control.")
             return False
 
         # Check limits
@@ -981,8 +923,7 @@ class MockModel:
         set_point_z = mirror_position_set_point["z"] * UM_TO_MM
         if set_point_z > self.position_limit_z:
             self.log.debug(
-                f"Requested position out of limits: {set_point_z} "
-                f"(limit: {self.position_limit_z})"
+                f"Requested position out of limits: {set_point_z} (limit: {self.position_limit_z})"
             )
             return False
 
@@ -1031,9 +972,7 @@ class MockModel:
 
         if (power_type == MTM2.PowerType.Motor) and self.power_motor.is_power_on():
             result = True
-        elif (
-            power_type == MTM2.PowerType.Communication
-        ) and self.power_communication.is_power_on():
+        elif (power_type == MTM2.PowerType.Communication) and self.power_communication.is_power_on():
             result = True
 
         return result
@@ -1073,9 +1012,7 @@ class MockModel:
         digital_input = sum([item.value for item in self.digital_input_default])
 
         if self.power_communication.is_power_on():
-            digital_input -= sum(
-                [item.value for item in self.digital_input_communication]
-            )
+            digital_input -= sum([item.value for item in self.digital_input_communication])
 
         if self.power_motor.is_power_on():
             digital_input -= sum([item.value for item in self.digital_input_motor])
@@ -1115,17 +1052,13 @@ class MockModel:
 
         elif status == DigitalOutputStatus.ToggleBit:
             return (
-                (digital_output - bit.value)
-                if (digital_output & bit.value)
-                else (digital_output + bit.value)
+                (digital_output - bit.value) if (digital_output & bit.value) else (digital_output + bit.value)
             )
 
         else:
             raise RuntimeError(f"Not supported status: {status!r}.")
 
-    def set_mode_ilc(
-        self, addresses: list[int], mode: MTM2.InnerLoopControlMode
-    ) -> None:
+    def set_mode_ilc(self, addresses: list[int], mode: MTM2.InnerLoopControlMode) -> None:
         """Set the mode of inner-loop controller (ILC).
 
         Parameters

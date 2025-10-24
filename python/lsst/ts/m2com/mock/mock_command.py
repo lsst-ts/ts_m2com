@@ -121,9 +121,7 @@ class MockCommand:
         await message_event.write_digital_output(self._digital_output)
         await self.report_interlock(model, message_event)
 
-    async def report_interlock(
-        self, model: MockModel, message_event: MockMessageEvent
-    ) -> None:
+    async def report_interlock(self, model: MockModel, message_event: MockMessageEvent) -> None:
         """Report the interlock status.
 
         Parameters
@@ -134,12 +132,8 @@ class MockCommand:
             Instance of MockMessageEvent to write the event.
         """
 
-        is_enterlock_enabled = bool(
-            self._digital_output & DigitalOutput.InterlockEnable.value
-        )
-        is_interlock_power_relay_on = bool(
-            model.get_digital_input() & DigitalInput.InterlockPowerRelay.value
-        )
+        is_enterlock_enabled = bool(self._digital_output & DigitalOutput.InterlockEnable.value)
+        is_interlock_power_relay_on = bool(model.get_digital_input() & DigitalInput.InterlockPowerRelay.value)
 
         is_interlock_engaged = (not is_enterlock_enabled) or is_interlock_power_relay_on
         await message_event.write_interlock(is_interlock_engaged)
@@ -210,9 +204,7 @@ class MockCommand:
         }
 
         try:
-            command_success = model.check_set_point_position_mirror(
-                mirror_position_set_point
-            )
+            command_success = model.check_set_point_position_mirror(mirror_position_set_point)
             await message_event.write_m2_assembly_in_position(False)
 
             model.handle_position_mirror(mirror_position_set_point)
@@ -309,23 +301,15 @@ class MockCommand:
 
         command_success = model.switch_force_balance_system(message["status"])
 
-        await message_event.write_force_balance_system_status(
-            model.control_closed_loop.is_running
-        )
+        await message_event.write_force_balance_system_status(model.control_closed_loop.is_running)
 
-        await message_event.write_open_loop_max_limit(
-            model.control_open_loop.open_loop_max_limit_is_enabled
-        )
+        await message_event.write_open_loop_max_limit(model.control_open_loop.open_loop_max_limit_is_enabled)
 
         # Publish the closed-loop control mode
         if model.control_closed_loop.is_running:
-            await message_event.write_closed_loop_control_mode(
-                MTM2.ClosedLoopControlMode.ClosedLoop
-            )
+            await message_event.write_closed_loop_control_mode(MTM2.ClosedLoopControlMode.ClosedLoop)
         else:
-            await message_event.write_closed_loop_control_mode(
-                MTM2.ClosedLoopControlMode.OpenLoop
-            )
+            await message_event.write_closed_loop_control_mode(MTM2.ClosedLoopControlMode.OpenLoop)
 
         # Publish the digital output
         self._digital_output = model.get_digital_output()
@@ -518,11 +502,7 @@ class MockCommand:
         command_success = model.reset_breakers(power_type)
 
         digital_input_default = model.get_digital_input()
-        power_system = (
-            model.power_motor
-            if power_type == MTM2.PowerType.Motor
-            else model.power_communication
-        )
+        power_system = model.power_motor if power_type == MTM2.PowerType.Motor else model.power_communication
 
         # If success, simulate the update of digital output and events of power
         # system state
@@ -534,15 +514,11 @@ class MockCommand:
 
             if power_type == MTM2.PowerType.Motor:
                 digital_output_reset -= DigitalOutput.ResetMotorBreakers.value
-                digital_input_reset += sum(
-                    [item.value for item in model.digital_input_motor]
-                )
+                digital_input_reset += sum([item.value for item in model.digital_input_motor])
 
             elif power_type == MTM2.PowerType.Communication:
                 digital_output_reset -= DigitalOutput.ResetCommunicationBreakers.value
-                digital_input_reset += sum(
-                    [item.value for item in model.digital_input_communication]
-                )
+                digital_input_reset += sum([item.value for item in model.digital_input_communication])
 
             await message_event.write_digital_output(digital_output_reset)
             await self.report_interlock(model, message_event)
@@ -617,9 +593,7 @@ class MockCommand:
 
         command_success = model.enable_open_loop_max_limit(message["status"])
 
-        await message_event.write_open_loop_max_limit(
-            model.control_open_loop.open_loop_max_limit_is_enabled
-        )
+        await message_event.write_open_loop_max_limit(model.control_open_loop.open_loop_max_limit_is_enabled)
 
         return (
             model,
@@ -672,9 +646,7 @@ class MockCommand:
             Status of command execution.
         """
 
-        model.control_closed_loop.disp_hardpoint_home = (
-            model.get_current_hardpoint_displacement().tolist()
-        )
+        model.control_closed_loop.disp_hardpoint_home = model.get_current_hardpoint_displacement().tolist()
 
         model.mirror_position = model.get_default_mirror_position()
         model.steps_hardpoints_offset = np.zeros(6, dtype=int)
@@ -710,30 +682,22 @@ class MockCommand:
         except ValueError:
             return model, CommandStatus.Fail
 
-        self._digital_output = model.switch_digital_output(
-            self._digital_output, bit, status
-        )
+        self._digital_output = model.switch_digital_output(self._digital_output, bit, status)
         await message_event.write_digital_output(self._digital_output)
         await self.report_interlock(model, message_event)
 
         # Turn on/off the power based on the bit value
         if self._digital_output & DigitalOutput.CommunicationPower.value:
-            await self._power_on_fully(
-                MTM2.PowerType.Communication, model.power_communication, message_event
-            )
+            await self._power_on_fully(MTM2.PowerType.Communication, model.power_communication, message_event)
         else:
             await self._power_off_fully(
                 MTM2.PowerType.Communication, model.power_communication, message_event
             )
 
         if self._digital_output & DigitalOutput.MotorPower.value:
-            await self._power_on_fully(
-                MTM2.PowerType.Motor, model.power_motor, message_event
-            )
+            await self._power_on_fully(MTM2.PowerType.Motor, model.power_motor, message_event)
         else:
-            await self._power_off_fully(
-                MTM2.PowerType.Motor, model.power_motor, message_event
-            )
+            await self._power_off_fully(MTM2.PowerType.Motor, model.power_motor, message_event)
 
         return model, CommandStatus.Success
 
@@ -765,35 +729,23 @@ class MockCommand:
         except ValueError:
             return model, CommandStatus.Fail
 
-        power_system = (
-            model.power_motor
-            if power_type == MTM2.PowerType.Motor
-            else model.power_communication
-        )
+        power_system = model.power_motor if power_type == MTM2.PowerType.Motor else model.power_communication
 
         if message["status"] is True:
             await self._power_on_fully(power_type, power_system, message_event)
         else:
             await self._power_off_fully(power_type, power_system, message_event)
 
-        if (
-            not model.power_motor.is_power_on()
-        ) and model.control_closed_loop.is_running:
+        if (not model.power_motor.is_power_on()) and model.control_closed_loop.is_running:
             model.switch_force_balance_system(False)
-            await message_event.write_force_balance_system_status(
-                model.control_closed_loop.is_running
-            )
+            await message_event.write_force_balance_system_status(model.control_closed_loop.is_running)
 
         await self._report_digital_input_and_ouput(model, message_event)
 
-        await message_event.write_open_loop_max_limit(
-            model.control_open_loop.open_loop_max_limit_is_enabled
-        )
+        await message_event.write_open_loop_max_limit(model.control_open_loop.open_loop_max_limit_is_enabled)
 
         if model.power_motor.is_power_on():
-            model.error_handler.add_new_warning(
-                MockErrorCode.MonitoringIlcReadError.value
-            )
+            model.error_handler.add_new_warning(MockErrorCode.MonitoringIlcReadError.value)
 
         return model, CommandStatus.Success
 
@@ -894,9 +846,7 @@ class MockCommand:
             return model, CommandStatus.Fail
 
         for address in addresses:
-            await message_event.write_inner_loop_control_mode(
-                address, model.list_ilc[address].mode
-            )
+            await message_event.write_inner_loop_control_mode(address, model.list_ilc[address].mode)
 
         return model, CommandStatus.Success
 
@@ -998,9 +948,7 @@ class MockCommand:
         control_parameters["enable_lut_temperature"] = enable_lut_temperature
 
         # Update the temperature LUT force
-        model.control_closed_loop.calc_look_up_forces(
-            enable_lut_temperature=enable_lut_temperature
-        )
+        model.control_closed_loop.calc_look_up_forces(enable_lut_temperature=enable_lut_temperature)
 
         # Publish the event
         await message_event.write_inclination_telemetry_source(is_external_source)
@@ -1091,9 +1039,7 @@ class MockCommand:
         # Send the event
 
         # Note the index begins from 0 in Python
-        hardpoints = [
-            (hardpoint + 1) for hardpoint in model.control_closed_loop.hardpoints
-        ]
+        hardpoints = [(hardpoint + 1) for hardpoint in model.control_closed_loop.hardpoints]
         await message_event.write_hardpoint_list(hardpoints)
 
         # Only assume the first hardpoint is bypassed

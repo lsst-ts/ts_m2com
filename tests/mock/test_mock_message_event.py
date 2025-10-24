@@ -43,15 +43,11 @@ class TestMockMessageEvent(unittest.TestCase):
         ) = self.message_event._get_configuration_file_details()
 
         self.assertEqual(version, "20180831T092556")
-        self.assertEqual(
-            control_parameters, "CtrlParameterFiles_2018-07-19_104314_surg"
-        )
+        self.assertEqual(control_parameters, "CtrlParameterFiles_2018-07-19_104314_surg")
         self.assertEqual(lut_parameters, "FinalHandlingLUTs")
 
         # M2
-        self.message_event.configuration_file = (
-            "Configurable_File_Description_20180831T091922_M2_optical.csv"
-        )
+        self.message_event.configuration_file = "Configurable_File_Description_20180831T091922_M2_optical.csv"
 
         (
             version,

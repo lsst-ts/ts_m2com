@@ -92,9 +92,7 @@ class MockServer:
             self.log = log.getChild(type(self).__name__)
 
         # Instantiate the MockModel class and do the configuration
-        self.model = MockModel(
-            log=self.log, telemetry_interval=self.PERIOD_TELEMETRY_IN_SECOND
-        )
+        self.model = MockModel(log=self.log, telemetry_interval=self.PERIOD_TELEMETRY_IN_SECOND)
 
         self.server_command = tcpip.OneClientServer(
             host,
@@ -156,9 +154,7 @@ class MockServer:
             "cmd_setHardpointList": self._command.set_hardpoint_list,
         }
 
-    async def _connect_state_changed_callback_command(
-        self, server_command: tcpip.OneClientServer
-    ) -> None:
+    async def _connect_state_changed_callback_command(self, server_command: tcpip.OneClientServer) -> None:
         """Called when the command server connection state changes.
 
         Notes
@@ -176,9 +172,7 @@ class MockServer:
         if self.server_command.connected:
             self._message_event = MockMessageEvent(self.server_command)
 
-            self._monitor_loop_task_command = asyncio.create_task(
-                self._monitor_message_command()
-            )
+            self._monitor_loop_task_command = asyncio.create_task(self._monitor_message_command())
 
     async def _monitor_message_command(self, counts_max: int = 3) -> None:
         """Monitor the message from command server.
@@ -216,9 +210,7 @@ class MockServer:
                 # to decrease the CPU usage.
                 # If there is the movement from the open-loop, always update
                 # the force.
-                is_updated = self.model.balance_forces_and_steps(
-                    do_update=(do_update or actuator_is_moved)
-                )
+                is_updated = self.model.balance_forces_and_steps(do_update=(do_update or actuator_is_moved))
 
                 # Decide the value of do_update
                 if is_updated:
@@ -268,9 +260,7 @@ class MockServer:
         await self._message_event.write_commandable_by_dds(True)
 
         # Note the index begins from 0 in Python
-        hardpoints = [
-            (hardpoint + 1) for hardpoint in self.model.control_closed_loop.hardpoints
-        ]
+        hardpoints = [(hardpoint + 1) for hardpoint in self.model.control_closed_loop.hardpoints]
         await self._message_event.write_hardpoint_list(hardpoints)
 
         # Only assume the first hardpoint is bypassed
@@ -279,9 +269,7 @@ class MockServer:
         await self._message_event.write_interlock(False)
 
         # Workaround of the mypy checking
-        is_external_source = (
-            self.model.control_parameters["use_external_elevation_angle"] is True
-        )
+        is_external_source = self.model.control_parameters["use_external_elevation_angle"] is True
 
         await self._message_event.write_inclination_telemetry_source(is_external_source)
 
@@ -298,13 +286,9 @@ class MockServer:
 
         await self._message_event.write_config()
 
-        await self._message_event.write_closed_loop_control_mode(
-            MTM2.ClosedLoopControlMode.Idle
-        )
+        await self._message_event.write_closed_loop_control_mode(MTM2.ClosedLoopControlMode.Idle)
 
-        await self._message_event.write_enabled_faults_mask(
-            self.model.error_handler.enabled_faults_mask
-        )
+        await self._message_event.write_enabled_faults_mask(self.model.error_handler.enabled_faults_mask)
 
         await self._message_event.write_configuration_files()
 
@@ -353,12 +337,8 @@ class MockServer:
         if error_handler.exists_new_limit_switch(
             LimitSwitchType.Retract
         ) or error_handler.exists_new_limit_switch(LimitSwitchType.Extend):
-            limit_switches_retract = error_handler.get_limit_switches_to_report(
-                LimitSwitchType.Retract
-            )
-            limit_switches_extend = error_handler.get_limit_switches_to_report(
-                LimitSwitchType.Extend
-            )
+            limit_switches_retract = error_handler.get_limit_switches_to_report(LimitSwitchType.Retract)
+            limit_switches_extend = error_handler.get_limit_switches_to_report(LimitSwitchType.Extend)
             await self._message_event.write_limit_switch_status(
                 sorted(limit_switches_retract), sorted(limit_switches_extend)
             )
@@ -396,9 +376,7 @@ class MockServer:
                 await self._reply_command(sequence_id, command_status)
 
                 # Need to shutdown the server
-                if (command_name == "cmd_rebootController") and (
-                    command_status == CommandStatus.Success
-                ):
+                if (command_name == "cmd_rebootController") and (command_status == CommandStatus.Success):
                     await asyncio.sleep(0.5)
                     await self.close()
 
@@ -470,14 +448,10 @@ class MockServer:
             return command_status
 
         else:
-            self.log.debug(
-                f"Unrecognized command: {command_name}. Must be one of {available_commands}."
-            )
+            self.log.debug(f"Unrecognized command: {command_name}. Must be one of {available_commands}.")
             return CommandStatus.NoAck
 
-    async def _reply_command(
-        self, sequence_id: int, command_status: CommandStatus
-    ) -> None:
+    async def _reply_command(self, sequence_id: int, command_status: CommandStatus) -> None:
         """Reply the command with the sequence ID.
 
         Parameters
@@ -526,9 +500,7 @@ class MockServer:
         if name == "evt_mountinposition" and component == "mtmount":
             self.model.mtmount_in_position = message["inPosition"]
 
-    async def _run_and_report_script_engine_status(
-        self, steps: int | float = 1
-    ) -> None:
+    async def _run_and_report_script_engine_status(self, steps: int | float = 1) -> None:
         """Run the script engine and report the status.
 
         Parameters
@@ -549,9 +521,7 @@ class MockServer:
             except Exception as error:
                 self.log.debug(f"Error when run the script: {error}")
 
-            await self._message_event.write_script_execution_status(
-                script_engine.percentage
-            )
+            await self._message_event.write_script_execution_status(script_engine.percentage)
 
     def _run_control_open_loop(self, steps: int = 100) -> bool:
         """Run the open-loop control.
@@ -610,14 +580,10 @@ class MockServer:
         # enabled
         if self.model.control_open_loop.open_loop_max_limit_is_enabled:
             for switch in limit_switches_retract:
-                self.model.error_handler.add_new_limit_switch(
-                    switch, LimitSwitchType.Retract
-                )
+                self.model.error_handler.add_new_limit_switch(switch, LimitSwitchType.Retract)
 
             for switch in limit_switches_extend:
-                self.model.error_handler.add_new_limit_switch(
-                    switch, LimitSwitchType.Extend
-                )
+                self.model.error_handler.add_new_limit_switch(switch, LimitSwitchType.Extend)
 
     def _check_error_inclinometer(self) -> None:
         """Check the inclinometer error and fault the system if needed."""
@@ -652,9 +618,7 @@ class MockServer:
         if self.server_telemetry.connected:
             self._message_telemetry = MockMessageTelemetry(self.server_telemetry)
 
-            self._monitor_loop_task_telemetry = asyncio.create_task(
-                self._monitor_message_telemetry()
-            )
+            self._monitor_loop_task_telemetry = asyncio.create_task(self._monitor_message_telemetry())
 
     async def _monitor_message_telemetry(self) -> None:
         """Monitor the message of incoming telemetry."""
@@ -685,41 +649,21 @@ class MockServer:
 
         telemetry_data = self.model.get_telemetry_data()
 
-        await self._message_telemetry.write_power_status_raw(
-            telemetry_data["powerStatusRaw"]
-        )
+        await self._message_telemetry.write_power_status_raw(telemetry_data["powerStatusRaw"])
         await self._message_telemetry.write_power_status(telemetry_data["powerStatus"])
-        await self._message_telemetry.write_displacement_sensors(
-            telemetry_data["displacementSensors"]
-        )
+        await self._message_telemetry.write_displacement_sensors(telemetry_data["displacementSensors"])
 
         if self.model.power_motor.is_power_on():
             await self._message_telemetry.write_ilc_data(telemetry_data["ilcData"])
-            await self._message_telemetry.write_net_forces_total(
-                telemetry_data["netForcesTotal"]
-            )
-            await self._message_telemetry.write_net_moments_total(
-                telemetry_data["netMomentsTotal"]
-            )
-            await self._message_telemetry.write_axial_force(
-                telemetry_data["axialForce"]
-            )
-            await self._message_telemetry.write_tangent_force(
-                telemetry_data["tangentForce"]
-            )
-            await self._message_telemetry.write_force_balance(
-                telemetry_data["forceBalance"]
-            )
+            await self._message_telemetry.write_net_forces_total(telemetry_data["netForcesTotal"])
+            await self._message_telemetry.write_net_moments_total(telemetry_data["netMomentsTotal"])
+            await self._message_telemetry.write_axial_force(telemetry_data["axialForce"])
+            await self._message_telemetry.write_tangent_force(telemetry_data["tangentForce"])
+            await self._message_telemetry.write_force_balance(telemetry_data["forceBalance"])
             await self._message_telemetry.write_position(telemetry_data["position"])
-            await self._message_telemetry.write_position_ims(
-                telemetry_data["positionIMS"]
-            )
-            await self._message_telemetry.write_temperature(
-                telemetry_data["temperature"]
-            )
-            await self._message_telemetry.write_zenith_angle(
-                telemetry_data["zenithAngle"]
-            )
+            await self._message_telemetry.write_position_ims(telemetry_data["positionIMS"])
+            await self._message_telemetry.write_temperature(telemetry_data["temperature"])
+            await self._message_telemetry.write_zenith_angle(telemetry_data["zenithAngle"])
 
             await self._message_telemetry.write_axial_encoder_positions(
                 telemetry_data["axialEncoderPositions"]
@@ -727,18 +671,10 @@ class MockServer:
             await self._message_telemetry.write_tangent_encoder_positions(
                 telemetry_data["tangentEncoderPositions"]
             )
-            await self._message_telemetry.write_axial_actuator_steps(
-                telemetry_data["axialActuatorSteps"]
-            )
-            await self._message_telemetry.write_tangent_actuator_steps(
-                telemetry_data["tangentActuatorSteps"]
-            )
-            await self._message_telemetry.write_force_error_tangent(
-                telemetry_data["forceErrorTangent"]
-            )
-            await self._message_telemetry.write_inclinometer_angle_tma(
-                telemetry_data["inclinometerAngleTma"]
-            )
+            await self._message_telemetry.write_axial_actuator_steps(telemetry_data["axialActuatorSteps"])
+            await self._message_telemetry.write_tangent_actuator_steps(telemetry_data["tangentActuatorSteps"])
+            await self._message_telemetry.write_force_error_tangent(telemetry_data["forceErrorTangent"])
+            await self._message_telemetry.write_inclinometer_angle_tma(telemetry_data["inclinometerAngleTma"])
 
     async def _process_message_telemetry(self) -> None:
         """Read and process data from telemetry server."""
@@ -754,9 +690,7 @@ class MockServer:
             name = msg_tel["id"].lower()
             component = msg_tel["compName"].lower()
             if (name == "tel_elevation") and (component == "mtmount"):
-                self.model.set_inclinometer_angle(
-                    msg_tel["actualPosition"], is_external=True
-                )
+                self.model.set_inclinometer_angle(msg_tel["actualPosition"], is_external=True)
 
         except asyncio.TimeoutError:
             pass
@@ -779,9 +713,7 @@ class MockServer:
 
     async def start(self) -> None:
         """Start the command and telemetry TCP/IP servers."""
-        await asyncio.gather(
-            self.server_command.start_task, self.server_telemetry.start_task
-        )
+        await asyncio.gather(self.server_command.start_task, self.server_telemetry.start_task)
 
         self.model.error_handler.add_new_error(MockErrorCode.LostConnection.value)
 

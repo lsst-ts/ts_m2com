@@ -88,11 +88,7 @@ class ErrorHandler:
             self.list_code_total.append(error_code)
 
             if error_code >= MINIMUM_ERROR_CODE:
-                list_code = (
-                    self._list_code_error
-                    if value[1] == "Fault"
-                    else self._list_code_warning
-                )
+                list_code = self._list_code_error if value[1] == "Fault" else self._list_code_warning
                 list_code.append(error_code)
 
     def clear(self) -> None:
@@ -168,9 +164,7 @@ class ErrorHandler:
         """
         self._add_new_item(self._errors_new, self._errors_reported, code)
 
-    def _add_new_item(
-        self, set_new: set[int], set_reported: set[int], item: int
-    ) -> None:
+    def _add_new_item(self, set_new: set[int], set_reported: set[int], item: int) -> None:
         """Add the new item to set.
 
         The existed item will not be added.
@@ -368,9 +362,7 @@ class ErrorHandler:
         errors_and_warnings = self._errors_reported.union(self._warnings_reported)
         return self.get_summary_faults_status_from_codes(list(errors_and_warnings))
 
-    def calc_enabled_faults_mask(
-        self, codes: set, original_mask: int
-    ) -> tuple[int, list]:
+    def calc_enabled_faults_mask(self, codes: set, original_mask: int) -> tuple[int, list]:
         """Calculate the new enabled faults mask.
 
         Parameters

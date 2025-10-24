@@ -48,9 +48,7 @@ class MockMessageEvent:
     def __init__(self, server: OneClientServer | None) -> None:
         self.server = server
 
-        self.configuration_file = (
-            "Configurable_File_Description_20180831T092556_surrogate_handling.csv"
-        )
+        self.configuration_file = "Configurable_File_Description_20180831T092556_surrogate_handling.csv"
 
     async def write_m2_assembly_in_position(self, in_position: bool) -> None:
         """Write the message: M2 assembly is in position or not.
@@ -62,9 +60,7 @@ class MockMessageEvent:
         """
 
         if self.server is not None:
-            await self.server.write_json(
-                {"id": "m2AssemblyInPosition", "inPosition": in_position}
-            )
+            await self.server.write_json({"id": "m2AssemblyInPosition", "inPosition": in_position})
 
     async def write_cell_temperature_high_warning(self, hi_warning: bool) -> None:
         """Write the message: cell temperature is high or not.
@@ -76,9 +72,7 @@ class MockMessageEvent:
         """
 
         if self.server is not None:
-            await self.server.write_json(
-                {"id": "cellTemperatureHiWarning", "hiWarning": hi_warning}
-            )
+            await self.server.write_json({"id": "cellTemperatureHiWarning", "hiWarning": hi_warning})
 
     async def write_commandable_by_dds(self, state: bool) -> None:
         """Write the message: commandable by DDS or not.
@@ -114,9 +108,7 @@ class MockMessageEvent:
         """
 
         if self.server is not None:
-            await self.server.write_json(
-                {"id": "tcpIpConnected", "isConnected": is_connected}
-            )
+            await self.server.write_json({"id": "tcpIpConnected", "isConnected": is_connected})
 
     async def write_hardpoint_list(self, actuators: list[int]) -> None:
         """Write the message: hardpoint list.
@@ -128,9 +120,7 @@ class MockMessageEvent:
         """
 
         if self.server is not None:
-            await self.server.write_json(
-                {"id": "hardpointList", "actuators": actuators}
-            )
+            await self.server.write_json({"id": "hardpointList", "actuators": actuators})
 
     async def write_bypassed_actuator_ilcs(self, ilcs: list[int]) -> None:
         """Write the message: bypassed actuator inner-loop controllers (ILCs).
@@ -154,13 +144,9 @@ class MockMessageEvent:
         """
 
         if self.server is not None:
-            await self.server.write_json(
-                {"id": "forceBalanceSystemStatus", "status": status}
-            )
+            await self.server.write_json({"id": "forceBalanceSystemStatus", "status": status})
 
-    async def write_inclination_telemetry_source(
-        self, is_external_source: bool
-    ) -> None:
+    async def write_inclination_telemetry_source(self, is_external_source: bool) -> None:
         """Write the message: inclination telemetry source.
 
         Parameters
@@ -211,9 +197,7 @@ class MockMessageEvent:
         """
 
         if self.server is not None:
-            await self.server.write_json(
-                {"id": "scriptExecutionStatus", "percentage": percentage}
-            )
+            await self.server.write_json({"id": "scriptExecutionStatus", "percentage": percentage})
 
     async def write_digital_output(self, digital_output: int) -> None:
         """Write the message: digital output.
@@ -225,9 +209,7 @@ class MockMessageEvent:
         """
 
         if self.server is not None:
-            await self.server.write_json(
-                {"id": "digitalOutput", "value": digital_output}
-            )
+            await self.server.write_json({"id": "digitalOutput", "value": digital_output})
 
     async def write_digital_input(self, digital_input: int) -> None:
         """Write the message: digital input.
@@ -288,9 +270,7 @@ class MockMessageEvent:
             Look-up table parameters.
         """
 
-        result = re.match(
-            r"\S+_\S+_(\w+)_(\w+)_([a-zA-z]+).csv", self.configuration_file
-        )
+        result = re.match(r"\S+_\S+_(\w+)_(\w+)_([a-zA-z]+).csv", self.configuration_file)
         if result is not None:
             control_parameters = (
                 "CtrlParameterFiles_2018-07-19_104257_m2"
@@ -298,9 +278,7 @@ class MockMessageEvent:
                 else "CtrlParameterFiles_2018-07-19_104314_surg"
             )
             lut_parameters = (
-                "FinalOpticalLUTs"
-                if (result.groups()[2].lower() == "optical")
-                else "FinalHandlingLUTs"
+                "FinalOpticalLUTs" if (result.groups()[2].lower() == "optical") else "FinalHandlingLUTs"
             )
 
             return result.groups()[0], control_parameters, lut_parameters
@@ -371,9 +349,7 @@ class MockMessageEvent:
                 },
             )
 
-    async def write_closed_loop_control_mode(
-        self, mode: MTM2.ClosedLoopControlMode
-    ) -> None:
+    async def write_closed_loop_control_mode(self, mode: MTM2.ClosedLoopControlMode) -> None:
         """Write the message: closed-loop control mode.
 
         Parameters
@@ -390,9 +366,7 @@ class MockMessageEvent:
                 },
             )
 
-    async def write_inner_loop_control_mode(
-        self, address: int, mode: MTM2.InnerLoopControlMode
-    ) -> None:
+    async def write_inner_loop_control_mode(self, address: int, mode: MTM2.InnerLoopControlMode) -> None:
         """Write the message: inner-loop control mode.
 
         Parameters
@@ -422,9 +396,7 @@ class MockMessageEvent:
         """
 
         if self.server is not None:
-            await self.server.write_json(
-                {"id": "summaryFaultsStatus", "status": status}
-            )
+            await self.server.write_json({"id": "summaryFaultsStatus", "status": status})
 
     async def write_enabled_faults_mask(self, mask: int) -> None:
         """Write the message: enabled faults mask.

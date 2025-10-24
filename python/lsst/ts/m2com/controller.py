@@ -131,28 +131,20 @@ class Controller:
 
         # Callback functions and related arguments to process the
         # event and telemetry
-        self._callback_process_event: typing.Callable[..., typing.Coroutine] | None = (
-            None
-        )
+        self._callback_process_event: typing.Callable[..., typing.Coroutine] | None = None
         self._args_callback_process_event: typing.Any = None
 
-        self._callback_process_telemetry: (
-            typing.Callable[..., typing.Coroutine] | None
-        ) = None
+        self._callback_process_telemetry: typing.Callable[..., typing.Coroutine] | None = None
         self._args_callback_process_telemetry: typing.Any = None
 
         # Callback function to deal with the lost of connection
-        self._callback_process_lost_connection: (
-            typing.Callable[..., typing.Coroutine] | None
-        ) = None
+        self._callback_process_lost_connection: typing.Callable[..., typing.Coroutine] | None = None
         self._args_callback_process_lost_connection: typing.Any = None
 
     def set_ilc_modes_to_unknown(self) -> None:
         """Set the inner-loop controller (ILC) modes to unknown."""
 
-        self.ilc_modes = np.array(
-            [MTM2.InnerLoopControlMode.Unknown] * NUM_INNER_LOOP_CONTROLLER
-        )
+        self.ilc_modes = np.array([MTM2.InnerLoopControlMode.Unknown] * NUM_INNER_LOOP_CONTROLLER)
 
     def set_ilc_modes_to_nan(self) -> None:
         """Set the inner-loop controller (ILC) modes to NaN."""
@@ -307,9 +299,7 @@ class Controller:
                     self.log.info("Lost the TCP/IP connection in the connection loop.")
 
                     # Process the lost of connection
-                    await self._callback_process_lost_connection(
-                        *self._args_callback_process_lost_connection
-                    )
+                    await self._callback_process_lost_connection(*self._args_callback_process_lost_connection)
 
                     await self._close_clients()
 
@@ -354,9 +344,7 @@ class Controller:
 
         self.log.info("Stop the connection loop with servers.")
 
-    async def _analyze_command_status_and_event(
-        self, message: dict | None = None
-    ) -> None:
+    async def _analyze_command_status_and_event(self, message: dict | None = None) -> None:
         """Analyze the command status and event.
 
         Parameters
@@ -446,9 +434,7 @@ class Controller:
         if sequence_id == self.client_command.last_sequence_id:
             return self._get_command_status_from_message_name(message_name)
         else:
-            self.log.info(
-                f"Get the command status = {message_name}. The sequence id = {sequence_id}."
-            )
+            self.log.info(f"Get the command status = {message_name}. The sequence id = {sequence_id}.")
             return CommandStatus.Unknown
 
     def _get_command_status_from_message_name(self, message_name: str) -> CommandStatus:
@@ -495,19 +481,14 @@ class Controller:
                 power_type = MTM2.PowerType(power_type_value)
                 state = MTM2.PowerSystemState(state_value)
             except ValueError:
-                self.log.debug(
-                    f"Get the unknown power type ({power_type_value}) or "
-                    f"state ({state_value})."
-                )
+                self.log.debug(f"Get the unknown power type ({power_type_value}) or state ({state_value}).")
 
             if (power_type == MTM2.PowerType.Motor) and (state is not None):
                 self.power_system_status["motor_power_is_on"] = message["status"]
                 self.power_system_status["motor_power_state"] = state
 
             elif (power_type == MTM2.PowerType.Communication) and (state is not None):
-                self.power_system_status["communication_power_is_on"] = message[
-                    "status"
-                ]
+                self.power_system_status["communication_power_is_on"] = message["status"]
                 self.power_system_status["communication_power_state"] = state
 
     def _update_closed_loop_control_mode(self, message: dict) -> None:
@@ -541,10 +522,7 @@ class Controller:
                 mode = message["mode"]
                 self.ilc_modes[address] = MTM2.InnerLoopControlMode(mode)
             except (IndexError, ValueError):
-                self.log.debug(
-                    f"Get the unknown address ({address}) or inner "
-                    f"loop control mode ({mode})."
-                )
+                self.log.debug(f"Get the unknown address ({address}) or inner loop control mode ({mode}).")
 
     def _update_bypassed_actuator_ilcs(self, message: dict) -> None:
         """Check and update the bypassed actuator inner-loop controllers
@@ -632,9 +610,7 @@ class Controller:
         assert self._callback_process_event is not None
 
         try:
-            await self._callback_process_event(
-                *self._args_callback_process_event, message=message
-            )
+            await self._callback_process_event(*self._args_callback_process_event, message=message)
 
         except Exception as error:
             self.log.debug(f"Error in processing the event: {message}. {error!r}.")
@@ -737,9 +713,7 @@ class Controller:
         # Send the command
         await cancel_task_and_wait(self._task_check_command_status)
         self._task_check_command_status = asyncio.Future()
-        await self.client_command.write_message(
-            MsgType.Command, message_name, msg_details=message_details
-        )
+        await self.client_command.write_message(MsgType.Command, message_name, msg_details=message_details)
 
         is_successful = await self._check_command_status(message_name, timeout)
 
@@ -763,9 +737,7 @@ class Controller:
         """
 
         try:
-            command_status = await asyncio.wait_for(
-                self._task_check_command_status, timeout=timeout
-            )
+            command_status = await asyncio.wait_for(self._task_check_command_status, timeout=timeout)
 
         except TimeoutError:
             self.log.debug(f"Timeout to wait for the command status of {command_name}.")
@@ -808,9 +780,7 @@ class Controller:
 
         if expected_state is None:
             expected_state = (
-                MTM2.PowerSystemState.PoweredOn
-                if status is True
-                else MTM2.PowerSystemState.PoweredOff
+                MTM2.PowerSystemState.PoweredOn if status is True else MTM2.PowerSystemState.PoweredOff
             )
 
         is_expected = await self._check_expected_value(
@@ -941,18 +911,14 @@ class Controller:
             timeout=timeout,
         )
 
-        is_expected = await self._check_expected_value(
-            self._callback_check_clc_mode, mode, timeout=timeout
-        )
+        is_expected = await self._check_expected_value(self._callback_check_clc_mode, mode, timeout=timeout)
         if not is_expected:
             raise RuntimeError(
                 f"Closed-loop control mode is {self.closed_loop_control_mode!r} "
                 f"instead of {mode!r} in timeout."
             )
 
-    def _callback_check_clc_mode(
-        self, expected_mode: MTM2.ClosedLoopControlMode
-    ) -> bool:
+    def _callback_check_clc_mode(self, expected_mode: MTM2.ClosedLoopControlMode) -> bool:
         """Callback function to check the closed-loop control (CLC) mode is
         expected or not.
 
@@ -1035,9 +1001,7 @@ class Controller:
 
             # For the unknown state, try to get the state again
             addresses_unknown = self._get_available_ilcs(
-                np.where(self.ilc_modes == MTM2.InnerLoopControlMode.Unknown)[
-                    0
-                ].tolist()
+                np.where(self.ilc_modes == MTM2.InnerLoopControlMode.Unknown)[0].tolist()
             )
             if len(addresses_unknown) != 0:
                 await self.get_ilc_modes(addresses_unknown)
@@ -1111,9 +1075,7 @@ class Controller:
 
             # Break the loop if all ILCs are in Enabled state.
             addresses_not_enabled = self._get_available_ilcs(
-                np.where(self.ilc_modes != MTM2.InnerLoopControlMode.Enabled)[
-                    0
-                ].tolist()
+                np.where(self.ilc_modes != MTM2.InnerLoopControlMode.Enabled)[0].tolist()
             )
             all_modes_are_enabled = len(addresses_not_enabled) == 0
             if all_modes_are_enabled:
@@ -1123,14 +1085,11 @@ class Controller:
         if reset_nan_first and (not all_modes_are_received):
             addresses_nan = np.where(np.isnan(self.ilc_modes))[0].tolist()
             raise RuntimeError(
-                f"No response for the following ILCs: {addresses_nan} after "
-                f"{retry_times} times of retrying."
+                f"No response for the following ILCs: {addresses_nan} after {retry_times} times of retrying."
             )
 
         if not all_modes_are_clear:
-            addresses_unknown = np.where(
-                self.ilc_modes == MTM2.InnerLoopControlMode.Unknown
-            )[0].tolist()
+            addresses_unknown = np.where(self.ilc_modes == MTM2.InnerLoopControlMode.Unknown)[0].tolist()
             modbus_ids_unknown = [address + 1 for address in addresses_unknown]
             raise RuntimeError(
                 f"Following ILCs have the unknown states: {addresses_unknown}. "
@@ -1138,18 +1097,14 @@ class Controller:
             )
 
         if not all_modes_are_enabled:
-            addresses_not_enabled = np.where(
-                self.ilc_modes != MTM2.InnerLoopControlMode.Enabled
-            )[0].tolist()
+            addresses_not_enabled = np.where(self.ilc_modes != MTM2.InnerLoopControlMode.Enabled)[0].tolist()
             for address in addresses_not_enabled:
                 self.log.debug(
                     f"ILC {address} is {MTM2.InnerLoopControlMode(self.ilc_modes[address])!r} "
-                    f"with the ModBUS ID: {address+1}."
+                    f"with the ModBUS ID: {address + 1}."
                 )
 
-            raise RuntimeError(
-                f"Following ILCs are not Enabled: {addresses_not_enabled}."
-            )
+            raise RuntimeError(f"Following ILCs are not Enabled: {addresses_not_enabled}.")
 
     async def get_ilc_modes(self, addresses: list[int], timeout: float = 10.0) -> None:
         """Get the inner-loop controller (ILC) modes.
@@ -1208,9 +1163,7 @@ class Controller:
             True if all ILC modes are known. Otherwise, False.
         """
 
-        indexes = np.where(self.ilc_modes == MTM2.InnerLoopControlMode.Unknown)[
-            0
-        ].tolist()
+        indexes = np.where(self.ilc_modes == MTM2.InnerLoopControlMode.Unknown)[0].tolist()
         return len(self._get_available_ilcs(indexes)) == 0
 
     async def _set_ilc_mode(
@@ -1300,14 +1253,10 @@ class Controller:
         """
 
         if is_actuator_ilc:
-            indexes = np.where(self.ilc_modes[:NUM_ACTUATOR] != expected_mode)[
-                0
-            ].tolist()
+            indexes = np.where(self.ilc_modes[:NUM_ACTUATOR] != expected_mode)[0].tolist()
 
         elif is_sensor_ilc:
-            indexes = np.where(self.ilc_modes[NUM_ACTUATOR:] != expected_mode)[
-                0
-            ].tolist()
+            indexes = np.where(self.ilc_modes[NUM_ACTUATOR:] != expected_mode)[0].tolist()
 
         else:
             indexes = np.where(self.ilc_modes != expected_mode)[0].tolist()
@@ -1498,9 +1447,7 @@ class Controller:
         """
 
         # Update the control parameters
-        self.control_parameters["use_external_elevation_angle"] = (
-            use_external_elevation_angle
-        )
+        self.control_parameters["use_external_elevation_angle"] = use_external_elevation_angle
 
         if max_angle_difference is not None:
             self.control_parameters["max_angle_difference"] = max_angle_difference
@@ -1546,9 +1493,7 @@ class Controller:
             timeout=timeout,
         )
 
-    async def switch_force_balance_system(
-        self, status: bool, timeout: float = 10.0
-    ) -> None:
+    async def switch_force_balance_system(self, status: bool, timeout: float = 10.0) -> None:
         """Switch the force balance system.
 
         Parameters
@@ -1576,7 +1521,6 @@ class Controller:
         # not. We need to check these conditions because some ILCs might be
         # bypassed in the cell control system.
         if status is True:
-
             # Check the gravity LUT
             if not self.control_parameters["enable_lut_inclinometer"]:
                 raise RuntimeError("Gravity LUT needs to be Enabled.")
@@ -1585,9 +1529,7 @@ class Controller:
             # the hardpoint ILCs here. In the closed-loop control, we need to
             # know the measured forces of hardpoints to do the hardpoint
             # compensation.
-            if not np.all(
-                self.ilc_modes[:NUM_ACTUATOR] == MTM2.InnerLoopControlMode.Enabled
-            ):
+            if not np.all(self.ilc_modes[:NUM_ACTUATOR] == MTM2.InnerLoopControlMode.Enabled):
                 raise RuntimeError("All actuator ILCs need to be Enabled.")
 
             # Check the inclinometer ILC (ILC-84)
@@ -1602,9 +1544,7 @@ class Controller:
 
             # Check the warning of temperature sensor
             if self.control_parameters["enable_lut_temperature"] and (
-                self.error_handler.has_warning(
-                    ErrorCodeWarning.TemperatureSensorOutOfRange
-                )
+                self.error_handler.has_warning(ErrorCodeWarning.TemperatureSensorOutOfRange)
             ):
                 raise RuntimeError("Temperature sensor is out of range.")
 
@@ -1631,9 +1571,7 @@ class Controller:
                 comp_name="MTMount",
             )
 
-    async def enable_open_loop_max_limit(
-        self, status: bool, timeout: float = 10.0
-    ) -> None:
+    async def enable_open_loop_max_limit(self, status: bool, timeout: float = 10.0) -> None:
         """Enable the maximum limit in open-loop control.
 
         Parameters
@@ -1657,9 +1595,7 @@ class Controller:
                 timeout=timeout,
             )
         else:
-            raise RuntimeError(
-                f"Failed to enable the maximum limit. Forbidden in {closed_loop!r}."
-            )
+            raise RuntimeError(f"Failed to enable the maximum limit. Forbidden in {closed_loop!r}.")
 
     async def save_position(self, timeout: float = 10.0) -> None:
         """Save the rigid body position.
@@ -1699,9 +1635,7 @@ class Controller:
         except RuntimeError:
             self.log.exception("Bypassing RuntimeError after rebooting the controller.")
 
-    async def switch_command_source(
-        self, is_remote: bool, timeout: float = 10.0
-    ) -> None:
+    async def switch_command_source(self, is_remote: bool, timeout: float = 10.0) -> None:
         """Switch the command source.
 
         Parameters
@@ -1742,9 +1676,7 @@ class Controller:
             timeout=timeout,
         )
 
-    async def reset_breakers(
-        self, power_type: MTM2.PowerType, timeout: float = 10.0
-    ) -> None:
+    async def reset_breakers(self, power_type: MTM2.PowerType, timeout: float = 10.0) -> None:
         """Reset the breakers.
 
         Parameters
@@ -1842,13 +1774,9 @@ class Controller:
             )
 
         else:
-            raise RuntimeError(
-                f"Failed to command the actuator. Only allow in {open_loop!r}."
-            )
+            raise RuntimeError(f"Failed to command the actuator. Only allow in {open_loop!r}.")
 
-    async def set_hardpoint_list(
-        self, hardpoints: list[int], timeout: float = 10.0
-    ) -> None:
+    async def set_hardpoint_list(self, hardpoints: list[int], timeout: float = 10.0) -> None:
         """Set the hardpoint list.
 
         Parameters
@@ -1877,8 +1805,7 @@ class Controller:
         """
 
         return self.power_system_status["communication_power_is_on"] and (
-            self.power_system_status["communication_power_state"]
-            == MTM2.PowerSystemState.PoweredOn
+            self.power_system_status["communication_power_state"] == MTM2.PowerSystemState.PoweredOn
         )
 
     def is_powered_on_motor(self) -> bool:
@@ -1891,6 +1818,5 @@ class Controller:
         """
 
         return self.power_system_status["motor_power_is_on"] and (
-            self.power_system_status["motor_power_state"]
-            == MTM2.PowerSystemState.PoweredOn
+            self.power_system_status["motor_power_state"] == MTM2.PowerSystemState.PoweredOn
         )

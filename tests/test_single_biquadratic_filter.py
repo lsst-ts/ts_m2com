@@ -27,9 +27,7 @@ from lsst.ts.m2com import SingleBiquadraticFilter
 
 
 class SingleBiquadraticFilterVerification:
-    def __init__(
-        self, a11: float, a21: float, b11: float, b21: float, num_element: int
-    ) -> None:
+    def __init__(self, a11: float, a21: float, b11: float, b21: float, num_element: int) -> None:
         self._a11 = a11
         self._a21 = a21
         self._b11 = b11
@@ -41,9 +39,7 @@ class SingleBiquadraticFilterVerification:
         self._y_m1 = np.zeros(num_element)
         self._y_m2 = np.zeros(num_element)
 
-    def filter(
-        self, value: numpy.typing.NDArray[np.float64]
-    ) -> numpy.typing.NDArray[np.float64]:
+    def filter(self, value: numpy.typing.NDArray[np.float64]) -> numpy.typing.NDArray[np.float64]:
         # Filtered value
         y = (
             value
@@ -68,9 +64,7 @@ class TestSingleBiquadraticFilter(unittest.TestCase):
 
     def setUp(self) -> None:
         self.bqd_filter = SingleBiquadraticFilter(2.0, 3.0, 4.0, 5.0, 2)
-        self.bqd_filter_verification = SingleBiquadraticFilterVerification(
-            2.0, 3.0, 4.0, 5.0, 2
-        )
+        self.bqd_filter_verification = SingleBiquadraticFilterVerification(2.0, 3.0, 4.0, 5.0, 2)
 
     def test_filter(self) -> None:
         value_bqd = np.array([0.1, 0.3])

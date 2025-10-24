@@ -139,9 +139,7 @@ class MockControlOpenLoop:
 
         self.is_running = True
 
-    def _calculate_steps(
-        self, displacement: int | float, unit: ActuatorDisplacementUnit
-    ) -> int:
+    def _calculate_steps(self, displacement: int | float, unit: ActuatorDisplacementUnit) -> int:
         """Calculate the steps of displacement.
 
         Parameters

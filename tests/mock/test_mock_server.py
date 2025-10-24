@@ -148,16 +148,17 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
         finally:
             await asyncio.gather(client_cmd.close(), client_tel.close())
 
-    async def _callback_process_message(
-        self, queue: asyncio.Queue, message: dict | None = None
-    ) -> None:
+    async def _callback_process_message(self, queue: asyncio.Queue, message: dict | None = None) -> None:
         if message is not None:
             queue.put_nowait(message)
 
     async def test_are_servers_connected(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             self.assertTrue(server.are_servers_connected())
 
@@ -192,9 +193,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             # Check the inclination telemetry source
             msg_tel_src = self.queue_cmd.get_nowait()
             self.assertEqual(msg_tel_src["id"], "inclinationTelemetrySource")
-            self.assertEqual(
-                msg_tel_src["source"], int(MTM2.InclinationTelemetrySource.ONBOARD)
-            )
+            self.assertEqual(msg_tel_src["source"], int(MTM2.InclinationTelemetrySource.ONBOARD))
 
             # Check the temperature offset
             msg_temp_offset = self.queue_cmd.get_nowait()
@@ -202,9 +201,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(msg_temp_offset["ring"], [21.0] * NUM_TEMPERATURE_RING)
             self.assertEqual(msg_temp_offset["intake"], [0.0] * NUM_TEMPERATURE_INTAKE)
-            self.assertEqual(
-                msg_temp_offset["exhaust"], [0.0] * NUM_TEMPERATURE_EXHAUST
-            )
+            self.assertEqual(msg_temp_offset["exhaust"], [0.0] * NUM_TEMPERATURE_EXHAUST)
 
             msg_digital_input = self.queue_cmd.get_nowait()
             self.assertEqual(msg_digital_input["id"], "digitalInput")
@@ -233,13 +230,9 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             msg_power_communication = self.queue_cmd.get_nowait()
             self.assertEqual(msg_power_communication["id"], "powerSystemState")
-            self.assertEqual(
-                msg_power_communication["powerType"], MTM2.PowerType.Communication
-            )
+            self.assertEqual(msg_power_communication["powerType"], MTM2.PowerType.Communication)
             self.assertFalse(msg_power_communication["status"])
-            self.assertEqual(
-                msg_power_communication["state"], MTM2.PowerSystemState.Init
-            )
+            self.assertEqual(msg_power_communication["state"], MTM2.PowerSystemState.Init)
 
             msg_power_motor = self.queue_cmd.get_nowait()
             self.assertEqual(msg_power_motor["id"], "powerSystemState")
@@ -251,14 +244,15 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 msg_ilc = self.queue_cmd.get_nowait()
                 self.assertEqual(msg_ilc["id"], "innerLoopControlMode")
                 self.assertEqual(msg_ilc["address"], address)
-                self.assertEqual(
-                    msg_ilc["mode"], MTM2.InnerLoopControlMode.Unknown.value
-                )
+                self.assertEqual(msg_ilc["mode"], MTM2.InnerLoopControlMode.Unknown.value)
 
     async def test_monitor_msg_cmd_ack(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             await client_cmd.write_message(MsgType.Command, "resetForceOffsets")
             await asyncio.sleep(0.5)
@@ -268,9 +262,12 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(msg_ack["sequence_id"], 1)
 
     async def test_monitor_msg_cmd_success(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             await client_cmd.write_message(MsgType.Command, "resetForceOffsets")
             await asyncio.sleep(0.5)
@@ -280,9 +277,12 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(msg_success["sequence_id"], 1)
 
     async def test_cmd_unknown(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             await client_cmd.write_message(MsgType.Command, "unknown")
             await asyncio.sleep(0.5)
@@ -292,23 +292,27 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(msg_noack["id"], "noack")
 
     async def test_cell_temperature_high_warning(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             server.model.control_closed_loop.temperature["exhaust"] = [99.0, 99.0]
             await asyncio.sleep(0.5)
 
-            msg_high_temp = get_queue_message_latest(
-                self.queue_cmd, "cellTemperatureHiWarning"
-            )
+            msg_high_temp = get_queue_message_latest(self.queue_cmd, "cellTemperatureHiWarning")
 
             self.assertTrue(msg_high_temp["hiWarning"])
 
     async def test_cmd_reset_breakers_fail(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             # Command should fail because there is no communication power
             await client_cmd.write_message(
@@ -323,9 +327,12 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(msg_fail["id"], "fail")
 
     async def test_cmd_power_success(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             await server.model.power_communication.power_on()
 
@@ -338,26 +345,16 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             # Get the success of command because of sleeping time in power
             # command
-            msg_success = get_queue_message_latest(
-                self.queue_cmd, "success", flush=False
-            )
+            msg_success = get_queue_message_latest(self.queue_cmd, "success", flush=False)
             self.assertEqual(msg_success["id"], "success")
 
             self.assertTrue(server.model.power_motor.is_power_on())
 
-            msg_digital_input = get_queue_message_latest(
-                self.queue_cmd, "digitalInput", flush=False
-            )
-            self.assertEqual(
-                msg_digital_input["value"], TEST_DIGITAL_INPUT_POWER_COMM_MOTOR
-            )
+            msg_digital_input = get_queue_message_latest(self.queue_cmd, "digitalInput", flush=False)
+            self.assertEqual(msg_digital_input["value"], TEST_DIGITAL_INPUT_POWER_COMM_MOTOR)
 
-            msg_digital_output = get_queue_message_latest(
-                self.queue_cmd, "digitalOutput", flush=False
-            )
-            self.assertEqual(
-                msg_digital_output["value"], TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR
-            )
+            msg_digital_output = get_queue_message_latest(self.queue_cmd, "digitalOutput", flush=False)
+            self.assertEqual(msg_digital_output["value"], TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR)
 
             msg_open_loop_max_limit = get_queue_message_latest(
                 self.queue_cmd, "openLoopMaxLimit", flush=False
@@ -365,9 +362,12 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(msg_open_loop_max_limit["status"])
 
     async def test_cmd_power_off_motor(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             await server.model.power_communication.power_on()
             await server.model.power_motor.power_on()
@@ -380,25 +380,17 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             await asyncio.sleep(1)
 
-            msg_fb = get_queue_message_latest(
-                self.queue_cmd, "forceBalanceSystemStatus", flush=False
-            )
+            msg_fb = get_queue_message_latest(self.queue_cmd, "forceBalanceSystemStatus", flush=False)
             self.assertFalse(msg_fb["status"])
 
             self.assertFalse(server.model.power_motor.is_power_on())
             self.assertFalse(server.model.control_closed_loop.is_running)
 
-            msg_digital_input = get_queue_message_latest(
-                self.queue_cmd, "digitalInput", flush=False
-            )
+            msg_digital_input = get_queue_message_latest(self.queue_cmd, "digitalInput", flush=False)
             self.assertEqual(msg_digital_input["value"], TEST_DIGITAL_INPUT_POWER_COMM)
 
-            msg_digital_output = get_queue_message_latest(
-                self.queue_cmd, "digitalOutput", flush=False
-            )
-            self.assertEqual(
-                msg_digital_output["value"], TEST_DIGITAL_OUTPUT_POWER_COMM
-            )
+            msg_digital_output = get_queue_message_latest(self.queue_cmd, "digitalOutput", flush=False)
+            self.assertEqual(msg_digital_output["value"], TEST_DIGITAL_OUTPUT_POWER_COMM)
 
             msg_open_loop_max_limit = get_queue_message_latest(
                 self.queue_cmd, "openLoopMaxLimit", flush=False
@@ -406,9 +398,12 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(msg_open_loop_max_limit["status"])
 
     async def test_cmd_power_off_communication(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             await server.model.power_communication.power_on()
 
@@ -422,25 +417,22 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             await asyncio.sleep(1)
 
-            msg_success = get_queue_message_latest(
-                self.queue_cmd, "success", flush=False
-            )
+            msg_success = get_queue_message_latest(self.queue_cmd, "success", flush=False)
             self.assertEqual(msg_success["id"], "success")
 
-            msg_digital_input = get_queue_message_latest(
-                self.queue_cmd, "digitalInput", flush=False
-            )
+            msg_digital_input = get_queue_message_latest(self.queue_cmd, "digitalInput", flush=False)
             self.assertEqual(msg_digital_input["value"], TEST_DIGITAL_INPUT_NO_POWER)
 
-            msg_digital_output = get_queue_message_latest(
-                self.queue_cmd, "digitalOutput", flush=False
-            )
+            msg_digital_output = get_queue_message_latest(self.queue_cmd, "digitalOutput", flush=False)
             self.assertEqual(msg_digital_output["value"], TEST_DIGITAL_OUTPUT_NO_POWER)
 
     async def test_cmd_power_on_check_state(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             await client_cmd.write_message(
                 MsgType.Command,
@@ -450,33 +442,26 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             await asyncio.sleep(1)
 
-            msg_power_system_state = collect_queue_messages(
-                self.queue_cmd, "powerSystemState", flush=False
-            )
+            msg_power_system_state = collect_queue_messages(self.queue_cmd, "powerSystemState", flush=False)
 
             # The first two messages come from the welcome messages
             self.assertEqual(len(msg_power_system_state), 4)
-            self.assertEqual(
-                msg_power_system_state[2]["powerType"], MTM2.PowerType.Motor.value
-            )
+            self.assertEqual(msg_power_system_state[2]["powerType"], MTM2.PowerType.Motor.value)
             self.assertTrue(msg_power_system_state[2]["status"])
-            self.assertEqual(
-                msg_power_system_state[2]["state"], MTM2.PowerSystemState.PoweringOn
-            )
-            self.assertEqual(
-                msg_power_system_state[3]["state"], MTM2.PowerSystemState.PoweredOn
-            )
+            self.assertEqual(msg_power_system_state[2]["state"], MTM2.PowerSystemState.PoweringOn)
+            self.assertEqual(msg_power_system_state[3]["state"], MTM2.PowerSystemState.PoweredOn)
 
-            msg_summary_faults_status = get_queue_message_latest(
-                self.queue_cmd, "summaryFaultsStatus"
-            )
+            msg_summary_faults_status = get_queue_message_latest(self.queue_cmd, "summaryFaultsStatus")
 
             self.assertEqual(msg_summary_faults_status["status"], 2**34)
 
     async def test_cmd_power_off_check_state(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             await client_cmd.write_message(
                 MsgType.Command,
@@ -489,9 +474,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             await asyncio.sleep(1)
 
-            msg_power_system_state = collect_queue_messages(
-                self.queue_cmd, "powerSystemState"
-            )
+            msg_power_system_state = collect_queue_messages(self.queue_cmd, "powerSystemState")
 
             # The first two messages come from the welcome messages
             self.assertEqual(len(msg_power_system_state), 4)
@@ -500,17 +483,16 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 MTM2.PowerType.Communication.value,
             )
             self.assertFalse(msg_power_system_state[2]["status"])
-            self.assertEqual(
-                msg_power_system_state[2]["state"], MTM2.PowerSystemState.PoweringOff
-            )
-            self.assertEqual(
-                msg_power_system_state[3]["state"], MTM2.PowerSystemState.PoweredOff
-            )
+            self.assertEqual(msg_power_system_state[2]["state"], MTM2.PowerSystemState.PoweringOff)
+            self.assertEqual(msg_power_system_state[3]["state"], MTM2.PowerSystemState.PoweredOff)
 
     async def test_cmd_apply_forces(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             force_axial = [1] * (NUM_ACTUATOR - NUM_TANGENT_LINK)
             force_tangent = [2] * NUM_TANGENT_LINK
@@ -532,9 +514,12 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
 
     async def test_cmd_position_mirror(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             await server.model.power_motor.power_on()
             server.model.switch_force_balance_system(True)
@@ -550,48 +535,44 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             await asyncio.sleep(3.0)
 
-            msg_in_position = get_queue_message_latest(
-                self.queue_cmd, "m2AssemblyInPosition"
-            )
+            msg_in_position = get_queue_message_latest(self.queue_cmd, "m2AssemblyInPosition")
 
             self.assertTrue(msg_in_position["inPosition"])
             for axis, value in mirror_position_set_point.items():
-                self.assertAlmostEqual(
-                    server.model.mirror_position[axis], value, places=1
-                )
+                self.assertAlmostEqual(server.model.mirror_position[axis], value, places=1)
 
     async def test_cmd_reset_force_offsets(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             server.model.control_closed_loop.axial_forces["applied"] = np.ones(
                 NUM_ACTUATOR - NUM_TANGENT_LINK
             )
-            server.model.control_closed_loop.tangent_forces["applied"] = np.ones(
-                NUM_TANGENT_LINK
-            )
+            server.model.control_closed_loop.tangent_forces["applied"] = np.ones(NUM_TANGENT_LINK)
 
             await client_cmd.write_message(MsgType.Command, "resetForceOffsets")
             await asyncio.sleep(0.5)
 
             self.assertEqual(
-                np.sum(
-                    np.abs(server.model.control_closed_loop.axial_forces["applied"])
-                ),
+                np.sum(np.abs(server.model.control_closed_loop.axial_forces["applied"])),
                 0,
             )
             self.assertEqual(
-                np.sum(
-                    np.abs(server.model.control_closed_loop.tangent_forces["applied"])
-                ),
+                np.sum(np.abs(server.model.control_closed_loop.tangent_forces["applied"])),
                 0,
             )
 
     async def test_cmd_clear_errors(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             # Put the system into Fault and wait for some error message
             server.model.fault(MockErrorCode.LimitSwitchTriggeredClosedloop)
@@ -611,9 +592,12 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(server.model.error_handler.exists_error())
 
     async def test_cmd_switch_force_balance_system_fail(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             await client_cmd.write_message(
                 MsgType.Command,
@@ -622,9 +606,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             await asyncio.sleep(0.5)
 
-            msg_fb = get_queue_message_latest(
-                self.queue_cmd, "forceBalanceSystemStatus", flush=False
-            )
+            msg_fb = get_queue_message_latest(self.queue_cmd, "forceBalanceSystemStatus", flush=False)
             self.assertFalse(msg_fb["status"])
 
             self.assertFalse(server.model.control_closed_loop.is_running)
@@ -634,15 +616,16 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             self.assertFalse(msg_open_loop_max_limit["status"])
 
-            msg_digital_output = get_queue_message_latest(
-                self.queue_cmd, "digitalOutput", flush=False
-            )
+            msg_digital_output = get_queue_message_latest(self.queue_cmd, "digitalOutput", flush=False)
             self.assertEqual(msg_digital_output["value"], TEST_DIGITAL_OUTPUT_NO_POWER)
 
     async def test_cmd_switch_force_balance_system_success(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             await server.model.power_communication.power_on()
             await server.model.power_motor.power_on()
@@ -653,9 +636,7 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             await asyncio.sleep(2)
 
-            msg_fb = get_queue_message_latest(
-                self.queue_cmd, "forceBalanceSystemStatus", flush=False
-            )
+            msg_fb = get_queue_message_latest(self.queue_cmd, "forceBalanceSystemStatus", flush=False)
             self.assertTrue(msg_fb["status"])
 
             self.assertTrue(server.model.control_closed_loop.is_running)
@@ -665,18 +646,19 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             self.assertFalse(msg_open_loop_max_limit["status"])
 
-            msg_digital_output = get_queue_message_latest(
-                self.queue_cmd, "digitalOutput", flush=False
-            )
+            msg_digital_output = get_queue_message_latest(self.queue_cmd, "digitalOutput", flush=False)
             self.assertEqual(
                 msg_digital_output["value"],
                 TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR_CLOSED_LOOP,
             )
 
     async def test_cmd_set_temperature_offset(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             ring = [11.0] * NUM_TEMPERATURE_RING
             intake = [11.0] * NUM_TEMPERATURE_INTAKE
@@ -688,31 +670,33 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             )
             await asyncio.sleep(0.5)
 
-            msg_temp_offset = get_queue_message_latest(
-                self.queue_cmd, "temperatureOffset"
-            )
+            msg_temp_offset = get_queue_message_latest(self.queue_cmd, "temperatureOffset")
 
             self.assertEqual(msg_temp_offset["ring"], ring)
             self.assertEqual(msg_temp_offset["intake"], [0.0] * NUM_TEMPERATURE_INTAKE)
-            self.assertEqual(
-                msg_temp_offset["exhaust"], [0.0] * NUM_TEMPERATURE_EXHAUST
-            )
+            self.assertEqual(msg_temp_offset["exhaust"], [0.0] * NUM_TEMPERATURE_EXHAUST)
 
             self.assertEqual(server.model.control_closed_loop.temperature["ref"], ring)
 
     async def test_telemetry_no_motor_power(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             # Check the telemetry
             await asyncio.sleep(1)
             self.assertGreater(self.queue_tel.qsize(), 10)
 
     async def test_telemetry_with_motor_power(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             await server.model.power_motor.power_on()
             server.model.switch_force_balance_system(True)
@@ -722,9 +706,12 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertGreater(self.queue_tel.qsize(), 150)
 
     async def test_telemetry_get_mtmount_elevation(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             elevation_angle = 30.0
             await client_tel.write_message(
@@ -739,9 +726,12 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(server.model.inclinometer_angle_external, elevation_angle)
 
     async def test_telemetry_power_status(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             # Check the initial telemetry
             await asyncio.sleep(0.5)
@@ -777,9 +767,12 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertGreater(msg_power_status["commCurrent"], 5)
 
     async def test_event_get_mtmount_mount_in_position(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             inPosition = True
             await client_cmd.write_message(
@@ -794,9 +787,12 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(server.model.mtmount_in_position, inPosition)
 
     async def test_cmd_load_configuration(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             await client_cmd.write_message(MsgType.Command, "loadConfiguration")
 
@@ -809,9 +805,12 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(len(msg_config), 2)
 
     async def test_cmd_set_control_parameters(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             await client_cmd.write_message(
                 MsgType.Command,
@@ -827,17 +826,16 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
 
             await asyncio.sleep(0.5)
 
-            msg_source = get_queue_message_latest(
-                self.queue_cmd, "inclinationTelemetrySource"
-            )
-            self.assertEqual(
-                msg_source["source"], MTM2.InclinationTelemetrySource.MTMOUNT.value
-            )
+            msg_source = get_queue_message_latest(self.queue_cmd, "inclinationTelemetrySource")
+            self.assertEqual(msg_source["source"], MTM2.InclinationTelemetrySource.MTMOUNT.value)
 
     async def test_cmd_set_enabled_faults_mask(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             mask = 8
             await client_cmd.write_message(
@@ -854,9 +852,12 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(msg_mask["mask"], mask)
 
     async def test_cmd_set_configuration_file(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             file = "Configurable_File_Description_20180831T092326_M2_handling.csv"
             await client_cmd.write_message(
@@ -873,9 +874,12 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(msg_config["version"], "20180831T092326")
 
     async def test_cmd_set_hardpoint_list(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             hardpoints = [3, 13, 23, 73, 75, 77]
             await client_cmd.write_message(
@@ -892,9 +896,12 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(msg_hd["actuators"], [4, 14, 24, 74, 76, 78])
 
     async def test_check_error_inclinometer(self) -> None:
-        async with self.make_server() as server, self.make_clients(server) as (
-            client_cmd,
-            client_tel,
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
         ):
             server._is_csc = False
 

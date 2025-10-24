@@ -63,9 +63,7 @@ class MockGainSchedular:
 
         # Rates of the ramping down process
         self._rate_down_axial = (min_gain_axial - self.MAX_GAIN) / num_sample_ramp_down
-        self._rate_down_tangent = (
-            min_gain_tangent - self.MAX_GAIN
-        ) / num_sample_ramp_down
+        self._rate_down_tangent = (min_gain_tangent - self.MAX_GAIN) / num_sample_ramp_down
 
         self._gain_axial = min_gain_axial
         self._gain_tangent = min_gain_tangent
@@ -119,22 +117,14 @@ class MockGainSchedular:
 
         # Calculate the new gains
         rate_axial = self._rate_down_axial if is_ramp_down else self._rate_up_axial
-        rate_tangent = (
-            self._rate_down_tangent if is_ramp_down else self._rate_up_tangent
-        )
+        rate_tangent = self._rate_down_tangent if is_ramp_down else self._rate_up_tangent
 
-        self._gain_axial = self._calc_next_gain(
-            self._gain_axial, rate_axial, self._min_gain_axial
-        )
-        self._gain_tangent = self._calc_next_gain(
-            self._gain_tangent, rate_tangent, self._min_gain_tangent
-        )
+        self._gain_axial = self._calc_next_gain(self._gain_axial, rate_axial, self._min_gain_axial)
+        self._gain_tangent = self._calc_next_gain(self._gain_tangent, rate_tangent, self._min_gain_tangent)
 
         return self._gain_axial, self._gain_tangent
 
-    def _calc_next_gain(
-        self, gain_current: float, rate: float, min_gain: float
-    ) -> float:
+    def _calc_next_gain(self, gain_current: float, rate: float, min_gain: float) -> float:
         """Calculate the next gain. The output will be in [min, max].
 
         Parameters
