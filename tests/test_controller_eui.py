@@ -73,9 +73,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         cls.host = tcpip.LOCALHOST_IPV4
         cls.timeout_in_second = 0.05
 
-        logging.basicConfig(
-            level=logging.INFO, handlers=[logging.StreamHandler(sys.stdout)]
-        )
+        logging.basicConfig(level=logging.INFO, handlers=[logging.StreamHandler(sys.stdout)])
         cls.log = logging.getLogger()
         cls.maxsize_queue = 1000
 
@@ -127,15 +125,9 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         self.lost_connection = False
 
         controller = Controller(log=self.log)
-        controller.set_callback_process_event(
-            self._callback_process_message, self.queue_evt
-        )
-        controller.set_callback_process_telemetry(
-            self._callback_process_message, self.queue_tel
-        )
-        controller.set_callback_process_lost_connection(
-            self._callback_process_lost_connection
-        )
+        controller.set_callback_process_event(self._callback_process_message, self.queue_evt)
+        controller.set_callback_process_telemetry(self._callback_process_message, self.queue_tel)
+        controller.set_callback_process_lost_connection(self._callback_process_lost_connection)
 
         controller.start(
             server.server_command.host,
@@ -154,9 +146,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         finally:
             await controller.close()
 
-    async def _callback_process_message(
-        self, queue: asyncio.Queue, message: dict | None = None
-    ) -> None:
+    async def _callback_process_message(self, queue: asyncio.Queue, message: dict | None = None) -> None:
         if message is not None:
             queue.put_nowait(message)
 
@@ -164,13 +154,9 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         self.lost_connection = True
 
     async def test_switch_command_source(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             # Default condition
-            is_commandable_by_dds = await self._get_latest_state_commandable_by_dds(
-                self.queue_evt
-            )
+            is_commandable_by_dds = await self._get_latest_state_commandable_by_dds(self.queue_evt)
             self.assertTrue(is_commandable_by_dds)
 
             # Switch to the local control
@@ -178,9 +164,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                 "switchCommandSource", message_details={"isRemote": False}
             )
 
-            is_commandable_by_dds = await self._get_latest_state_commandable_by_dds(
-                self.queue_evt
-            )
+            is_commandable_by_dds = await self._get_latest_state_commandable_by_dds(self.queue_evt)
             self.assertFalse(is_commandable_by_dds)
 
             # Switch to the remote control
@@ -188,9 +172,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                 "switchCommandSource", message_details={"isRemote": True}
             )
 
-            is_commandable_by_dds = await self._get_latest_state_commandable_by_dds(
-                self.queue_evt
-            )
+            is_commandable_by_dds = await self._get_latest_state_commandable_by_dds(self.queue_evt)
             self.assertTrue(is_commandable_by_dds)
 
     async def _get_latest_state_commandable_by_dds(self, queue: asyncio.Queue) -> bool:
@@ -213,9 +195,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
         return msg_latest["state"]
 
     async def test_run_script_fail(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             with self.assertRaises(RuntimeError):
                 await controller.write_command_to_server(
                     "runScript",
@@ -226,9 +206,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                 )
 
     async def test_run_script_success_to_end(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             # Load the script and check
             script_name = "test"
             await controller.write_command_to_server(
@@ -278,9 +256,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(script_engine._name, "")
 
     async def test_run_script_success_pause(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             # Load the script
             await controller.write_command_to_server(
                 "runScript",
@@ -309,9 +285,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
 
             # Check the results
             await asyncio.sleep(SLEEP_TIME_SHORT)
-            message_pause = get_queue_message_latest(
-                self.queue_evt, "scriptExecutionStatus"
-            )
+            message_pause = get_queue_message_latest(self.queue_evt, "scriptExecutionStatus")
 
             self.assertGreater(message_pause["percentage"], 0)
 
@@ -328,13 +302,9 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(2)
 
             # Check the results
-            message_resume = get_queue_message_latest(
-                self.queue_evt, "scriptExecutionStatus"
-            )
+            message_resume = get_queue_message_latest(self.queue_evt, "scriptExecutionStatus")
 
-            self.assertGreater(
-                message_resume["percentage"], message_pause["percentage"]
-            )
+            self.assertGreater(message_resume["percentage"], message_pause["percentage"])
             self.assertNotEqual(message_resume["percentage"], 100)
             self.assertTrue(script_engine.is_running)
 
@@ -351,9 +321,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(script_engine.is_running)
 
     async def test_move_actuators_fail(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             with self.assertRaises(RuntimeError):
                 await controller.write_command_to_server(
                     "moveActuators",
@@ -361,9 +329,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                 )
 
     async def test_move_actuators_success_to_end(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             await server.model.power_communication.power_on()
             await server.model.power_motor.power_on()
 
@@ -380,17 +346,13 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(SLEEP_TIME_MEDIUM)
 
             # Check the result
-            message_axial_steps = get_queue_message_latest(
-                self.queue_tel, "axialActuatorSteps"
-            )
+            message_axial_steps = get_queue_message_latest(self.queue_tel, "axialActuatorSteps")
 
             self.assertEqual(message_axial_steps["steps"][2], 1000)
             self.assertEqual(message_axial_steps["steps"][3], 1000)
 
     async def test_move_actuators_out_limit(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             server.model.control_open_loop.open_loop_max_limit_is_enabled = True
 
             await server.model.power_communication.power_on()
@@ -418,9 +380,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(message_limit_switch_status["extend"], [])
 
     async def test_move_actuators_success_pause(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             await server.model.power_communication.power_on()
             await server.model.power_motor.power_on()
 
@@ -444,9 +404,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             )
 
             # Check the result
-            message_axial_steps_pause = get_queue_message_latest(
-                self.queue_tel, "axialActuatorSteps"
-            )
+            message_axial_steps_pause = get_queue_message_latest(self.queue_tel, "axialActuatorSteps")
 
             self.assertGreater(message_axial_steps_pause["steps"][2], 0)
 
@@ -465,9 +423,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             )
 
             # Check the result
-            message_axial_steps_stop = get_queue_message_latest(
-                self.queue_tel, "axialActuatorSteps"
-            )
+            message_axial_steps_stop = get_queue_message_latest(self.queue_tel, "axialActuatorSteps")
 
             self.assertGreater(
                 message_axial_steps_stop["steps"][2],
@@ -475,9 +431,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             )
 
     async def test_reset_breakers_communication(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             await server.model.power_communication.power_on()
             await controller.write_command_to_server(
                 "resetBreakers",
@@ -488,15 +442,12 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(
                 messages[-2]["value"],
-                TEST_DIGITAL_OUTPUT_POWER_COMM
-                - DigitalOutput.ResetCommunicationBreakers.value,
+                TEST_DIGITAL_OUTPUT_POWER_COMM - DigitalOutput.ResetCommunicationBreakers.value,
             )
             self.assertEqual(messages[-1]["value"], TEST_DIGITAL_OUTPUT_POWER_COMM)
 
     async def test_reset_breakers_motor(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             await server.model.power_communication.power_on()
             await server.model.power_motor.power_on()
             await controller.write_command_to_server(
@@ -508,17 +459,12 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(
                 messages[-2]["value"],
-                TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR
-                - DigitalOutput.ResetMotorBreakers.value,
+                TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR - DigitalOutput.ResetMotorBreakers.value,
             )
-            self.assertEqual(
-                messages[-1]["value"], TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR
-            )
+            self.assertEqual(messages[-1]["value"], TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR)
 
     async def test_reboot_controller(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             # Connection is on in the initial beginning
             self.assertTrue(controller.are_clients_connected())
 
@@ -531,38 +477,26 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(self.lost_connection)
 
     async def test_enable_open_loop_max_limit(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             await controller.write_command_to_server(
                 "enableOpenLoopMaxLimit", message_details={"status": True}
             )
 
             # Wait a little time to let the internal process to finish
             await asyncio.sleep(SLEEP_TIME_SHORT)
-            self.assertTrue(
-                server.model.control_open_loop.open_loop_max_limit_is_enabled
-            )
+            self.assertTrue(server.model.control_open_loop.open_loop_max_limit_is_enabled)
 
-            msg_open_loop_max_limit = get_queue_message_latest(
-                self.queue_evt, "openLoopMaxLimit"
-            )
+            msg_open_loop_max_limit = get_queue_message_latest(self.queue_evt, "openLoopMaxLimit")
             self.assertTrue(msg_open_loop_max_limit["status"])
 
     async def test_save_mirror_position(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             await controller.write_command_to_server("saveMirrorPosition")
 
-            self.assertEqual(
-                controller._task_check_command_status.result(), CommandStatus.Success
-            )
+            self.assertEqual(controller._task_check_command_status.result(), CommandStatus.Success)
 
     async def test_set_mirror_home(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             server.model.mirror_position["x"] = 1
 
             await controller.write_command_to_server("setMirrorHome")
@@ -570,9 +504,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(server.model.mirror_position["x"], 0)
 
     async def test_switch_digital_output_fail(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             # No this bit value
             with self.assertRaises(RuntimeError):
                 await controller.write_command_to_server(
@@ -580,9 +512,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
                 )
 
     async def test_switch_digital_output_success(self) -> None:
-        async with self.make_server() as server, self.make_controller(
-            server
-        ) as controller:
+        async with self.make_server() as server, self.make_controller(server) as controller:
             # Switch the communication power
             await controller.write_command_to_server(
                 "switchDigitalOutput",
@@ -595,9 +525,7 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(SLEEP_TIME_SHORT)
 
             msg_latest = get_queue_message_latest(self.queue_evt, "digitalOutput")
-            self.assertTrue(
-                msg_latest["value"] & DigitalOutput.CommunicationPower.value
-            )
+            self.assertTrue(msg_latest["value"] & DigitalOutput.CommunicationPower.value)
             self.assertTrue(server.model.power_communication.is_power_on())
 
             # Switch the motor power

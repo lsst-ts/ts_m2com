@@ -174,9 +174,7 @@ class MockControlLoop:
         )
 
         self._command_delay_axial = SimpleDelayFilter(params_cmd_delay_axial, num_axial)
-        self._command_delay_tangent = SimpleDelayFilter(
-            params_cmd_delay_tangent, NUM_TANGENT_LINK
-        )
+        self._command_delay_tangent = SimpleDelayFilter(params_cmd_delay_tangent, NUM_TANGENT_LINK)
 
         self._control_filter_axial = BiquadraticFilter(
             gain_control_filter_axial,
@@ -294,12 +292,8 @@ class MockControlLoop:
         # Filter the demanded forces
         num_axial = NUM_ACTUATOR - NUM_TANGENT_LINK
 
-        demand_filtered_axial = self._filter_force_demanded(
-            force_demanded[:num_axial], is_axail=True
-        )
-        demand_filtered_tangent = self._filter_force_demanded(
-            force_demanded[num_axial:], is_axail=False
-        )
+        demand_filtered_axial = self._filter_force_demanded(force_demanded[:num_axial], is_axail=True)
+        demand_filtered_tangent = self._filter_force_demanded(force_demanded[num_axial:], is_axail=False)
 
         # Get the active and passive demanded forces
         demand_axial_passive, demand_axial_active = self._split_1d_array(
@@ -325,39 +319,25 @@ class MockControlLoop:
         )
 
         error_axial_active = (
-            (demand_axial_active - feedback_axial)
-            if self.is_feedback
-            else demand_axial_active
+            (demand_axial_active - feedback_axial) if self.is_feedback else demand_axial_active
         )
 
         error_tangent_active = (
-            (demand_tangent_active - feedback_tangent)
-            if self.is_feedback
-            else demand_tangent_active
+            (demand_tangent_active - feedback_tangent) if self.is_feedback else demand_tangent_active
         )
 
         # Apply the control filter
-        error_axial_active_filter = self._control_filter_axial.filter(
-            error_axial_active
-        )
-        error_tangent_active_filter = self._control_filter_tangent.filter(
-            error_tangent_active
-        )
+        error_axial_active_filter = self._control_filter_axial.filter(error_axial_active)
+        error_tangent_active_filter = self._control_filter_tangent.filter(error_tangent_active)
 
         # Multiply with the decoupling matrix and gains
         steps_active = self.kdc.dot(
-            np.append(error_axial_active_filter, error_tangent_active_filter).reshape(
-                -1, 1
-            )
+            np.append(error_axial_active_filter, error_tangent_active_filter).reshape(-1, 1)
         ).ravel()
 
         gain_axial, gain_tangent = self._gain_schedular.get_gain(is_in_position)
-        steps_active_axial = (
-            gain_axial * steps_active[: (num_axial - NUM_HARDPOINTS_AXIAL)]
-        )
-        steps_active_tangent = (
-            gain_tangent * steps_active[(num_axial - NUM_HARDPOINTS_AXIAL) :]
-        )
+        steps_active_axial = gain_axial * steps_active[: (num_axial - NUM_HARDPOINTS_AXIAL)]
+        steps_active_tangent = gain_tangent * steps_active[(num_axial - NUM_HARDPOINTS_AXIAL) :]
 
         # Do the feedforward
 
@@ -380,9 +360,7 @@ class MockControlLoop:
         hardpoint_correction_all = hardpoint_correction.copy()
         for hardpoint in hardpoints:
             steps_all = np.insert(steps_all, hardpoint, 0.0)
-            hardpoint_correction_all = np.insert(
-                hardpoint_correction_all, hardpoint, 0.0
-            )
+            hardpoint_correction_all = np.insert(hardpoint_correction_all, hardpoint, 0.0)
 
         # Saturate the steps in each control cycle
         # Multiply the hardpoint_correction_all with -1 to make sure we have:
@@ -391,9 +369,7 @@ class MockControlLoop:
         return (
             self._saturate_actuator_steps(steps_all.astype(int)),
             -hardpoint_correction_all,
-            self._in_position.is_in_position(
-                np.append(error_axial_active, error_tangent_active)
-            ),
+            self._in_position.is_in_position(np.append(error_axial_active, error_tangent_active)),
         )
 
     def _filter_force_demanded(
@@ -415,9 +391,7 @@ class MockControlLoop:
         """
 
         prefilter = self._prefilter_axial if is_axail else self._prefilter_tangent
-        command_delay_filter = (
-            self._command_delay_axial if is_axail else self._command_delay_tangent
-        )
+        command_delay_filter = self._command_delay_axial if is_axail else self._command_delay_tangent
 
         force_demanded_prefilter = prefilter.filter(force_demanded)
         force_demanded_delay = command_delay_filter.filter(force_demanded_prefilter)
@@ -491,9 +465,7 @@ class MockControlLoop:
         """
 
         # Select the latched forces of hardpoints
-        measured_passive, measured_active = self._split_1d_array(
-            force_measured, hardpoints
-        )
+        measured_passive, measured_active = self._split_1d_array(force_measured, hardpoints)
 
         latched_passive_axial = self._deadband_control_axial.select(
             demand_hardpoint_axial - measured_passive[:NUM_HARDPOINTS_AXIAL],
@@ -511,12 +483,10 @@ class MockControlLoop:
         ).ravel()
 
         feedback_axial = (
-            measured_active[:-NUM_HARDPOINTS_AXIAL]
-            + hardpoint_correction[:-NUM_HARDPOINTS_AXIAL]
+            measured_active[:-NUM_HARDPOINTS_AXIAL] + hardpoint_correction[:-NUM_HARDPOINTS_AXIAL]
         )
         feedback_tangent = (
-            measured_active[-NUM_HARDPOINTS_AXIAL:]
-            + hardpoint_correction[-NUM_HARDPOINTS_AXIAL:]
+            measured_active[-NUM_HARDPOINTS_AXIAL:] + hardpoint_correction[-NUM_HARDPOINTS_AXIAL:]
         )
 
         return feedback_axial, feedback_tangent, hardpoint_correction
@@ -540,13 +510,9 @@ class MockControlLoop:
         """
 
         # Calculate the feedforward matrix
-        force_demanded_passive, force_demanded_active = self._split_1d_array(
-            force_demanded, hardpoints
-        )
+        force_demanded_passive, force_demanded_active = self._split_1d_array(force_demanded, hardpoints)
 
-        force_demanded_hd_comp = self.hd_comp.dot(
-            force_demanded_passive.reshape(-1, 1)
-        ).ravel()
+        force_demanded_hd_comp = self.hd_comp.dot(force_demanded_passive.reshape(-1, 1)).ravel()
 
         force_demanded_active_diff = force_demanded_active - force_demanded_hd_comp
 

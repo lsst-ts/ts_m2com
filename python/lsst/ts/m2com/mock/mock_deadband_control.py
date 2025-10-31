@@ -85,9 +85,7 @@ class MockDeadbandControl:
             Selected hardpoint error.
         """
 
-        threshold = (
-            self._threshold_upper if self._keep_tracking else self._threshold_lower
-        )
+        threshold = self._threshold_upper if self._keep_tracking else self._threshold_lower
         keep_tracking = (np.max(np.abs(hardpoint_error)) < threshold) and is_enabled
 
         if not (keep_tracking and self._keep_tracking):

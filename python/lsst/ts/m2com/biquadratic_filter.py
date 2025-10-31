@@ -59,9 +59,7 @@ class SingleBiquadraticFilter:
         Number of the elements when calling the "filter()".
     """
 
-    def __init__(
-        self, a11: float, a21: float, b11: float, b21: float, num_element: int
-    ) -> None:
+    def __init__(self, a11: float, a21: float, b11: float, b21: float, num_element: int) -> None:
         self._a11 = a11
         self._a21 = a21
         self._b11 = b11
@@ -76,9 +74,7 @@ class SingleBiquadraticFilter:
         self._g_m1 = np.zeros(len(self._g_m1))
         self._g_m2 = np.zeros(len(self._g_m2))
 
-    def filter(
-        self, value: numpy.typing.NDArray[np.float64]
-    ) -> numpy.typing.NDArray[np.float64]:
+    def filter(self, value: numpy.typing.NDArray[np.float64]) -> numpy.typing.NDArray[np.float64]:
         """Filter the input value.
 
         Parameters
@@ -160,9 +156,7 @@ class BiquadraticFilter:
         for bqd_filter in self._bqd_filters:
             bqd_filter.reset()
 
-    def filter(
-        self, value: numpy.typing.NDArray[np.float64]
-    ) -> numpy.typing.NDArray[np.float64]:
+    def filter(self, value: numpy.typing.NDArray[np.float64]) -> numpy.typing.NDArray[np.float64]:
         """Filter the input value.
 
         Parameters

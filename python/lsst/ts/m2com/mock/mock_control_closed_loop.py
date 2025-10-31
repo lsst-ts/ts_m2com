@@ -190,9 +190,7 @@ class MockControlClosedLoop:
             params_prefilter,
         ) = MockControlClosedLoop.calc_cmd_prefilter_params()
 
-        params_cmd_delay = MockControlClosedLoop.calc_cmd_delay_filter_params(
-            is_mirror=is_mirror
-        )
+        params_cmd_delay = MockControlClosedLoop.calc_cmd_delay_filter_params(is_mirror=is_mirror)
 
         (
             gain_control_filter,
@@ -268,9 +266,7 @@ class MockControlClosedLoop:
         temperature_ring = self.temperature["ring"]
 
         # Simulate the change of ring temperature
-        temperature_change = np.random.normal(
-            scale=temperature_rms, size=len(temperature_ring)
-        )
+        temperature_change = np.random.normal(scale=temperature_rms, size=len(temperature_ring))
 
         if np.any(np.array(temperature_ring) > max_temperature):
             temperature_change = -np.abs(temperature_change)
@@ -612,9 +608,7 @@ class MockControlClosedLoop:
 
         # Axial hardpoints
         num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
-        active_actuators_axial = [
-            idx for idx in range(num_axial_actuators) if idx not in hardpoints_axial
-        ]
+        active_actuators_axial = [idx for idx in range(num_axial_actuators) if idx not in hardpoints_axial]
 
         # Tangent hardpoints
         option_one = [72, 74, 76]
@@ -625,9 +619,7 @@ class MockControlClosedLoop:
         elif hardpoints_tangent == option_two:
             active_actuators_tangent = option_one
         else:
-            raise ValueError(
-                f"Tangential hardpoints can only be {option_one} or {option_two}."
-            )
+            raise ValueError(f"Tangential hardpoints can only be {option_one} or {option_two}.")
 
         return active_actuators_axial, active_actuators_tangent
 
@@ -692,26 +684,16 @@ class MockControlClosedLoop:
         (
             active_actuators_axial,
             active_actuators_tangent,
-        ) = MockControlClosedLoop.get_active_actuators(
-            hardpoints_axial, hardpoints_tangent
-        )
+        ) = MockControlClosedLoop.get_active_actuators(hardpoints_axial, hardpoints_tangent)
 
         # There is a "minus" sign here because the hardpoints are the passive
         # actuators.
-        hardpoint_error_axial = -stiffness_matrix[
-            np.ix_(active_actuators_axial, hardpoints_axial)
-        ]
-        hardpoint_error_tangent = -stiffness_matrix[
-            np.ix_(active_actuators_tangent, hardpoints_tangent)
-        ]
+        hardpoint_error_axial = -stiffness_matrix[np.ix_(active_actuators_axial, hardpoints_axial)]
+        hardpoint_error_tangent = -stiffness_matrix[np.ix_(active_actuators_tangent, hardpoints_tangent)]
 
         # Force change of the active actuators
-        force_axial = stiffness_matrix[
-            np.ix_(active_actuators_axial, active_actuators_axial)
-        ]
-        force_tangent = stiffness_matrix[
-            np.ix_(active_actuators_tangent, active_actuators_tangent)
-        ]
+        force_axial = stiffness_matrix[np.ix_(active_actuators_axial, active_actuators_axial)]
+        force_tangent = stiffness_matrix[np.ix_(active_actuators_tangent, active_actuators_tangent)]
 
         # Calculate the effective force feedback after hardpoint force
         # compensation
@@ -719,9 +701,7 @@ class MockControlClosedLoop:
             location_axial_actuator, hardpoints_axial, hardpoints_tangent
         )
         force_feedback_axial = force_axial + hd_comp_axial.dot(hardpoint_error_axial.T)
-        force_feedback_tangent = force_tangent + hd_comp_tangent.dot(
-            hardpoint_error_tangent.T
-        )
+        force_feedback_tangent = force_tangent + hd_comp_tangent.dot(hardpoint_error_tangent.T)
 
         force_feedback = block_diag(force_feedback_axial, force_feedback_tangent)
 
@@ -762,9 +742,7 @@ class MockControlClosedLoop:
         numerator = numerator if (numerator is not None) else [1.0]
         denominator = denominator if (denominator is not None) else [1.0]
 
-        return MockControlClosedLoop.transfer_function_to_biquadratic_filter(
-            numerator, denominator
-        )
+        return MockControlClosedLoop.transfer_function_to_biquadratic_filter(numerator, denominator)
 
     @staticmethod
     def transfer_function_to_biquadratic_filter(
@@ -845,9 +823,7 @@ class MockControlClosedLoop:
 
         gain = np.prod(np.divide(b0, a0))
 
-        sos_normalize = np.append(
-            np.diag(1 / b0).dot(sos[:, 0:3]), np.diag(1 / a0).dot(sos[:, 3:6]), axis=1
-        )
+        sos_normalize = np.append(np.diag(1 / b0).dot(sos[:, 0:3]), np.diag(1 / a0).dot(sos[:, 3:6]), axis=1)
 
         # Change to the order to be:
         # [[a11 a21 b11 b21]
@@ -865,9 +841,7 @@ class MockControlClosedLoop:
 
         return (
             gain,
-            np.pad(
-                coefficients.reshape(-1), (0, max_num_coefficients - coefficients.size)
-            ).tolist(),
+            np.pad(coefficients.reshape(-1), (0, max_num_coefficients - coefficients.size)).tolist(),
         )
 
     @staticmethod
@@ -987,9 +961,7 @@ class MockControlClosedLoop:
         (
             gain_tf,
             coefficients,
-        ) = MockControlClosedLoop.transfer_function_to_biquadratic_filter(
-            numerator, denominator
-        )
+        ) = MockControlClosedLoop.transfer_function_to_biquadratic_filter(numerator, denominator)
 
         return gain * gain_tf, coefficients
 
@@ -1074,15 +1046,9 @@ class MockControlClosedLoop:
         )
 
         # Rotation matrix for the axial actuators
-        rot_x = np.array(
-            [[1, 0, 0], [0, np.cos(drx), np.sin(drx)], [0, -np.sin(drx), np.cos(drx)]]
-        )
-        rot_y = np.array(
-            [[np.cos(dry), 0, -np.sin(dry)], [0, 1, 0], [np.sin(dry), 0, np.cos(dry)]]
-        )
-        rot_z = np.array(
-            [[np.cos(drz), np.sin(drz), 0], [-np.sin(drz), np.cos(drz), 0], [0, 0, 1]]
-        )
+        rot_x = np.array([[1, 0, 0], [0, np.cos(drx), np.sin(drx)], [0, -np.sin(drx), np.cos(drx)]])
+        rot_y = np.array([[np.cos(dry), 0, -np.sin(dry)], [0, 1, 0], [np.sin(dry), 0, np.cos(dry)]])
+        rot_z = np.array([[np.cos(drz), np.sin(drz), 0], [-np.sin(drz), np.cos(drz), 0], [0, 0, 1]])
         rot_xyz = rot_x.dot(rot_y).dot(rot_z)
 
         disp_drxdrydrz_axial = rot_xyz.dot(location_axial.T)
@@ -1185,16 +1151,12 @@ class MockControlClosedLoop:
             rx = 0
             ry = 0
         else:
-            rx, ry = -(
-                vector_rxryrz[0:2] / norm_vector_rxryrz * np.arcsin(norm_vector_rxryrz)
-            )
+            rx, ry = -(vector_rxryrz[0:2] / norm_vector_rxryrz * np.arcsin(norm_vector_rxryrz))
 
         # The displacement of tangent links decides the (x, y, rz) of rigid
         # body.
         num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
-        idx_tangent_hardpoint = (
-            np.array(hardpoints)[NUM_HARDPOINTS_AXIAL:] - num_axial_actuators
-        )
+        idx_tangent_hardpoint = np.array(hardpoints)[NUM_HARDPOINTS_AXIAL:] - num_axial_actuators
         location_tangent_hardpoint = np.array(np.deg2rad(location_tangent_link))[
             idx_tangent_hardpoint.astype(int)
         ]
@@ -1228,9 +1190,7 @@ class MockControlClosedLoop:
         # Least-Squares Rigid Motion Using SVD by Olga Sorkine-Hornung and
         # Michael Rabinovich, 2017
         # https://igl.ethz.ch/projects/ARAP/svd_rot.pdf
-        mat_u, _, mat_v = np.linalg.svd(
-            delta_xy_home.T.dot(delta_xy_current), full_matrices=True
-        )
+        mat_u, _, mat_v = np.linalg.svd(delta_xy_home.T.dot(delta_xy_current), full_matrices=True)
 
         # Consider the potential reflection when calculating the rotation
         # matrix
@@ -1279,10 +1239,7 @@ class MockControlClosedLoop:
         # theta, theta_0: angles of tangent links at current and home positions
         # d = R * tan(theta - theta_0)
         # => theta = theta_0 + tan^(-1)(d/R)
-        theta = (
-            np.arctan2(tangent_hardpoint_displacement, radius)
-            + tangent_hardpoint_location
-        )
+        theta = np.arctan2(tangent_hardpoint_displacement, radius) + tangent_hardpoint_location
 
         # x = R * cos(pi/2 - theta) = R * sin(theta)
         # y = R * sin(pi/2 - theta) = R * cos(theta)
@@ -1423,11 +1380,7 @@ class MockControlClosedLoop:
         """
 
         demanded_force_axial = (
-            (
-                applied_force_axial
-                if applied_force_axial is not None
-                else self.axial_forces["applied"]
-            )
+            (applied_force_axial if applied_force_axial is not None else self.axial_forces["applied"])
             + self.axial_forces["lutGravity"]
             + self.axial_forces["lutTemperature"]
         )
@@ -1435,9 +1388,7 @@ class MockControlClosedLoop:
         # Compared with the axial actuators (demanded_force_axial), there is no
         # temperature correction from the look-up table
         demanded_force_tanget = (
-            applied_force_tangent
-            if applied_force_tangent is not None
-            else self.tangent_forces["applied"]
+            applied_force_tangent if applied_force_tangent is not None else self.tangent_forces["applied"]
         ) + self.tangent_forces["lutGravity"]
 
         return np.append(demanded_force_axial, demanded_force_tanget)
@@ -1459,9 +1410,7 @@ class MockControlClosedLoop:
         `dict`
             Total net forces in Newton.
         """
-        return self._calculate_xyz_net_forces(
-            self.axial_forces["measured"], self.tangent_forces["measured"]
-        )
+        return self._calculate_xyz_net_forces(self.axial_forces["measured"], self.tangent_forces["measured"])
 
     def _calculate_xyz_net_forces(
         self,
@@ -1499,9 +1448,7 @@ class MockControlClosedLoop:
         `dict`
             Total net moments in Newton * meter.
         """
-        return self._calculate_xyz_net_moments(
-            self.axial_forces["measured"], self.tangent_forces["measured"]
-        )
+        return self._calculate_xyz_net_moments(self.axial_forces["measured"], self.tangent_forces["measured"])
 
     def _calculate_xyz_net_moments(
         self,
@@ -1570,7 +1517,6 @@ class MockControlClosedLoop:
 
         # Calculate the LUT forces of temperature component
         if enable_lut_temperature is not None:
-
             if enable_lut_temperature:
                 temperature_m2 = np.concatenate(
                     (
@@ -1582,23 +1528,15 @@ class MockControlClosedLoop:
 
                 # Order temperature data based on a12_temperature.ipynb in
                 # https://github.com/lsst-sitcom/M2_summit_2003
-                temperature_bin = temperature_m2[
-                    [0, 1, 2, 3, 12, 15, 14, 13, 8, 9, 10, 11, 4, 5, 6, 7]
-                ]
-                temperature_lut = temperature_bin[
-                    [1, 2, 3, 12, 9, 8, 13, 14, 15, 11, 10, 0]
-                ]
+                temperature_bin = temperature_m2[[0, 1, 2, 3, 12, 15, 14, 13, 8, 9, 10, 11, 4, 5, 6, 7]]
+                temperature_lut = temperature_bin[[1, 2, 3, 12, 9, 8, 13, 14, 15, 11, 10, 0]]
 
-                force_r, force_x, force_y, force_u = (
-                    self._calc_look_up_forces_temperature(
-                        temperature_lut, np.array(self.temperature["ref"])
-                    )
+                force_r, force_x, force_y, force_u = self._calc_look_up_forces_temperature(
+                    temperature_lut, np.array(self.temperature["ref"])
                 )
 
             else:
-                force_r = force_x = force_y = force_u = np.zeros(
-                    NUM_ACTUATOR - NUM_TANGENT_LINK
-                )
+                force_r = force_x = force_y = force_u = np.zeros(NUM_ACTUATOR - NUM_TANGENT_LINK)
 
             self.axial_forces["lutTemperature"] = force_r + force_x + force_y + force_u
 
@@ -1611,12 +1549,7 @@ class MockControlClosedLoop:
                 force_factory_offset,
             ) = self._calc_look_up_forces_gravity(lut_angle)
 
-            force_gravity = (
-                force_elevation
-                + force_0g_component
-                + force_actuator_bias
-                + force_factory_offset
-            )
+            force_gravity = force_elevation + force_0g_component + force_actuator_bias + force_factory_offset
 
             num_axial_actuators = NUM_ACTUATOR - NUM_TANGENT_LINK
             self.axial_forces["lutGravity"] = force_gravity[:num_axial_actuators]
@@ -1671,7 +1604,9 @@ class MockControlClosedLoop:
             np.squeeze(tcoef[3] * self._lut["Tu"]),
         )
 
-    def _calc_look_up_forces_gravity(self, lut_angle: float) -> tuple[
+    def _calc_look_up_forces_gravity(
+        self, lut_angle: float
+    ) -> tuple[
         numpy.typing.NDArray[np.float64],
         numpy.typing.NDArray[np.float64],
         numpy.typing.NDArray[np.float64],
@@ -1704,20 +1639,14 @@ class MockControlClosedLoop:
         force_factory_offset = np.zeros(NUM_ACTUATOR)
 
         for idx in range(NUM_ACTUATOR - NUM_TANGENT_LINK):
-            force_elevation[idx] = np.interp(
-                lut_angle, self._lut["lutInAngle"], self._lut["F_E"][idx, :]
-            )
-            force_0g_component[idx] = np.interp(
-                lut_angle, self._lut["lutInAngle"], self._lut["F_0"][idx, :]
-            )
+            force_elevation[idx] = np.interp(lut_angle, self._lut["lutInAngle"], self._lut["F_E"][idx, :])
+            force_0g_component[idx] = np.interp(lut_angle, self._lut["lutInAngle"], self._lut["F_0"][idx, :])
             force_factory_offset[idx] = np.interp(
                 lut_angle, self._lut["lutInAngle"], self._lut["F_F"][idx, :]
             )
 
         for idx in range(NUM_ACTUATOR):
-            force_actuator_bias[idx] = np.interp(
-                lut_angle, self._lut["lutInAngle"], self._lut["F_A"][idx, :]
-            )
+            force_actuator_bias[idx] = np.interp(lut_angle, self._lut["lutInAngle"], self._lut["F_A"][idx, :])
 
         return (
             force_elevation,
@@ -1776,13 +1705,9 @@ class MockControlClosedLoop:
         # Move the actuators in the plant model and update the measured forces
         if plant is not None:
             if self.is_running:
-                plant.move_actuator_steps(
-                    steps_force_control + steps_rigid_body_hardpoints
-                )
+                plant.move_actuator_steps(steps_force_control + steps_rigid_body_hardpoints)
 
             actuator_forces = plant.get_actuator_forces()
-            self.set_measured_forces(
-                actuator_forces[:num_axial], actuator_forces[num_axial:]
-            )
+            self.set_measured_forces(actuator_forces[:num_axial], actuator_forces[num_axial:])
 
         return in_position

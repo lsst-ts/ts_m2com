@@ -136,9 +136,7 @@ class TestMockControlLoop(unittest.TestCase):
         )
 
     def test_split_1d_array(self) -> None:
-        array_idx, array_no_idx = self.control_loop._split_1d_array(
-            np.array([1.0, 2.0, 3.0, 4.0]), [1, 2]
-        )
+        array_idx, array_no_idx = self.control_loop._split_1d_array(np.array([1.0, 2.0, 3.0, 4.0]), [1, 2])
 
         np.testing.assert_equal(array_idx, np.array([2.0, 3.0]))
         np.testing.assert_equal(array_no_idx, np.array([1.0, 4.0]))
@@ -150,23 +148,13 @@ class TestMockControlLoop(unittest.TestCase):
         actuator_steps[-1] = 100
         actuator_steps[-2] = -100
 
-        actuator_steps_saturated = self.control_loop._saturate_actuator_steps(
-            actuator_steps
-        )
+        actuator_steps_saturated = self.control_loop._saturate_actuator_steps(actuator_steps)
 
-        self.assertEqual(
-            actuator_steps_saturated[0], self.control_loop._step_limit_axial
-        )
-        self.assertEqual(
-            actuator_steps_saturated[1], -self.control_loop._step_limit_axial
-        )
+        self.assertEqual(actuator_steps_saturated[0], self.control_loop._step_limit_axial)
+        self.assertEqual(actuator_steps_saturated[1], -self.control_loop._step_limit_axial)
 
-        self.assertEqual(
-            actuator_steps_saturated[-1], self.control_loop._step_limit_tangent
-        )
-        self.assertEqual(
-            actuator_steps_saturated[-2], -self.control_loop._step_limit_tangent
-        )
+        self.assertEqual(actuator_steps_saturated[-1], self.control_loop._step_limit_tangent)
+        self.assertEqual(actuator_steps_saturated[-2], -self.control_loop._step_limit_tangent)
 
 
 if __name__ == "__main__":

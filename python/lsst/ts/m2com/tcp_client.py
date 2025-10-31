@@ -163,9 +163,7 @@ class TcpClient(Client):
 
                 # Evaluate the message rate
                 if self._check_message_rate and has_message:
-                    consumed_messages, time_start = self._log_message_rate(
-                        consumed_messages, time_start
-                    )
+                    consumed_messages, time_start = self._log_message_rate(consumed_messages, time_start)
 
         except ConnectionError:
             self.log.info("Reader disconnected; closing client")
@@ -209,9 +207,7 @@ class TcpClient(Client):
         """
 
         try:
-            await self._callback_process_message(
-                *self._args_callback_process_message, message=message
-            )
+            await self._callback_process_message(*self._args_callback_process_message, message=message)
 
         except Exception as error:
             self.log.debug(f"Error in processing the message: {message}. {error!r}.")
@@ -295,9 +291,7 @@ class TcpClient(Client):
             raise ValueError("The 'id' is in the message details already.")
 
         if msg_type == MsgType.Command:
-            msg_details_with_header = self._add_cmd_header(
-                msg_name, msg_details_with_header
-            )
+            msg_details_with_header = self._add_cmd_header(msg_name, msg_details_with_header)
         elif msg_type == MsgType.Event:
             msg_details_with_header = self._add_evt_header(
                 msg_name, msg_details_with_header, comp_name=comp_name
@@ -336,9 +330,7 @@ class TcpClient(Client):
 
         return msg_details
 
-    def _add_evt_header(
-        self, msg_name: str, msg_details: dict, comp_name: str | None = None
-    ) -> dict:
+    def _add_evt_header(self, msg_name: str, msg_details: dict, comp_name: str | None = None) -> dict:
         """Add the event header.
 
         Note: This method will modify the input: msg_details.
@@ -365,9 +357,7 @@ class TcpClient(Client):
 
         return msg_details
 
-    def _add_tel_header(
-        self, msg_name: str, msg_details: dict, comp_name: str | None = None
-    ) -> dict:
+    def _add_tel_header(self, msg_name: str, msg_details: dict, comp_name: str | None = None) -> dict:
         """Add the telemetry header.
 
         Note: This method will modify the input: msg_details.

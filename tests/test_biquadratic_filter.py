@@ -41,24 +41,16 @@ class TestBiquadraticFilter(unittest.TestCase):
 
         np.testing.assert_almost_equal(value_filter_1, self.gain * value)
 
-        np.testing.assert_almost_equal(
-            self.bqd_filter._bqd_filters[1]._g_m1, np.array([0.2, 0.6])
-        )
-        np.testing.assert_almost_equal(
-            self.bqd_filter._bqd_filters[1]._g_m2, np.array([0.2, 0.6])
-        )
+        np.testing.assert_almost_equal(self.bqd_filter._bqd_filters[1]._g_m1, np.array([0.2, 0.6]))
+        np.testing.assert_almost_equal(self.bqd_filter._bqd_filters[1]._g_m2, np.array([0.2, 0.6]))
 
         # Second time
         value_filter_2 = self.bqd_filter.filter(value_filter_1 / self.gain)
 
         np.testing.assert_almost_equal(value_filter_2, np.array([1.5, 4.5]))
 
-        np.testing.assert_almost_equal(
-            self.bqd_filter._bqd_filters[0]._g_m1, np.array([0.0, 0.0])
-        )
-        np.testing.assert_almost_equal(
-            self.bqd_filter._bqd_filters[0]._g_m2, np.array([-0.4, -1.2])
-        )
+        np.testing.assert_almost_equal(self.bqd_filter._bqd_filters[0]._g_m1, np.array([0.0, 0.0]))
+        np.testing.assert_almost_equal(self.bqd_filter._bqd_filters[0]._g_m2, np.array([-0.4, -1.2]))
 
     def test_reset(self) -> None:
         self.bqd_filter.filter(np.array([0.1, 0.3]))

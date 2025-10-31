@@ -95,9 +95,7 @@ class MockErrorHandler(ErrorHandler):
         if self._is_enabled_faults(code):
             super().add_new_warning(code)
 
-    def add_new_limit_switch(
-        self, actuator_id: int, limit_switch_type: LimitSwitchType
-    ) -> None:
+    def add_new_limit_switch(self, actuator_id: int, limit_switch_type: LimitSwitchType) -> None:
         """Add the new triggered limit switch.
 
         Parameters
@@ -114,9 +112,7 @@ class MockErrorHandler(ErrorHandler):
         """
 
         if not (0 <= actuator_id < NUM_ACTUATOR):
-            raise ValueError(
-                f"Actuator ID ({actuator_id}) should be in [0, {NUM_ACTUATOR})."
-            )
+            raise ValueError(f"Actuator ID ({actuator_id}) should be in [0, {NUM_ACTUATOR}).")
 
         if limit_switch_type == LimitSwitchType.Retract:
             self._add_new_item(
@@ -170,9 +166,7 @@ class MockErrorHandler(ErrorHandler):
             else (len(self._limit_switches_extend_reported) != 0)
         )
 
-    def get_limit_switches_to_report(
-        self, limit_switch_type: LimitSwitchType
-    ) -> typing.Set[int]:
+    def get_limit_switches_to_report(self, limit_switch_type: LimitSwitchType) -> typing.Set[int]:
         """Get the limit switches that are not reported yet.
 
         Parameters
@@ -188,19 +182,15 @@ class MockErrorHandler(ErrorHandler):
 
         # Note the union() will return a new set object
         if limit_switch_type == LimitSwitchType.Retract:
-            self._limit_switches_retract_reported = (
-                self._limit_switches_retract_reported.union(
-                    self._limit_switches_retract_new
-                )
+            self._limit_switches_retract_reported = self._limit_switches_retract_reported.union(
+                self._limit_switches_retract_new
             )
 
             return self._get_items_in_set_and_clear(self._limit_switches_retract_new)
 
         else:
-            self._limit_switches_extend_reported = (
-                self._limit_switches_extend_reported.union(
-                    self._limit_switches_extend_new
-                )
+            self._limit_switches_extend_reported = self._limit_switches_extend_reported.union(
+                self._limit_switches_extend_new
             )
 
             return self._get_items_in_set_and_clear(self._limit_switches_extend_new)

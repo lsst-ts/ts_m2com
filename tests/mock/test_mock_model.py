@@ -75,15 +75,9 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(is_out_limit_force_error_tangent)
         self.assertEqual(error_code_force_error_tangent, MockErrorCode.NoError)
 
-        self.assertAlmostEqual(
-            self.model.control_closed_loop.axial_forces["measured"][0], 216.2038167
-        )
-        self.assertEqual(
-            self.model.control_closed_loop.tangent_forces["measured"][0], 0
-        )
-        self.assertAlmostEqual(
-            self.model.control_closed_loop.tangent_forces["measured"][1], -63.8528153
-        )
+        self.assertAlmostEqual(self.model.control_closed_loop.axial_forces["measured"][0], 216.2038167)
+        self.assertEqual(self.model.control_closed_loop.tangent_forces["measured"][0], 0)
+        self.assertAlmostEqual(self.model.control_closed_loop.tangent_forces["measured"][1], -63.8528153)
 
         self.assertAlmostEqual(
             self.model.control_closed_loop.axial_forces["hardpointCorrection"][0],
@@ -322,20 +316,14 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         ) = self._get_force_error_tangent_expected()
 
         self.model.inclinometer_angle = angle
-        force_error_tangent = self.model._calculate_force_error_tangent(
-            tangent_force_current
-        )
+        force_error_tangent = self.model._calculate_force_error_tangent(tangent_force_current)
 
         for key in force_error_tangent_expected.keys():
             if isinstance(force_error_tangent_expected[key], list):
-                for value, value_expected in zip(
-                    force_error_tangent[key], force_error_tangent_expected[key]
-                ):
+                for value, value_expected in zip(force_error_tangent[key], force_error_tangent_expected[key]):
                     self.assertAlmostEqual(value, value_expected)
             else:
-                self.assertAlmostEqual(
-                    force_error_tangent[key], force_error_tangent_expected[key]
-                )
+                self.assertAlmostEqual(force_error_tangent[key], force_error_tangent_expected[key])
 
     def _get_force_error_tangent_expected(
         self,
@@ -363,9 +351,7 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
 
         position = self._calc_position_ims(displacement_ims)
 
-        np.testing.assert_array_almost_equal(
-            position, list(self.model.mirror_position.values())
-        )
+        np.testing.assert_array_almost_equal(position, list(self.model.mirror_position.values()))
 
         # Non-zero position
         mirror_position = {
@@ -376,17 +362,13 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
             "yRot": 50,
             "zRot": 60,
         }
-        displacement_ims = self.model._get_displacement_sensors(
-            mirror_position=mirror_position
-        )
+        displacement_ims = self.model._get_displacement_sensors(mirror_position=mirror_position)
 
         position = self._calc_position_ims(displacement_ims)
 
         np.testing.assert_array_almost_equal(position, list(mirror_position.values()))
 
-    def _calc_position_ims(
-        self, displacement_ims: dict
-    ) -> numpy.typing.NDArray[np.float64]:
+    def _calc_position_ims(self, displacement_ims: dict) -> numpy.typing.NDArray[np.float64]:
         """Calculate the position based on the reading of IMS.
 
         Parameters
@@ -423,24 +405,18 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
     def test_balance_forces_and_steps(self) -> None:
         self.model.control_closed_loop.is_running = True
 
-        self.assertAlmostEqual(
-            self.model.control_closed_loop.axial_forces["measured"][0], 216.2038167
-        )
+        self.assertAlmostEqual(self.model.control_closed_loop.axial_forces["measured"][0], 216.2038167)
 
         # In the initial beginning, the actuators are not in position
         self.model.balance_forces_and_steps()
 
-        self.assertAlmostEqual(
-            self.model.control_closed_loop.axial_forces["measured"][0], 216.4099693
-        )
+        self.assertAlmostEqual(self.model.control_closed_loop.axial_forces["measured"][0], 216.4099693)
 
         # After some running of closed-loop control, the actuators are in
         # position
         self._balance_forces_and_steps(cycle_times=30)
 
-        self.assertAlmostEqual(
-            self.model.control_closed_loop.axial_forces["measured"][0], 190.5481269
-        )
+        self.assertAlmostEqual(self.model.control_closed_loop.axial_forces["measured"][0], 190.5481269)
 
         self.assertAlmostEqual(self.model.mirror_position["x"], 0.0)
         self.assertAlmostEqual(self.model.mirror_position["y"], 0.0)
@@ -456,20 +432,14 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         self.assertLess(np.abs(zenith_angle["inclinometerProcessed"] - 90), 2)
 
     async def test_check_set_point_position_mirror(self) -> None:
-        mirror_position_set_point = dict(
-            [(axis, 1.0) for axis in ("x", "y", "z", "xRot", "yRot", "zRot")]
-        )
+        mirror_position_set_point = dict([(axis, 1.0) for axis in ("x", "y", "z", "xRot", "yRot", "zRot")])
 
         # This should fail
-        self.assertFalse(
-            self.model.check_set_point_position_mirror(mirror_position_set_point)
-        )
+        self.assertFalse(self.model.check_set_point_position_mirror(mirror_position_set_point))
 
         # This should fail again
         await self.model.power_motor.power_on()
-        self.assertFalse(
-            self.model.check_set_point_position_mirror(mirror_position_set_point)
-        )
+        self.assertFalse(self.model.check_set_point_position_mirror(mirror_position_set_point))
 
         # This should succeed in the final
         self.model.switch_force_balance_system(True)
@@ -478,14 +448,10 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result)
 
     def test_handle_position_mirror(self) -> None:
-        mirror_position_set_point = dict(
-            [(axis, 1.0) for axis in ("x", "y", "z", "xRot", "yRot", "zRot")]
-        )
+        mirror_position_set_point = dict([(axis, 1.0) for axis in ("x", "y", "z", "xRot", "yRot", "zRot")])
         self.model.handle_position_mirror(mirror_position_set_point)
 
-        np.testing.assert_array_equal(
-            self.model.steps_hardpoints_offset, [92, 338, -581, -450, -482, -363]
-        )
+        np.testing.assert_array_equal(self.model.steps_hardpoints_offset, [92, 338, -581, -450, -482, -363])
 
     async def test_enable_open_loop_max_limit(self) -> None:
         self.model.enable_open_loop_max_limit(True)
@@ -522,14 +488,10 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.model.get_digital_output(), TEST_DIGITAL_OUTPUT_NO_POWER)
 
         await self.model.power_communication.power_on()
-        self.assertEqual(
-            self.model.get_digital_output(), TEST_DIGITAL_OUTPUT_POWER_COMM
-        )
+        self.assertEqual(self.model.get_digital_output(), TEST_DIGITAL_OUTPUT_POWER_COMM)
 
         await self.model.power_motor.power_on()
-        self.assertEqual(
-            self.model.get_digital_output(), TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR
-        )
+        self.assertEqual(self.model.get_digital_output(), TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR)
 
         self.model.control_closed_loop.is_running = True
         self.assertEqual(
@@ -544,9 +506,7 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.model.get_digital_input(), TEST_DIGITAL_INPUT_POWER_COMM)
 
         await self.model.power_motor.power_on()
-        self.assertEqual(
-            self.model.get_digital_input(), TEST_DIGITAL_INPUT_POWER_COMM_MOTOR
-        )
+        self.assertEqual(self.model.get_digital_input(), TEST_DIGITAL_INPUT_POWER_COMM_MOTOR)
 
     def test_switch_digital_output(self) -> None:
         digital_output = self.model.get_digital_output()
@@ -573,9 +533,7 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
             DigitalOutput.MotorPower,
             DigitalOutputStatus.BinaryHighLevel,
         )
-        self.assertEqual(
-            digital_output_high_none, digital_output + DigitalOutput.MotorPower.value
-        )
+        self.assertEqual(digital_output_high_none, digital_output + DigitalOutput.MotorPower.value)
 
         digital_output_high_exist = self.model.switch_digital_output(
             digital_output,
@@ -588,16 +546,12 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         digital_output_with_motor_power = self.model.switch_digital_output(
             digital_output, DigitalOutput.MotorPower, DigitalOutputStatus.ToggleBit
         )
-        self.assertTrue(
-            digital_output_with_motor_power & DigitalOutput.MotorPower.value
-        )
+        self.assertTrue(digital_output_with_motor_power & DigitalOutput.MotorPower.value)
 
         digital_output_interlock_disabled = self.model.switch_digital_output(
             digital_output, DigitalOutput.InterlockEnable, DigitalOutputStatus.ToggleBit
         )
-        self.assertFalse(
-            digital_output_interlock_disabled & DigitalOutput.InterlockEnable.value
-        )
+        self.assertFalse(digital_output_interlock_disabled & DigitalOutput.InterlockEnable.value)
 
     def test_get_mode_ilc(self) -> None:
         # No data
@@ -613,9 +567,7 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         self.model.set_mode_ilc(addresses, MTM2.InnerLoopControlMode.Enabled)
 
         list_mode = self.model.get_mode_ilc(addresses)
-        self.assertEqual(
-            list_mode, [MTM2.InnerLoopControlMode.Enabled] * len(addresses)
-        )
+        self.assertEqual(list_mode, [MTM2.InnerLoopControlMode.Enabled] * len(addresses))
 
 
 if __name__ == "__main__":

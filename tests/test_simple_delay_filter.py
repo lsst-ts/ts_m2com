@@ -63,9 +63,7 @@ class TestSimpleDelayFilter(unittest.TestCase):
 
         self.simple_delay_filter.reset()
 
-        np.testing.assert_equal(
-            self.simple_delay_filter._delay_history, np.zeros((2, 2))
-        )
+        np.testing.assert_equal(self.simple_delay_filter._delay_history, np.zeros((2, 2)))
 
 
 if __name__ == "__main__":

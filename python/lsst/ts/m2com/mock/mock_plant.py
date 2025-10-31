@@ -107,9 +107,7 @@ class MockPlant:
 
         self._actuator_force_weight = get_forces_mirror_weight(inclinometer_angle)
 
-    def move_actuator_steps(
-        self, actuator_steps: numpy.typing.NDArray[np.int64]
-    ) -> None:
+    def move_actuator_steps(self, actuator_steps: numpy.typing.NDArray[np.int64]) -> None:
         """Move the actuator steps.
 
         Notes

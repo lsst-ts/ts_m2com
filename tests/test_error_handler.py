@@ -167,9 +167,7 @@ class TestErrorHandler(unittest.TestCase):
         self.assertEqual(self.error_handler.get_summary_faults_status_from_codes([]), 0)
 
         # Some codes
-        self.assertEqual(
-            self.error_handler.get_summary_faults_status_from_codes([6051, 6055]), 24
-        )
+        self.assertEqual(self.error_handler.get_summary_faults_status_from_codes([6051, 6055]), 24)
 
     def test_get_summary_faults_status_to_report(self) -> None:
         # No faults
@@ -181,9 +179,7 @@ class TestErrorHandler(unittest.TestCase):
         self.error_handler._warnings_reported.add(6057)
         self.error_handler._warnings_new.add(6059)
 
-        self.assertEqual(
-            self.error_handler.get_summary_faults_status_to_report(), 0x138
-        )
+        self.assertEqual(self.error_handler.get_summary_faults_status_to_report(), 0x138)
         self.assertEqual(self.error_handler._errors_reported, {6051, 6055})
         self.assertEqual(self.error_handler._warnings_reported, {6057, 6059})
 

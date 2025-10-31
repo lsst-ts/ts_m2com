@@ -48,9 +48,7 @@ class TestMockControlOpenLoop(unittest.TestCase):
             is_out_limit,
             limit_switch_retract,
             limit_switch_extend,
-        ) = self.control_open_loop.is_actuator_force_out_limit(
-            self.plant.get_actuator_forces()
-        )
+        ) = self.control_open_loop.is_actuator_force_out_limit(self.plant.get_actuator_forces())
 
         self.assertFalse(is_out_limit)
         self.assertEqual(limit_switch_retract, [])
@@ -68,9 +66,7 @@ class TestMockControlOpenLoop(unittest.TestCase):
             is_out_limit,
             limit_switch_retract,
             limit_switch_extend,
-        ) = self.control_open_loop.is_actuator_force_out_limit(
-            self.plant.get_actuator_forces()
-        )
+        ) = self.control_open_loop.is_actuator_force_out_limit(self.plant.get_actuator_forces())
 
         self.assertTrue(is_out_limit)
         self.assertEqual(limit_switch_retract, [0])
@@ -85,9 +81,7 @@ class TestMockControlOpenLoop(unittest.TestCase):
             is_out_limit,
             limit_switch_retract,
             limit_switch_extend,
-        ) = self.control_open_loop.is_actuator_force_out_limit(
-            self.plant.get_actuator_forces()
-        )
+        ) = self.control_open_loop.is_actuator_force_out_limit(self.plant.get_actuator_forces())
 
         self.assertFalse(is_out_limit)
 
@@ -98,9 +92,7 @@ class TestMockControlOpenLoop(unittest.TestCase):
             is_out_limit,
             limit_switch_retract,
             limit_switch_extend,
-        ) = self.control_open_loop.is_actuator_force_out_limit(
-            self.plant.get_actuator_forces()
-        )
+        ) = self.control_open_loop.is_actuator_force_out_limit(self.plant.get_actuator_forces())
 
         self.assertTrue(is_out_limit)
         self.assertEqual(limit_switch_retract, [0])
@@ -118,9 +110,7 @@ class TestMockControlOpenLoop(unittest.TestCase):
             is_out_limit,
             limit_switch_retract,
             limit_switch_extend,
-        ) = self.control_open_loop.is_actuator_force_out_limit(
-            self.plant.get_actuator_forces()
-        )
+        ) = self.control_open_loop.is_actuator_force_out_limit(self.plant.get_actuator_forces())
 
         self.assertTrue(is_out_limit)
         self.assertEqual(limit_switch_retract, [77])
@@ -135,9 +125,7 @@ class TestMockControlOpenLoop(unittest.TestCase):
             is_out_limit,
             limit_switch_retract,
             limit_switch_extend,
-        ) = self.control_open_loop.is_actuator_force_out_limit(
-            self.plant.get_actuator_forces()
-        )
+        ) = self.control_open_loop.is_actuator_force_out_limit(self.plant.get_actuator_forces())
 
         self.assertFalse(is_out_limit)
 
@@ -148,9 +136,7 @@ class TestMockControlOpenLoop(unittest.TestCase):
             is_out_limit,
             limit_switch_retract,
             limit_switch_extend,
-        ) = self.control_open_loop.is_actuator_force_out_limit(
-            self.plant.get_actuator_forces()
-        )
+        ) = self.control_open_loop.is_actuator_force_out_limit(self.plant.get_actuator_forces())
 
         self.assertTrue(is_out_limit)
         self.assertEqual(limit_switch_retract, [77])
