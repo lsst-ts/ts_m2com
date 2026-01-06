@@ -26,6 +26,7 @@ import typing
 
 import numpy as np
 import numpy.typing
+
 from lsst.ts.utils import make_done_future
 from lsst.ts.xml.enums import MTM2
 
