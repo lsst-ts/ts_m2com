@@ -24,6 +24,7 @@ import logging
 import unittest
 
 import numpy as np
+
 from lsst.ts.m2com import (
     NUM_ACTUATOR,
     camel_case,

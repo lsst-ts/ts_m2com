@@ -27,6 +27,7 @@ import unittest
 from pathlib import Path
 
 import numpy as np
+
 from lsst.ts import tcpip
 from lsst.ts.m2com import (
     DEFAULT_ENABLED_FAULTS_MASK,

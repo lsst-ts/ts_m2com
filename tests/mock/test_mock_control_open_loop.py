@@ -23,6 +23,7 @@ import unittest
 
 import numpy as np
 import numpy.typing
+
 from lsst.ts.m2com import (
     NUM_ACTUATOR,
     ActuatorDisplacementUnit,

@@ -25,6 +25,7 @@ from pathlib import Path
 
 import numpy as np
 import numpy.typing
+
 from lsst.ts.xml.enums import MTM2
 
 from ..constant import (

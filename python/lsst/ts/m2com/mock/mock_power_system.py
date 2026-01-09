@@ -20,6 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import numpy as np
+
 from lsst.ts.xml.enums import MTM2
 
 __all__ = ["MockPowerSystem"]

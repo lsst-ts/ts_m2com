@@ -22,6 +22,7 @@
 import unittest
 
 import numpy as np
+
 from lsst.ts.m2com import NUM_ACTUATOR, NUM_TANGENT_LINK, MockInPosition
 
 

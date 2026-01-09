@@ -32,8 +32,9 @@ from re import sub
 import numpy as np
 import numpy.typing
 import yaml
-from lsst.ts import tcpip
 from scipy.spatial import KDTree
+
+from lsst.ts import tcpip
 
 from .constant import MIRROR_WEIGHT_KG, NUM_ACTUATOR, NUM_TANGENT_LINK
 
