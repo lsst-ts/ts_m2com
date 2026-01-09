@@ -4,6 +4,22 @@ Version History
 
 .. towncrier release notes start
 
+v1.5.15 (2026-01-09)
+====================
+
+New Features
+------------
+
+- Adapt the ruff format. (`OSW-1287 <https://rubinobs.atlassian.net//browse/OSW-1287>`_)
+
+
+Other Changes and Additions
+---------------------------
+
+- Fix the ruff format. (`OSW-1459 <https://rubinobs.atlassian.net//browse/OSW-1459>`_)
+- Support the documenteer.toml. (`OSW-1459 <https://rubinobs.atlassian.net//browse/OSW-1459>`_)
+
+
 v1.5.14 (2025-10-08)
 ====================
 
