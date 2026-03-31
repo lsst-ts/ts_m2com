@@ -163,7 +163,7 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
 
     def test_is_force_error_tangent_out_limit(self) -> None:
         # Check the total weight
-        self.model._force_error_tangent["weight"] = -2000.0
+        self.model._force_error_tangent["weight"] = -5000.0
         is_out_limit, error_code = self.model.is_force_error_tangent_out_limit()
 
         self.assertTrue(is_out_limit)
