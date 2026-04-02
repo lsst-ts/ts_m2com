@@ -4,6 +4,15 @@ Version History
 
 .. towncrier release notes start
 
+v1.5.16 (2026-04-02)
+====================
+
+Other Changes and Additions
+---------------------------
+
+- Update the TANGENT_LINK_TOTAL_WEIGHT_ERROR to be 5000 N. (`OSW-2093 <https://rubinobs.atlassian.net//browse/OSW-2093>`_)
+
+
 v1.5.15 (2026-01-09)
 ====================
 
