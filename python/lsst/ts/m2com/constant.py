@@ -87,8 +87,32 @@ MAX_LIMIT_FORCE_TANGENT_OPEN_LOOP = 6227.51  # 1400 lbf
 # For the dynamic load, consider the TMA acceleration at 100% value is ~0.06 g.
 # Therefore the dynamic force = MIRROR_WEIGHT_KG * 9.8 * 0.06 ~ 934.13 N.
 # That leaves ~1000 N for the "actual weight error" component in the total
-# error budget of 2000 N.
-TANGENT_LINK_TOTAL_WEIGHT_ERROR = 2000
+# error budget of 2000 N in the original vendor's side.
+# However, when the small/medium earthquake happens, this threshold might be
+# too restrictive (see FRACAS-346).
+# Per the document-21489, "Seismic Requirements Overview":
+# The LSST site often experiences minor seismic events. It was decided later
+# in the project that all systems should be able to withstand these typical
+# seismic accelerations without any damage or disruption. The accelerations
+# chosen for this case reflect the likely seismic event to be encountered
+# during the telescope's 30-year design life. The 30-year-period accelerations
+# from LTS-13228 are provided below:
+#
+# HORIZONTAL DIRECTION              30 year
+# Peak Ground Acceleration (PGA)    0.18 G
+# Maximum PSA                       0.48 G
+
+# VERTICAL DIRECTION                30 year
+# Peak Ground Acceleration (PGA)    0.12 G
+# Maximum PSA                       0.32 G
+
+# The load check investigated in this ticket is the related to the vertical
+# acceleration. The requirement for the vertical direction is 0.32G. Since the
+# combined weight of the mirror and its support attachments is ~1600 kg.
+# 1600 x 0.32 is 512 kg. The limit should be set to 512 kg or 5017.6 N.
+# Since 1600 kg is just an approximate value, the limit is simplified to 5000
+# N.
+TANGENT_LINK_TOTAL_WEIGHT_ERROR = 5000
 
 TANGENT_LINK_LOAD_BEARING_LINK = 2000
 TANGENT_LINK_THETA_Z_MOMENT = 1000
