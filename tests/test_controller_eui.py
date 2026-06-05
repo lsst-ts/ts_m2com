@@ -463,18 +463,15 @@ class TestControllerEui(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(messages[-1]["value"], TEST_DIGITAL_OUTPUT_POWER_COMM_MOTOR)
 
-    async def test_reboot_controller(self) -> None:
+    async def test_fault_controller(self) -> None:
         async with self.make_server() as server, self.make_controller(server) as controller:
             # Connection is on in the initial beginning
             self.assertTrue(controller.are_clients_connected())
 
-            await controller.write_command_to_server("rebootController")
+            await controller.fault_controller()
 
-            # Wait a little time to collect the messages
-            await asyncio.sleep(SLEEP_TIME_LONG)
-            self.assertFalse(controller.are_clients_connected())
-
-            self.assertTrue(self.lost_connection)
+            await asyncio.sleep(SLEEP_TIME_MEDIUM)
+            self.assertTrue(server.model.error_handler.exists_error())
 
     async def test_enable_open_loop_max_limit(self) -> None:
         async with self.make_server() as server, self.make_controller(server) as controller:

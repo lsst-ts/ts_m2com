@@ -183,4 +183,5 @@ class MockErrorCode(IntEnum):
     LimitSwitchTriggeredClosedloop = 6056
     LimitSwitchTriggeredOpenloop = 6057
     InclinometerDifference = 6060
+    FaultUserIdentified = 6087
     TangentLoadCellFault = 6088

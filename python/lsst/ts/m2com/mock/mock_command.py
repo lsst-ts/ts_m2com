@@ -546,10 +546,10 @@ class MockCommand:
             CommandStatus.Success if command_success is True else CommandStatus.Fail,
         )
 
-    async def reboot_controller(
+    async def fault(
         self, message: dict, model: MockModel, message_event: MockMessageEvent
     ) -> tuple[MockModel, CommandStatus]:
-        """Reboot the cell controller.
+        """Fault the cell controller.
 
         Parameters
         ----------
@@ -567,6 +567,8 @@ class MockCommand:
         `CommandStatus`
             Status of command execution.
         """
+
+        model.fault(MockErrorCode.FaultUserIdentified)
 
         return model, CommandStatus.Success
 

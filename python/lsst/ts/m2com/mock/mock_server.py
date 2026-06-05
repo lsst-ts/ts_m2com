@@ -137,7 +137,7 @@ class MockServer:
             "cmd_runScript": self._command.run_script,
             "cmd_moveActuators": self._command.move_actuators,
             "cmd_resetBreakers": self._command.reset_breakers,
-            "cmd_rebootController": self._command.reboot_controller,
+            "cmd_fault": self._command.fault,
             "cmd_enableOpenLoopMaxLimit": self._command.enable_open_loop_max_limit,
             "cmd_saveMirrorPosition": self._command.save_mirror_position,
             "cmd_setMirrorHome": self._command.set_mirror_home,
