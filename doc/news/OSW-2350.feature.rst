@@ -1,0 +1,1 @@
+Remove the Controller.reboot_controller() and add the Controller.fault_controller().

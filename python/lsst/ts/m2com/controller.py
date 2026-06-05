@@ -1620,8 +1620,8 @@ class Controller:
 
         await self.write_command_to_server("setMirrorHome", timeout=timeout)
 
-    async def reboot_controller(self, timeout: float = 10.0) -> None:
-        """Reboot the cell controller.
+    async def fault_controller(self, timeout: float = 10.0) -> None:
+        """Fault the cell controller.
 
         Parameters
         ----------
@@ -1629,12 +1629,7 @@ class Controller:
             Timeout of command in second. (the default is 10.0)
         """
 
-        try:
-            await self.write_command_to_server("rebootController", timeout=timeout)
-        # If the controller reboots, it can not reply the command is executed
-        # successfully. Therefore, bypass the RuntimeError here.
-        except RuntimeError:
-            self.log.exception("Bypassing RuntimeError after rebooting the controller.")
+        await self.write_command_to_server("fault", timeout=timeout)
 
     async def switch_command_source(self, is_remote: bool, timeout: float = 10.0) -> None:
         """Switch the command source.
