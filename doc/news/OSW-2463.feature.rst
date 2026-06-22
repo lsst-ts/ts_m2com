@@ -1,0 +1,1 @@
+Remove the base in ts_m2com.table file.
