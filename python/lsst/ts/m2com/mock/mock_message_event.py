@@ -425,3 +425,106 @@ class MockMessageEvent:
                     ],
                 },
             )
+
+    async def write_server_id(self, address: int) -> None:
+        """Write the message: server identifier.
+
+        Parameters
+        ----------
+        address : `int`
+            0-based address.
+        """
+
+        if self.server is not None:
+            RANDOM_START_VALUE = 1000
+            await self.server.write_json(
+                {
+                    "id": "serverIdentifier",
+                    "address": address,
+                    "uniqueId": RANDOM_START_VALUE + address,
+                    "applicationType": 1,
+                    "networkNodeType": 1,
+                    "selectedOptions": 1,
+                    "networkNodeOptions": 1,
+                    "firmwareRevision": "7.1",
+                    "firmwareName": "Electromechanical ILC (c)2017 AURA-LSST",
+                },
+            )
+
+    async def write_server_status(self, address: int, mode: MTM2.InnerLoopControlMode) -> None:
+        """Write the message: server status.
+
+        Parameters
+        ----------
+        address : `int`
+            0-based address.
+        mode : enum `MTM2.InnerLoopControlMode`
+            Inner-loop controller mode.
+        """
+
+        if self.server is not None:
+            status = 1 if (mode == MTM2.InnerLoopControlMode.Fault) else 0
+            await self.server.write_json(
+                {
+                    "id": "serverStatus",
+                    "address": address,
+                    "mode": int(mode),
+                    "status": status,
+                    "faults": 0,
+                },
+            )
+
+    async def write_scan_rate(self, address: int, rate: int) -> None:
+        """Write the message: server status.
+
+        Parameters
+        ----------
+        address : `int`
+            0-based address.
+        rate : `int`
+            Scan rate.
+        """
+
+        if self.server is not None:
+            await self.server.write_json(
+                {
+                    "id": "scanRate",
+                    "address": address,
+                    "rate": rate,
+                },
+            )
+
+    async def write_calibration_data(
+        self,
+        address: int,
+        gains: list[float],
+        offsets: list[float],
+        sensitivities: list[float],
+    ) -> None:
+        """Write the message: calibration data.
+
+        Parameters
+        ----------
+        address : `int`
+            0-based address.
+        gains : `list` [`float`]
+            Gains.
+        offsets : `list` [`float`]
+            Offsets.
+        sensitivities : `list` [`float`]
+            Sensitivities.
+        """
+
+        if self.server is not None:
+            await self.server.write_json(
+                {
+                    "id": "calibrationData",
+                    "address": address,
+                    "mainGains": gains,
+                    "mainOffsets": offsets,
+                    "mainSensitivities": sensitivities,
+                    "backupGains": gains,
+                    "backupOffsets": offsets,
+                    "backupSensitivities": sensitivities,
+                },
+            )
