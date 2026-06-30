@@ -570,6 +570,14 @@ class TestMockModel(unittest.IsolatedAsyncioTestCase):
         list_mode = self.model.get_mode_ilc(addresses)
         self.assertEqual(list_mode, [MTM2.InnerLoopControlMode.Enabled] * len(addresses))
 
+    def test_get_ilc(self) -> None:
+        address = 1
+        mode = MTM2.InnerLoopControlMode.Enabled
+        self.model.set_mode_ilc([address], mode)
+
+        ilc = self.model.get_ilc(address)
+        self.assertEqual(ilc.mode, mode)
+
 
 if __name__ == "__main__":
     # Do the unit test
