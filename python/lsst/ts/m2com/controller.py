@@ -1791,6 +1791,173 @@ class Controller:
             timeout=timeout,
         )
 
+    async def set_single_ilc_mode(
+        self,
+        address: int,
+        mode_command: MTM2.InnerLoopControlMode,
+        timeout: float = 10.0,
+    ) -> None:
+        """Set the inner-loop control (ILC) mode for a single ILC.
+
+        Parameters
+        ----------
+        address : `int`
+            0-based ILC address.
+        mode_command : enum `MTM2.InnerLoopControlMode`
+            Command of the ILC mode.
+        timeout : `float`, optional
+            Timeout in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server(
+            "setInnerLoopControlMode",
+            message_details={
+                "addresses": [address],
+                "mode": int(mode_command),
+            },
+            timeout=timeout,
+        )
+
+    async def report_server_id(self, address: int, timeout: float = 10.0) -> None:
+        """Report the server identity of inner-loop controller (ILC).
+
+        Parameters
+        ----------
+        address : `int`
+            0-based ILC address.
+        timeout : `float`, optional
+            Timeout in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server(
+            "reportServerId",
+            message_details={"address": address},
+            timeout=timeout,
+        )
+
+    async def report_server_status(self, address: int, timeout: float = 10.0) -> None:
+        """Report the server status of inner-loop controller (ILC).
+
+        Parameters
+        ----------
+        address : `int`
+            0-based ILC address.
+        timeout : `float`, optional
+            Timeout in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server(
+            "reportServerStatus",
+            message_details={"address": address},
+            timeout=timeout,
+        )
+
+    async def read_calibration_data(self, address: int, timeout: float = 10.0) -> None:
+        """Read the calibration data of inner-loop controller (ILC).
+
+        Parameters
+        ----------
+        address : `int`
+            0-based ILC address.
+        timeout : `float`, optional
+            Timeout in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server(
+            "readCalibrationData",
+            message_details={"address": address},
+            timeout=timeout,
+        )
+
+    async def reset_inner_loop_controller(self, address: int, timeout: float = 10.0) -> None:
+        """Reset the inner-loop controller (ILC).
+
+        Parameters
+        ----------
+        address : `int`
+            0-based ILC address.
+        timeout : `float`, optional
+            Timeout in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server(
+            "resetInnerLoopController",
+            message_details={"address": address},
+            timeout=timeout,
+        )
+
+    async def get_scan_rate(self, address: int, timeout: float = 10.0) -> None:
+        """Get the scan rate of inner-loop controller (ILC).
+
+        Parameters
+        ----------
+        address : `int`
+            0-based ILC address.
+        timeout : `float`, optional
+            Timeout in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server(
+            "getScanRate",
+            message_details={"address": address},
+            timeout=timeout,
+        )
+
+    async def set_scan_rate(self, address: int, rate: int, timeout: float = 10.0) -> None:
+        """Set the scan rate of inner-loop controller (ILC).
+
+        Parameters
+        ----------
+        address : `int`
+            0-based ILC address.
+        rate : `int`
+            Scan rate.
+        timeout : `float`, optional
+            Timeout in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server(
+            "setScanRate",
+            message_details={"address": address, "rate": rate},
+            timeout=timeout,
+        )
+
+    async def set_offset_and_sensitivity(
+        self,
+        address: int,
+        channel: int,
+        offset: float,
+        sensitivity: float,
+        timeout: float = 10.0,
+    ) -> None:
+        """Set the offset and sensitivity for a specific channel of inner loop
+        controller (ILC).
+
+        Parameters
+        ----------
+        address : `int`
+            0-based ILC address.
+        channel : `int`
+            0-based channel address (0-3).
+        offset : `float`
+            Offset.
+        sensitivity : `float`
+            Sensitivity.
+        timeout : `float`, optional
+            Timeout in second. (the default is 10.0)
+        """
+
+        await self.write_command_to_server(
+            "setOffsetAndSensitivity",
+            message_details={
+                "address": address,
+                "channel": channel,
+                "offset": offset,
+                "sensitivity": sensitivity,
+            },
+            timeout=timeout,
+        )
+
     def is_powered_on_communication(self) -> bool:
         """Communication power is on or not.
 
