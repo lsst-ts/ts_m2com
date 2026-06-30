@@ -152,6 +152,13 @@ class MockServer:
             "cmd_setEnabledFaultsMask": self._command.set_enabled_faults_mask,
             "cmd_setConfigurationFile": self._command.set_configuration_file,
             "cmd_setHardpointList": self._command.set_hardpoint_list,
+            "cmd_reportServerId": self._command.report_server_id,
+            "cmd_reportServerStatus": self._command.report_server_status,
+            "cmd_readCalibrationData": self._command.read_calibration_data,
+            "cmd_resetInnerLoopController": self._command.reset_inner_loop_controller,
+            "cmd_getScanRate": self._command.get_scan_rate,
+            "cmd_setScanRate": self._command.set_scan_rate,
+            "cmd_setOffsetAndSensitivity": self._command.set_offset_and_sensitivity,
         }
 
     async def _connect_state_changed_callback_command(self, server_command: tcpip.OneClientServer) -> None:
