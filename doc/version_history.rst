@@ -4,6 +4,17 @@ Version History
 
 .. towncrier release notes start
 
+v1.6.0 (2026-07-09)
+===================
+
+New Features
+------------
+
+- Remove the Controller.reboot_controller() and add the Controller.fault_controller(). (`OSW-2350 <https://rubinobs.atlassian.net//browse/OSW-2350>`_)
+- Remove the base in ts_m2com.table file. (`OSW-2463 <https://rubinobs.atlassian.net//browse/OSW-2463>`_)
+- Support more ILC commands. (`OSW-2554 <https://rubinobs.atlassian.net//browse/OSW-2554>`_)
+
+
 v1.5.16 (2026-04-02)
 ====================
 
