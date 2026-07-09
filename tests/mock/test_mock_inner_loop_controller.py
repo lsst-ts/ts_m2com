@@ -41,6 +41,15 @@ class TestMockInnerLoopController(unittest.TestCase):
         self.inner_loop_controller.set_mode(MTM2.InnerLoopControlMode.NoChange)
         self.assertEqual(self.inner_loop_controller.mode, MTM2.InnerLoopControlMode.Standby)
 
+    def test_set_offset_and_sensitivity(self) -> None:
+        channel = 1
+        offset = 0.1
+        sensitivity = 0.2
+        self.inner_loop_controller.set_offset_and_sensitivity(channel, offset, sensitivity)
+
+        self.assertEqual(self.inner_loop_controller.offsets[channel], offset)
+        self.assertEqual(self.inner_loop_controller.sensitivities[channel], sensitivity)
+
 
 if __name__ == "__main__":
     # Do the unit test

@@ -918,6 +918,165 @@ class TestMockServer(unittest.IsolatedAsyncioTestCase):
                 2**33,
             )
 
+    async def test_cmd_report_server_id(self) -> None:
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
+        ):
+            await client_cmd.write_message(
+                MsgType.Command,
+                "reportServerId",
+                msg_details={"address": 1},
+            )
+
+            await asyncio.sleep(0.5)
+
+            msg_server_id = get_queue_message_latest(self.queue_cmd, "serverIdentifier")
+            self.assertEqual(msg_server_id["address"], 1)
+            self.assertEqual(msg_server_id["uniqueId"], 1001)
+            self.assertEqual(msg_server_id["firmwareRevision"], "7.1")
+
+    async def test_cmd_report_server_status(self) -> None:
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
+        ):
+            address = 1
+            mode = MTM2.InnerLoopControlMode.Fault
+            server.model.set_mode_ilc([address], mode)
+
+            await client_cmd.write_message(
+                MsgType.Command,
+                "reportServerStatus",
+                msg_details={"address": 1},
+            )
+
+            await asyncio.sleep(0.5)
+
+            msg_server_status = get_queue_message_latest(self.queue_cmd, "serverStatus")
+            self.assertEqual(msg_server_status["address"], address)
+            self.assertEqual(msg_server_status["mode"], int(mode))
+            self.assertEqual(msg_server_status["status"], 1)
+
+    async def test_cmd_read_calibration_data(self) -> None:
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
+        ):
+            await client_cmd.write_message(
+                MsgType.Command,
+                "readCalibrationData",
+                msg_details={"address": 1},
+            )
+
+            await asyncio.sleep(0.5)
+
+            msg_calibration_data = get_queue_message_latest(self.queue_cmd, "calibrationData")
+            self.assertEqual(msg_calibration_data["address"], 1)
+            self.assertEqual(len(msg_calibration_data["mainGains"]), 4)
+
+    async def test_cmd_reset_inner_loop_controller(self) -> None:
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
+        ):
+            address = 1
+            server.model.set_mode_ilc([address], MTM2.InnerLoopControlMode.Fault)
+
+            await client_cmd.write_message(
+                MsgType.Command,
+                "resetInnerLoopController",
+                msg_details={"address": 1},
+            )
+
+            await asyncio.sleep(0.5)
+
+            self.assertEqual(server.model.get_mode_ilc([address])[0], MTM2.InnerLoopControlMode.Standby)
+
+    async def test_cmd_get_scan_rate(self) -> None:
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
+        ):
+            await client_cmd.write_message(
+                MsgType.Command,
+                "getScanRate",
+                msg_details={"address": 1},
+            )
+
+            await asyncio.sleep(0.5)
+
+            msg_scan_rate = get_queue_message_latest(self.queue_cmd, "scanRate")
+            self.assertEqual(msg_scan_rate["address"], 1)
+            self.assertEqual(msg_scan_rate["rate"], 8)
+
+    async def test_cmd_set_scan_rate(self) -> None:
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
+        ):
+            address = 1
+            rate = 2
+            await client_cmd.write_message(
+                MsgType.Command,
+                "setScanRate",
+                msg_details={"address": address, "rate": rate},
+            )
+
+            await asyncio.sleep(0.5)
+
+            msg_scan_rate = get_queue_message_latest(self.queue_cmd, "scanRate")
+            self.assertEqual(msg_scan_rate["address"], address)
+            self.assertEqual(msg_scan_rate["rate"], rate)
+
+    async def test_cmd_set_offset_and_sensitivity(self) -> None:
+        async with (
+            self.make_server() as server,
+            self.make_clients(server) as (
+                client_cmd,
+                client_tel,
+            ),
+        ):
+            address = 1
+            channel = 3
+            offset = 1.2
+            sensitivity = 1.5
+            await client_cmd.write_message(
+                MsgType.Command,
+                "setOffsetAndSensitivity",
+                msg_details={
+                    "address": address,
+                    "channel": channel,
+                    "offset": offset,
+                    "sensitivity": sensitivity,
+                },
+            )
+
+            await asyncio.sleep(0.5)
+
+            llc = server.model.get_ilc(address)
+
+            self.assertEqual(llc.offsets[channel], offset)
+            self.assertEqual(llc.sensitivities[channel], sensitivity)
+
 
 if __name__ == "__main__":
     # Do the unit test

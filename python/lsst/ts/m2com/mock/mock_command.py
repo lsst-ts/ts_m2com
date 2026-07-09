@@ -1049,3 +1049,207 @@ class MockCommand:
         await message_event.write_bypassed_actuator_ilcs(hardpoints[:1])
 
         return model, CommandStatus.Success
+
+    async def report_server_id(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> tuple[MockModel, CommandStatus]:
+        """Report the server identifier of inner-loop controller (ILC).
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        await message_event.write_server_id(message["address"])
+
+        return model, CommandStatus.Success
+
+    async def report_server_status(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> tuple[MockModel, CommandStatus]:
+        """Report the server status of inner-loop controller (ILC).
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        address = message["address"]
+        mode = model.get_mode_ilc([address])[0]
+        await message_event.write_server_status(address, mode)
+
+        return model, CommandStatus.Success
+
+    async def read_calibration_data(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> tuple[MockModel, CommandStatus]:
+        """Read the calibration data of inner-loop controller (ILC).
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        address = message["address"]
+        ilc = model.get_ilc(address)
+        await message_event.write_calibration_data(
+            address,
+            ilc.gains,
+            ilc.offsets,
+            ilc.sensitivities,
+        )
+
+        return model, CommandStatus.Success
+
+    async def reset_inner_loop_controller(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> tuple[MockModel, CommandStatus]:
+        """Reset the inner-loop controller (ILC).
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        model.set_mode_ilc([message["address"]], MTM2.InnerLoopControlMode.Standby)
+
+        return model, CommandStatus.Success
+
+    async def get_scan_rate(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> tuple[MockModel, CommandStatus]:
+        """Get the scan rate of inner-loop controller (ILC).
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        address = message["address"]
+        ilc = model.get_ilc(address)
+        await message_event.write_scan_rate(
+            address,
+            ilc.scan_rate,
+        )
+
+        return model, CommandStatus.Success
+
+    async def set_scan_rate(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> tuple[MockModel, CommandStatus]:
+        """Set the scan rate of inner-loop controller (ILC).
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        address = message["address"]
+        ilc = model.get_ilc(address)
+        ilc.scan_rate = message["rate"]
+        await message_event.write_scan_rate(
+            address,
+            ilc.scan_rate,
+        )
+
+        return model, CommandStatus.Success
+
+    async def set_offset_and_sensitivity(
+        self, message: dict, model: MockModel, message_event: MockMessageEvent
+    ) -> tuple[MockModel, CommandStatus]:
+        """Set the offset and sensitivity for a specific channel of inner-loop
+        controller (ILC).
+
+        Parameters
+        ----------
+        message : `dict`
+            Command message.
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        message_event : `MockMessageEvent`
+            Instance of MockMessageEvent to write the event.
+
+        Returns
+        -------
+        model : `MockModel`
+            Mock model to simulate the M2 hardware behavior.
+        `CommandStatus`
+            Status of command execution.
+        """
+
+        ilc = model.get_ilc(message["address"])
+        ilc.set_offset_and_sensitivity(message["channel"], message["offset"], message["sensitivity"])
+
+        return model, CommandStatus.Success

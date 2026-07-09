@@ -1092,3 +1092,19 @@ class MockModel:
             list_mode.append(self.list_ilc[address].mode)
 
         return list_mode
+
+    def get_ilc(self, address: int) -> MockInnerLoopController:
+        """Get the inner-loop controller (ILC).
+
+        Parameters
+        ----------
+        address : `int`
+            0-based address.
+
+        Returns
+        -------
+        ilc : `MockInnerLoopController`
+            ILC object.
+        """
+
+        return self.list_ilc[address]

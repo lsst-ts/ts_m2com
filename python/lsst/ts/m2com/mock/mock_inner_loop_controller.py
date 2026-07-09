@@ -33,8 +33,21 @@ class MockInnerLoopController:
         mode of ILC.
     """
 
+    DEFAULT_SCAN_RATE = 8
+
+    DEFAULT_GAIN = 1.455705e-05
+    DEFAULT_OFFSET = 0.0
+    DEFAULT_SENSITIVITY = 1.60876
+
     def __init__(self) -> None:
         self.mode = MTM2.InnerLoopControlMode.Standby
+
+        self.scan_rate = self.DEFAULT_SCAN_RATE
+
+        NUM_CHANNEL = 4
+        self.gains = [0.0, self.DEFAULT_GAIN, 0.0, 0.0]
+        self.offsets = [self.DEFAULT_OFFSET] * NUM_CHANNEL
+        self.sensitivities = [self.DEFAULT_SENSITIVITY] * NUM_CHANNEL
 
     def set_mode(self, mode: MTM2.InnerLoopControlMode) -> None:
         """Set the mode.
@@ -61,3 +74,19 @@ class MockInnerLoopController:
 
         else:
             self.mode = mode
+
+    def set_offset_and_sensitivity(self, channel: int, offset: float, sensitivity: float) -> None:
+        """Set the offset and sensitivity.
+
+        Parameters
+        ----------
+        channel : `int`
+            0-based channel (0-3).
+        offset : `float`
+            Offset value.
+        sensitivity : `float`
+            Sensitivity value.
+        """
+
+        self.offsets[channel] = offset
+        self.sensitivities[channel] = sensitivity
