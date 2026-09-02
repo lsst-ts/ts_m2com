@@ -140,3 +140,4 @@ dmypy.json
 .clang-format
 .ruff.toml
 towncrier.toml
+.LICENSE.txt
