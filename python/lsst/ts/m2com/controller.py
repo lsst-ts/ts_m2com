@@ -27,7 +27,6 @@ import typing
 import numpy as np
 import numpy.typing
 
-from lsst.ts.utils import make_done_future
 from lsst.ts.xml.enums import MTM2
 
 from .constant import (
@@ -124,11 +123,11 @@ class Controller:
         # Start the connection task or not
         self._start_connection = False
 
-        # Task to do the connection (asyncio.Future)
-        self._task_connection = make_done_future()
+        # Task to do the connection (asyncio.Task)
+        self._task_connection: asyncio.Task | None = None
 
         # Task to check the command status (asyncio.Future)
-        self._task_check_command_status = make_done_future()
+        self._task_check_command_status: asyncio.Future | None = None
 
         # Callback functions and related arguments to process the
         # event and telemetry
@@ -359,7 +358,9 @@ class Controller:
 
             if self._is_command_status(message):
                 command_status = self._get_command_status(message)
-                if not self._task_check_command_status.done():
+                if (self._task_check_command_status is not None) and (
+                    not self._task_check_command_status.done()
+                ):
                     if command_status != CommandStatus.Ack:
                         self._task_check_command_status.set_result(command_status)
                 return
@@ -638,8 +639,12 @@ class Controller:
         """
 
         self._start_connection = False
-        await cancel_task_and_wait(self._task_connection)
-        await cancel_task_and_wait(self._task_check_command_status)
+
+        if self._task_connection is not None:
+            await cancel_task_and_wait(self._task_connection)
+
+        if self._task_check_command_status is not None:
+            await cancel_task_and_wait(self._task_check_command_status)
 
         await self._close_clients()
 
@@ -712,7 +717,9 @@ class Controller:
         assert self.client_command is not None
 
         # Send the command
-        await cancel_task_and_wait(self._task_check_command_status)
+        if self._task_check_command_status is not None:
+            await cancel_task_and_wait(self._task_check_command_status)
+
         self._task_check_command_status = asyncio.Future()
         await self.client_command.write_message(MsgType.Command, message_name, msg_details=message_details)
 
@@ -738,7 +745,8 @@ class Controller:
         """
 
         try:
-            command_status = await asyncio.wait_for(self._task_check_command_status, timeout=timeout)
+            if self._task_check_command_status is not None:
+                command_status = await asyncio.wait_for(self._task_check_command_status, timeout=timeout)
 
         except TimeoutError:
             self.log.debug(f"Timeout to wait for the command status of {command_name}.")

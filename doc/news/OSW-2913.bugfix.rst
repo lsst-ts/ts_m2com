@@ -1,0 +1,1 @@
+Some tuning for GUI to use with PySide6 and Python 3.14.
